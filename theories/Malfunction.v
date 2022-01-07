@@ -1,6 +1,7 @@
 Require Import ssreflect.
 
 Require Import ZArith Floats String.
+Module Int63 := Numbers.Cyclic.Int63.Uint63.
 Notation int := Int63.int.
 
 (* type inttype = [`Int | `Int32 | `Int64 | `Bigint] *)
@@ -63,13 +64,13 @@ Inductive case := Tag of int | Deftag | Intrange of int * int.
 (*   else *)
 (*     invalid_arg "tag out of range" *)
 
-Definition max_tag : int := Int63.of_Z 200.
-Axiom invalid_arg : forall {A}, string -> A.
-Definition tag_of_int n :=
-  if Int63.leb (Int63.of_Z 0) n && Int63.ltb n max_tag then
-    n
-  else
-    invalid_arg "tag out of range".
+(* Definition max_tag : int := Int63.of_Z 200. *)
+(* Axiom invalid_arg : forall {A}, string -> A. *)
+(* Definition tag_of_int n := *)
+(*   if Int63.leb (Int63.of_Z 0) n && Int63.ltb n max_tag then *)
+(*     n *)
+(*   else *)
+(*     invalid_arg "tag out of range". *)
 
 
 Module Ident.

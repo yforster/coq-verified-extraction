@@ -22,12 +22,9 @@ Inductive value :=
 | Func of (value -> value)
 | value_Int of inttype * Z
 | Float of float
-| Thunk of value 
+| Thunk of value
+| fail of string
 .
-
-Axiom assert : forall {X Y}, X -> Y.
-
-Axiom fail : forall {X}, string -> X.
 
 Definition add (x : string) (v : value) (locals : string -> value)  :=
   fun y =>
@@ -68,12 +65,19 @@ Definition vector_type_eqb (t1 t2 : vector_type) :=
   | _, _ => false
   end.
 
+Definition fail_def {A} (a : A) (s : string) : A.
+  exact a.
+Qed.
+
+Definition fail_float := fail_def infinity.
+Definition fail_Z := fail_def Z.zero.
+
 Definition bitwidth := fun t =>
   match t with
   | Int => 63
   | Int32 => 32
   | Int64 => 64
-  | BigInt => fail "no bitwidth for bigint"
+  | BigInt => fail_Z "no bitwidth for bigint"
   end%Z.
 
 Definition truncate ty n :=
@@ -90,13 +94,14 @@ Definition truncate ty n :=
 
 Definition as_ty ty := fun ty2 =>
   match ty2 with
-  | value_Int (ty', n) => if inttype_eqb ty ty' then n else fail "integer type missmatch"
-  | _ => fail "expected integer"
+  | value_Int (ty', n) => if inttype_eqb ty ty' then n else fail_Z "integer type missmatch"
+  | _ => fail_Z "expected integer"
   end.
+
 
 Definition as_float x := match x with
   | Float f => f
-                         | _ => fail "expected float64"
+                         | _ => fail_float "expected float64"
                          end.
 
 Definition comparison_eqb x1 x2 :=
@@ -114,7 +119,7 @@ Fixpoint interpret
   | Mvar v => Ident.Map.find v locals
   | Mlambda (xs, e) =>
     let (x, e) := match xs with
-     | [ ] => assert false
+     | [ ] => fail_def ("", Mvar "") "assert false"
      | [x] => (x, e)
      | x :: xs => (x, Mlambda (xs, e))
     end in
@@ -205,7 +210,7 @@ Fixpoint interpret
              | Sub => e1 - e2
              | Mul => e1 * e2
              | Div => e1 / e2
-             | Mod => fail "mod on floats not supported" end)
+             | Mod => fail_float "mod on floats not supported" end)
   | Mnumop2 (embed_binary_comparison op, Float64, e1, e2) =>
       let e1 := as_float (interpret locals env e1) in
       let e2 := as_float (interpret locals env e2) in
@@ -221,7 +226,7 @@ Fixpoint interpret
   | Mconvert (embed_inttype src, embed_inttype dst, e) =>
       truncate dst (as_ty src (interpret locals env e))
   | Mconvert (embed_inttype src, Float64, e) =>
-      Float (PrimFloat.of_int63 (Int63.of_Z (as_ty src (interpret locals env e))))
+      Float (PrimFloat.of_uint63 (Int63.of_Z (as_ty src (interpret locals env e))))
   | Mconvert (Float64, Float64, e) =>
       Float (as_float (interpret locals env e))
   | Mvecnew (ty, len, def) =>
@@ -279,5 +284,5 @@ Fixpoint interpret
       | Thunk v => v
       | _ => fail "not a lazy value"
       end
-  | _ => assert "todo"
+  | _ => fail "assert todo"
 end.
