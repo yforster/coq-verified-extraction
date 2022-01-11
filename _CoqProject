@@ -2,4 +2,5 @@
 
 theories/Malfunction.v
 theories/Interpreter.v
+theories/Semantics.v
 theories/Serialize.v

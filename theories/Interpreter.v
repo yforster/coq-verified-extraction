@@ -113,7 +113,6 @@ Definition comparison_eqb x1 x2 :=
 #[bypass_check(guard)]
 Fixpoint interpret
          (locals : @Ident.Map.t value)
-         (env : @Ident.Map.t value)
          (x : t) {struct x} : value :=
   match x with
   | Mvar v => Ident.Map.find v locals
@@ -123,11 +122,11 @@ Fixpoint interpret
      | [x] => (x, e)
      | x :: xs => (x, Mlambda (xs, e))
     end in
-    Func (fun v => interpret (Ident.Map.add x v locals) env e)
+    Func (fun v => interpret (Ident.Map.add x v locals) e)
   | Mapply (f, vs) =>
      List.fold_left (fun f v => match f with
-     | Func f => f (interpret locals env v)
-     | _ => fail "not a function" end) vs (interpret locals env f)
+     | Func f => f (interpret locals v)
+     | _ => fail "not a function" end) vs (interpret locals f)
   | Mnum (numconst_Int n) => value_Int (Int, Int63.to_Z n)
   (* | Mnum (`Int32 n) -> Int (`Int32, Z.of_int32 n) *)
   (* | Mnum (`Int64 n) -> Int (`Int64, Z.of_int64 n) *)
@@ -141,7 +140,7 @@ Fixpoint interpret
   | Mglobal _v => fail "globals unsupported"
 
   | Mswitch (scr, cases) =>
-      let scr := interpret locals env scr in
+      let scr := interpret locals scr in
       let fix find_match x := match x with
         | (cases, e) :: rest =>
             if List.existsb (fun case => match case, scr with
@@ -149,19 +148,19 @@ Fixpoint interpret
             | Deftag, Block _ => true
             | Intrange (min, max), value_Int (Int, n) => Z.leb (Int63.to_Z min) n && Z.leb n (Int63.to_Z max)
             | _, _ => false end) cases then
-              interpret locals env e
+              interpret locals e
             else
               find_match rest
         | [] => fail "no case matches" end in
       find_match cases
 
   | Mnumop1 (op, embed_inttype ty, e) =>
-      let n := as_ty ty (interpret locals env e) in
+      let n := as_ty ty (interpret locals e) in
       truncate ty (match op with Neg => Z.mul (-1) n | Not => Z.lnot n end)
 
   | Mnumop2 (op, embed_inttype ty, e1, e2) =>
-      let e1 := interpret locals env e1 in
-      let e2 := interpret locals env e2 in
+      let e1 := interpret locals e1 in
+      let e2 := interpret locals e2 in
       match op with
       | embed_binary_arith_op op =>
           let f := match op with
@@ -198,13 +197,13 @@ Fixpoint interpret
           value_Int (Int, if res then 1%Z else 0%Z)
       end
   | Mnumop1 (Neg, Float64, e) =>
-      Float (- as_float (interpret locals env e))
+      Float (- as_float (interpret locals e))
   | Mnumop1 (Not, Float64, _) 
   | Mnumop2 (embed_binary_bitwise_op _, Float64, _, _) =>
       fail "invalid bitwise float operation"
   | Mnumop2 (embed_binary_arith_op op, Float64, e1, e2) =>
-      let e1 := as_float (interpret locals env e1) in
-      let e2 := as_float (interpret locals env e2) in
+      let e1 := as_float (interpret locals e1) in
+      let e2 := as_float (interpret locals e2) in
       Float (match op with
              | Add => e1 + e2
              | Sub => e1 - e2
@@ -212,8 +211,8 @@ Fixpoint interpret
              | Div => e1 / e2
              | Mod => fail_float "mod on floats not supported" end)
   | Mnumop2 (embed_binary_comparison op, Float64, e1, e2) =>
-      let e1 := as_float (interpret locals env e1) in
-      let e2 := as_float (interpret locals env e2) in
+      let e1 := as_float (interpret locals e1) in
+      let e2 := as_float (interpret locals e2) in
       let res := match op with
              | Lt => PrimFloat.ltb e1 e2
              | Gt => PrimFloat.ltb e2 e2
@@ -224,13 +223,13 @@ Fixpoint interpret
       value_Int (Int, if res then 1%Z else 0%Z)
 
   | Mconvert (embed_inttype src, embed_inttype dst, e) =>
-      truncate dst (as_ty src (interpret locals env e))
+      truncate dst (as_ty src (interpret locals e))
   | Mconvert (embed_inttype src, Float64, e) =>
-      Float (PrimFloat.of_uint63 (Int63.of_Z (as_ty src (interpret locals env e))))
+      Float (PrimFloat.of_uint63 (Int63.of_Z (as_ty src (interpret locals e))))
   | Mconvert (Float64, Float64, e) =>
-      Float (as_float (interpret locals env e))
+      Float (as_float (interpret locals e))
   | Mvecnew (ty, len, def) =>
-      match ty, interpret locals env len, interpret locals env def with
+      match ty, interpret locals len, interpret locals def with
       | Array, value_Int (Int, len), v =>
           Vec (Array, PArray.make (Int63.of_Z len) v)
       | Bytevec, value_Int (Int, len), (value_Int (Int, k)) as v =>
@@ -241,7 +240,7 @@ Fixpoint interpret
       | _, _, _ => fail "bad vector creation"
       end
   | Mvecget (ty, vec, idx) =>
-      (match interpret locals env vec, interpret locals env idx with
+      (match interpret locals vec, interpret locals idx with
        | Vec (ty', vals), value_Int (Int,i) =>
            if vector_type_eqb ty ty' then
              if Z.leb 0 i && Z.ltb i (Int63.to_Z (PArray.length vals)) then
@@ -254,9 +253,9 @@ Fixpoint interpret
        end
       )
   | Mvecset (ty, vec, idx, e) => fail "not implemented"
-      (* (match interpret locals env vec, *)
-      (*        interpret locals env idx, *)
-      (*        interpret locals env e with *)
+      (* (match interpret locals vec, *)
+      (*        interpret locals idx, *)
+      (*        interpret locals e with *)
       (*  | Vec (ty', vals), value_Int (Int, i), v => *)
       (*      if vector_type_eqb ty ty' then *)
       (*        let i := Int63.to_Z i in *)
@@ -266,23 +265,39 @@ Fixpoint interpret
       (*          | Bytevec, Int (Int, i) *)
   (*      else fail "wrong vector type" *)
   | Mveclen (ty, vec) =>
-      match interpret locals env vec with
+      match interpret locals vec with
       | Vec (ty', vals) =>
           if vector_type_eqb ty ty' then value_Int (Int, Int63.to_Z (PArray.length vals)) else fail "wrong vector type"
       | _ => fail "wrong vector type"
       end
   | Mblock (tag, vals) =>
-      Block (tag, Array_of_list (Func (fun dummy => dummy)) (List.map (interpret locals env) vals))
+      Block (tag, Array_of_list (fail "") (List.map (interpret locals) vals))
   | Mfield (idx, b) =>
-      match interpret locals env b with
+      match interpret locals b with
       | Block (_, vals) => PArray.get vals idx
       | _ => fail "not a block"
       end
-  | Mlazy e => Thunk (interpret locals env e)
+  | Mlazy e => Thunk (interpret locals e)
   | Mforce e =>
-      match interpret locals env e with
+      match interpret locals e with
       | Thunk v => v
       | _ => fail "not a lazy value"
       end
   | _ => fail "assert todo"
 end.
+
+Definition cond scr case : bool := 
+  (match case, scr with
+    | Tag n, Block (n', _) => Int63.eqb n n'
+    | Deftag, Block _ => true
+    | Intrange (min, max), value_Int (Int, n) => Z.leb (Int63.to_Z min) n && Z.leb n (Int63.to_Z max)
+    | _, _ => false end).
+
+Definition find_match := fun ilocals scr => fix find_match x := match x with
+| (cases, e) :: rest =>
+    if List.existsb (cond scr)  cases then
+      interpret ilocals e
+    else
+      find_match rest
+| [] => fail "no case matches" end.
+
