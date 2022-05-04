@@ -9,8 +9,11 @@ Local Open Scope string.
 Instance Serialize_Ident : Serialize Ident.t :=
   fun a => Atom (append "$" a).
 
-Instance Seralize_int : Serialize int :=
-  fun i => to_sexp (Int63.to_Z i).
+Instance Integral_int : Integral int :=
+  fun n => (Int63.to_Z n).
+
+(* Instance Serialize_int : Serialize int := *)
+(*   fun i => to_sexp (Int63.to_Z i). *)
 
 Instance Serialize_numconst : Serialize numconst :=
   fun a => match a with
@@ -102,7 +105,7 @@ Fixpoint to_sexp_t (a : t) : sexp :=
   | Mnum x => to_sexp x
   | Mstring x => Atom (Str x)
   | Mglobal x => Atom (Raw "ERROR: globals not supported")
-  | Mswitch (x, sels) => Cons (Atom "switch") (@Serialize_list _ (@Serialize_product _ _ _ to_sexp_t) sels)
+  | Mswitch (x, sels) => Cons (Atom "switch") (Cons (to_sexp_t x) (@Serialize_list _ (@Serialize_product _ _ _ to_sexp_t) sels))
   | Mnumop1 (op, num, x) => [ rawapp (to_sexp op) (numtype_to_string num) ; to_sexp_t x ]
   | Mnumop2 (op, num, x1, x2) => [ rawapp (to_sexp op) (numtype_to_string num) ; to_sexp_t x1 ; to_sexp_t x2 ]
   | Mconvert (from, to, x) => [rawapp (rawapp (Atom "convert") (numtype_to_string from)) (numtype_to_string to) ; to_sexp_t x]
@@ -113,7 +116,7 @@ Fixpoint to_sexp_t (a : t) : sexp :=
   | Mlazy x => [Atom "lazy"; to_sexp_t x]
   | Mforce x => [Atom "force"; to_sexp_t x]
   | Mblock (tag, xs) => List (Atom "block" :: [Atom "tag"; Atom (Int63.to_Z tag)] :: List.map to_sexp_t xs)
-  | Mfield (i, x) => [ Atom "field"; Atom (Int63.to_Z i); to_sexp_t x]
+  | Mfield (i, x) => [ Atom "field"; to_sexp i; to_sexp_t x]
   end
 with
 to_sexp_binding (a : binding) : sexp :=
