@@ -142,6 +142,7 @@ Fixpoint interpret
             fix newlocals (u : unit) :=
               List.fold_right 
               (fun '(x,e) locals => Ident.Map.add x e locals)
+              locals
               (List.map (fun '(x,e) =>
                 let v := match e with
                   | Mlambda _ => Func (fun arg => 
@@ -152,7 +153,7 @@ Fixpoint interpret
                   | _ => fail "recursive values must be functions"
                   end in
                 (x, v)) recs)
-              locals 
+               
             in
              bind (newlocals tt) bindings 
         end

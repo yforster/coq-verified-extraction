@@ -296,6 +296,12 @@ Proof.
   induction 1; cbn; intros He; f_equal; eauto.
 Qed.
 
+Lemma Func_ext e1 e2 : (forall v, e1 v = e2 v) -> Interpreter.Func e1 = Interpreter.Func e2.
+Proof.
+  intros H. eapply funext in H.
+  subst. reflexivity.
+Qed.
+
 Lemma eval_correct locals e v ilocals :
   (forall x, ilocals x = vtrans (locals x)) ->
   eval locals e v -> interpret ilocals e = vtrans v.
@@ -309,20 +315,19 @@ Proof.
                  | loc2 ? ? ? ? ? ? IHeval1 H0 ? IHeval2
                  | loc3 IHeval2 | locals idx b vals tag H IHeval   ] in ilocals, Hloc |- * using eval_ind_strong.
   1-5,7,8: cbn.
-  - f_equal. eapply funext. intros.
+  - eapply Func_ext. intros.
     f_equal. unfold Ident.Map.add. eapply funext. intros y.
     unfold Ident.eqb. destruct (String.eqb_spec y x).
     + reflexivity.
     + eauto.
   - destruct ids as [ | t ids ]; cbn in H. 1:inversion H. clear H.
-      cbn. f_equal. eapply funext. intros ?.
+      cbn. eapply Func_ext. intros ?.
       destruct match ids with
                | [] => (t, e)
                | _ :: _ => (t, Mlambda (ids, e))
                end eqn:E.
       rewrite E.
-      f_equal.
-      eapply funext. intros.
+      eapply Func_ext. intros.
       repeat f_equal. 
       eapply funext. eauto. 
   - rewrite IHeval1; [eauto |].
