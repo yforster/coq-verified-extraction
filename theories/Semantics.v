@@ -27,7 +27,6 @@ Fixpoint vtrans (s : value) : Interpreter.value :=
   | fail x => Interpreter.fail x
   end.
 
-
 Definition int_to_nat (i : int) : nat :=
   Z.to_nat (Int63.to_Z i).
 
@@ -47,6 +46,22 @@ Fixpoint find_match scr x : option t := match x with
                                               find_match scr rest
                                         | [] => None end.
 
+
+Definition Mklambda binders e :=
+  match binders with [] => e | _ => Mlambda (binders, e) end.
+
+Fixpoint add_recs' (locals : Ident.Map.t) allrecs recs  :=
+  match recs with
+  | [] => Some locals
+  | (x, Mlambda (y :: more, e)) :: recs =>  
+    add_recs'
+      (Ident.Map.add x (Func (y, locals, Mlet ([Recursive allrecs], Mklambda more e))) locals)
+      allrecs recs
+  | _ => None
+  end.
+Definition add_recs locals recs := add_recs' locals recs recs.
+
+Unset Elimination Schemes.           
 Inductive eval (locals : @Ident.Map.t value) : t -> value -> Prop :=
 | eval_lambda_sing x e :
   eval locals (Mlambda ([x], e)) (Func (x, locals, e))
@@ -62,6 +77,20 @@ Inductive eval (locals : @Ident.Map.t value) : t -> value -> Prop :=
   eval locals (Mapply (e1, e2 :: es)) v
 | eval_var id :
   eval locals (Mvar id) (Ident.Map.find id locals)
+| eval_let_body e v : 
+  eval locals e v -> eval locals (Mlet ([], e)) v
+| eval_let_unnamed e1 v1 lts e2 v :
+  eval locals e1 v1 ->
+  eval locals (Mlet (lts, e2)) v ->
+  eval locals (Mlet (Unnamed e1 :: lts, e2)) v 
+| eval_let_named x e1 v1 lts e2 v :
+  eval locals e1 v1 ->
+  eval (Ident.Map.add x v1 locals) (Mlet (lts, e2)) v ->
+  eval locals (Mlet (Named (x,e1) :: lts, e2)) v 
+| eval_let_rec recs newlocals lts e2 v :
+  add_recs locals recs = Some newlocals ->
+  eval newlocals (Mlet (lts, e2)) v ->
+  eval locals (Mlet (Recursive recs :: lts, e2)) v 
 | eval_switch scr cases v v' e :
   eval locals scr v' ->
   find_match v' cases = Some e ->
@@ -76,7 +105,7 @@ Inductive eval (locals : @Ident.Map.t value) : t -> value -> Prop :=
   Datatypes.length vals <= int_to_nat max_length ->
   eval locals (Mfield (idx, b)) (nth (int_to_nat idx) vals (fail "")).
 
-Lemma eval_ind_strong :
+Lemma eval_ind :
 forall P : Ident.Map.t -> t -> value -> Prop,
 (forall (locals : Ident.Map.t) (x : Ident.t) (e : t),
  P locals (Mlambda ([x], e)) (Func (x, locals, e))) ->
@@ -96,6 +125,28 @@ forall P : Ident.Map.t -> t -> value -> Prop,
  P locals (Mapply (Mapply (e1, [e2]), es)) v -> P locals (Mapply (e1, e2 :: es)) v) ->
 (forall (locals : Ident.Map.t) (id : Ident.t),
  P locals (Mvar id) (Ident.Map.find id locals)) ->
+ (forall (locals : Ident.Map.t) (e : t) (v : value),
+ eval locals e v -> P locals e v -> P locals (Mlet ([], e)) v) ->
+(forall (locals : Ident.Map.t) (e1 : t) (v1 : value) 
+   (lts : list binding) (e2 : t) (v : value),
+ eval locals e1 v1 ->
+ P locals e1 v1 ->
+ eval locals (Mlet (lts, e2)) v ->
+ P locals (Mlet (lts, e2)) v -> P locals (Mlet (Unnamed e1 :: lts, e2)) v) ->
+(forall (locals : Ident.Map.t) (x : Ident.t) (e1 : t) 
+   (v1 : value) (lts : list binding) (e2 : t) (v : value),
+ eval locals e1 v1 ->
+ P locals e1 v1 ->
+ eval (Ident.Map.add x v1 locals) (Mlet (lts, e2)) v ->
+ P (Ident.Map.add x v1 locals) (Mlet (lts, e2)) v ->
+ P locals (Mlet (Named (x, e1) :: lts, e2)) v) ->
+(forall (locals : Ident.Map.t) (recs : list (Ident.t * t))
+   (newlocals : Ident.Map.t) (lts : list binding) 
+   (e2 : t) (v : value),
+ add_recs locals recs = Some newlocals ->
+ eval newlocals (Mlet (lts, e2)) v ->
+ P newlocals (Mlet (lts, e2)) v ->
+ P locals (Mlet (Recursive recs :: lts, e2)) v) ->
 (forall (locals : Ident.Map.t) (scr : t) (cases : list (list case * t))
    (v v' : value) (e : t),
  eval locals scr v' ->
@@ -114,22 +165,16 @@ forall P : Ident.Map.t -> t -> value -> Prop,
  P locals (Mfield (idx, b)) (nth (int_to_nat idx) vals (fail ""))) ->
 forall (locals : Ident.Map.t) (t : t) (v : value), eval locals t v -> P locals t v.
 Proof.
-  fix f 13.
-  move=> P H H0 H1 H2 H3 H4 H5 H6 locals t v H7.
-  destruct H7 as [ | | | | | | ? ? ? H7 | ].
-  - eapply H.
-  - eapply H0. eauto.
-  - eapply H1. all: eauto. all:eapply f; eauto.
-  - eapply H2. all:eauto. all: eapply f; eauto.
-  - eapply H3. all:eauto. all: eapply f; eauto.
-  - eapply H4. all:eauto. all: eapply f; eauto.
-  - eapply H5. 1:assumption. 
-    induction H7 as [ | ? ? ? ? ? ? IH].
-    + econstructor.
-    + econstructor. 1:eapply f.
-      1-9: eauto. eapply IH.
-  - eapply H6. 1:eassumption. 1:eapply f; eauto. all:lia. 
+  intros P H_lambda_sing H_lambda H_app_sing H_app H_var H_let_body H_let_unnamed H_let_named 
+        H_let_rec H_switch H_block H_field.
+  fix f 4. intros locals t v [ | | | | | | | | | | ? ? ? Hforall | ].
+  1-10: eauto.
+  - eapply H_block. 1: eauto. induction Hforall. 
+    + econstructor.  
+    + econstructor; eauto.
+  - eapply H_field. 1: eauto. 1: eauto. all: lia.
 Qed.
+Set Elimination Schemes.
 
 Axiom funext : forall A B, forall f g : A -> B, (forall x, f x = g x) -> f = g.
 
@@ -302,19 +347,25 @@ Proof.
   subst. reflexivity.
 Qed.
 
+Axiom todo : forall {A : Type}, A.
+
 Lemma eval_correct locals e v ilocals :
   (forall x, ilocals x = vtrans (locals x)) ->
   eval locals e v -> interpret ilocals e = vtrans v.
 Proof.
   intros Hloc.
-  induction 1 as [ locals x e
-                 | locals x ids e H
-                 | locals x locals' e e2 v2 e1 v H IHeval1 H0 IHeval2 H1 IHeval3
-                 | locals idx b vals tag H IHeval 
-                 | 
-                 | loc2 ? ? ? ? ? ? IHeval1 H0 ? IHeval2
-                 | loc3 IHeval2 | locals idx b vals tag H IHeval   ] in ilocals, Hloc |- * using eval_ind_strong.
-  1-5,7,8: cbn.
+  induction 1 as [ (* lambda_sing *) locals x e
+                 | (* lambda *) locals x ids e H
+                 | (* app_sing *) locals x locals' e e2 v2 e1 v H IHeval1 H0 IHeval2 H1 IHeval3
+                 | (* app *) locals idx b vals tag H IHeval 
+                 | (* var *) 
+                 | (* let_body *) | (* let_unnamed *) | (* let_named *) | (* let_rec *)
+                 | (* switch *) loc2 ? ? ? ? ? ? IHeval1 H0 ? IHeval2
+                 | (* block *) loc3 IHeval2 
+                 | (* field *) locals idx b vals tag H IHeval ] 
+    in ilocals, Hloc |- *.
+  1-6,11,12: cbn.
+  11, 12: cycle 1.
   - eapply Func_ext. intros.
     f_equal. unfold Ident.Map.add. eapply funext. intros y.
     unfold Ident.eqb. destruct (String.eqb_spec y x).
@@ -342,6 +393,7 @@ Proof.
     + reflexivity.
   - cbn in IHeval. eauto.
   - unfold Ident.Map.find. eauto.
+  - eauto.
   - repeat f_equal. eapply Forall2_map.
     1:eassumption.
     intros. cbn in *. eauto.
@@ -369,9 +421,19 @@ Proof.
            1:eapply Int63.to_Z_bounded.
            1: cbn. 1: lia. 1:eapply Int63.to_Z_bounded.
         -- rewrite get_make. reflexivity.
+  - cbn. eapply IHeval2. eauto.
+  - cbn. eapply IHeval2. intros.
+    rewrite IHeval1. 1:eauto.
+    unfold Ident.Map.add, Ident.eqb.
+    destruct (String.eqb_spec x0 x); eauto.
   - cbn [interpret].
     erewrite <- IHeval2; eauto.
     eapply find_match_correct in H0.
     rewrite <- H0.
     rewrite IHeval1; eauto.
+Guarded.
+  - cbn.  eapply IHeval. intros x. cbn. eapply todo.
+
+Unset Guard Checking.
 Qed.
+Set Guard Checking.

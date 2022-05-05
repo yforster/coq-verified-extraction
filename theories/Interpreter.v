@@ -129,36 +129,36 @@ Fixpoint interpret
      | _ => fail "not a function" end) vs (interpret locals f)
   | Mlet (bindings, body) =>
      let bind :=
-        fix bind (locals : unit -> @Ident.Map.t value) (bindings : list binding) : value :=
+        fix bind (locals : @Ident.Map.t value) (bindings : list binding) : value :=
         match bindings with
-        | [] => interpret (locals tt) body
+        | [] => interpret locals body
         | Unnamed e :: bindings => 
-           let _ := interpret (locals tt) e in bind locals bindings
+           let _ := interpret locals e in bind locals bindings
         | Named (x, e) :: bindings =>
-           let locals := fun _ => Ident.Map.add x (interpret (locals tt) e) (locals tt) in
+           let locals := Ident.Map.add x (interpret locals e) (locals) in
            bind locals bindings
         | Recursive recs :: bindings =>
            let newlocals := 
-            fix newlocals (u : unit) :=
+            fix newlocals (x : Ident.t) :=
               List.fold_right 
               (fun '(x,e) locals => Ident.Map.add x e locals)
-              (locals tt)
+              (locals)
               (List.map (fun '(x,e) =>
                 let v := match e with
                   | Mlambda _ => Func (fun arg => 
-                     match interpret (newlocals tt) e with
+                     match interpret (fun x => newlocals x) e with
                      | Func f => f arg
                      | _ => fail "bad recursive function binding"
                      end)
                   | _ => fail "recursive values must be functions"
                   end in
-                (x, v)) recs)
+                (x, v)) recs) x
                
             in
              bind newlocals bindings 
         end
      in
-      bind (fun _ => locals) bindings 
+      bind locals bindings 
   | Mnum (numconst_Int n) => value_Int (Int, Int63.to_Z n)
   (* | Mnum (`Int32 n) -> Int (`Int32, Z.of_int32 n) *)
   (* | Mnum (`Int64 n) -> Int (`Int64, Z.of_int64 n) *)
