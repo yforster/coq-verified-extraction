@@ -54,9 +54,10 @@ Fixpoint add_recs' (locals : Ident.Map.t) allrecs recs  :=
   match recs with
   | [] => Some locals
   | (x, Mlambda (y :: more, e)) :: recs =>  
-    add_recs'
-      (Ident.Map.add x (Func (y, locals, Mlet ([Recursive allrecs], Mklambda more e))) locals)
-      allrecs recs
+    match add_recs' locals allrecs recs with
+    | Some locals => Some (Ident.Map.add x (Func (y, locals, Mlet ([Recursive allrecs], Mklambda more e))) locals)
+    | None => None
+    end
   | _ => None
   end.
 Definition add_recs locals recs := add_recs' locals recs recs.
@@ -431,9 +432,37 @@ Proof.
     eapply find_match_correct in H0.
     rewrite <- H0.
     rewrite IHeval1; eauto.
-Guarded.
-  - cbn.  eapply IHeval. intros x. cbn. eapply todo.
-
+Guarded. 
 Unset Guard Checking.
+  - cbn.  eapply IHeval. intros x.
+    clear - H Hloc. revert H.
+    unfold add_recs.
+    rewrite newlocals_eqn.
+    generalize recs at 1 3.
+    intros allrecs H.
+    induction recs as [ | (f, e) recs IH] in allrecs, ilocals, locals, H, newlocals, Hloc |- *.
+    + cbn in H |- *. inversion H as [E]; subst. eapply Hloc.
+    + cbn in H |- *. destruct e; try now inversion H.
+      destruct p as (bindings, e).
+      destruct bindings as [ | y ]; try now inversion H.
+      destruct add_recs' as [ newlocals' | ] eqn:E; inversion H. subst. clear H. 
+      unfold Ident.Map.add, Ident.eqb.
+      destruct (String.eqb_spec x f).
+      2: eapply IH; eauto.
+      subst. cbn. clear IH.
+      eapply Func_ext. intros v.
+      enough (interpret
+      (Ident.Map.add y v
+         (fun x : Ident.t => newlocals interpret allrecs ilocals x))
+      (Mklambda bindings e) = interpret
+      (newlocals interpret allrecs
+         (Ident.Map.add y v (fun x : Ident.t => vtrans (newlocals' x))))
+      (Mklambda (bindings) e)) by (destruct bindings; eauto).
+      f_equal. eapply funext in Hloc. subst. 
+      (* This is true: y is not in allrecs.
+          lemma 1: adding recs to locals and looking up an ident not in recs is equivalent to locals
+          lemma 2: newlocals yields the same environment if passed locals1 and locals2 which are equal _outside of_ recs      
+      *)
+      apply todo.
 Qed.
 Set Guard Checking.

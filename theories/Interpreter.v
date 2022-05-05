@@ -111,6 +111,41 @@ Definition comparison_eqb x1 x2 :=
   end.
 
 #[bypass_check(guard)]
+Fixpoint newlocals (interpret : @Ident.Map.t value -> t -> value) (recs : list (Ident.t * t)) locals (x : Ident.t) {struct x}:=
+  List.fold_right
+  (fun '(x,e) locals => Ident.Map.add x e locals)
+  (locals)
+  (List.map (fun '(x,e) =>
+    let v := match e with
+      | Mlambda _ => Func (fun arg => 
+         match interpret (fun x => newlocals interpret recs locals x) e with
+         | Func f => f arg
+         | _ => fail "bad recursive function binding"
+         end)
+      | _ => fail "recursive values must be functions"
+      end in
+    (x, v)) recs) x.
+
+Lemma newlocals_eqn (interpret : @Ident.Map.t value -> t -> value) recs locals (x : Ident.t) :
+  newlocals interpret recs locals x = 
+  List.fold_right
+  (fun '(x,e) locals => Ident.Map.add x e locals)
+  (locals)
+  (List.map (fun '(x,e) =>
+    let v := match e with
+      | Mlambda _ => Func (fun arg => 
+         match interpret (fun x => newlocals interpret recs locals x) e with
+         | Func f => f arg
+         | _ => fail "bad recursive function binding"
+         end)
+      | _ => fail "recursive values must be functions"
+      end in
+    (x, v)) recs) x.
+Proof.
+  destruct x; reflexivity.
+Qed.
+
+#[bypass_check(guard)]
 Fixpoint interpret
          (locals : @Ident.Map.t value)
          (x : t) {struct x} : value :=
@@ -138,22 +173,7 @@ Fixpoint interpret
            let locals := Ident.Map.add x (interpret locals e) (locals) in
            bind locals bindings
         | Recursive recs :: bindings =>
-           let newlocals := 
-            fix newlocals (x : Ident.t) :=
-              List.fold_right 
-              (fun '(x,e) locals => Ident.Map.add x e locals)
-              (locals)
-              (List.map (fun '(x,e) =>
-                let v := match e with
-                  | Mlambda _ => Func (fun arg => 
-                     match interpret (fun x => newlocals x) e with
-                     | Func f => f arg
-                     | _ => fail "bad recursive function binding"
-                     end)
-                  | _ => fail "recursive values must be functions"
-                  end in
-                (x, v)) recs) x
-               
+           let newlocals := newlocals interpret recs locals
             in
              bind newlocals bindings 
         end
