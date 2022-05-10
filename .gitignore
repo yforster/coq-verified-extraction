@@ -2,6 +2,7 @@
 *~
 *.d
 *.vo
+*.vio
 *.vok
 *.vos
 /Makefile.coq
