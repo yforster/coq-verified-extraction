@@ -60,6 +60,10 @@ Fixpoint add_recs' (locals : list (Ident.t * value)) (allrecs recs : list (Ident
   end.
 Definition add_recs locals recs := add_recs' locals recs recs.
 
+Section eval.
+
+Variable globals : list (Ident.t * t).
+
 Unset Elimination Schemes.           
 Inductive eval (locals : list (Ident.t * value)) : t -> value -> Prop :=
 | eval_lambda_sing x e :
@@ -103,7 +107,11 @@ Inductive eval (locals : list (Ident.t * value)) : t -> value -> Prop :=
   eval locals b (Block (tag, vals)) ->
   Datatypes.length vals < Z.to_nat Int63.wB ->
   Datatypes.length vals <= int_to_nat max_length ->
-  eval locals (Mfield (idx, b)) (nth (int_to_nat idx) vals (fail "")).
+  eval locals (Mfield (idx, b)) (nth (int_to_nat idx) vals (fail ""))
+| eval_global nm e v :
+  In (nm, e) globals ->
+  eval locals e v ->
+  eval locals (Mglobal nm) v.
 
 Lemma eval_ind :
 forall P : (list (Ident.t * value)) -> t -> value -> Prop,
@@ -164,18 +172,21 @@ forall P : (list (Ident.t * value)) -> t -> value -> Prop,
  Datatypes.length vals < Z.to_nat Int63.wB ->
  Datatypes.length vals <= int_to_nat max_length ->
  P locals (Mfield (idx, b)) (nth (int_to_nat idx) vals (fail ""))) ->
+(forall (locals : (list (Ident.t * value))) (nm : Ident.t) (e : t) (v : value), In (nm, e) globals -> eval locals e v -> P locals e v -> P locals (Mglobal nm) v) ->
 forall (locals : (list (Ident.t * value))) (t : t) (v : value), eval locals t v -> P locals t v.
 Proof.
   intros P H_lambda_sing H_lambda H_app_sing H_app H_var H_let_body H_let_unnamed H_let_named 
-        H_let_rec H_switch H_block H_field.
-  fix f 4. intros locals t v [ | | | | | | | | | | ? ? ? Hforall | ].
-  1-10: eauto.
+        H_let_rec H_switch H_block H_field H_global.
+  fix f 4. intros locals t v [ | | | | | | | | | | ? ? ? Hforall | | ].
+  1-10, 13: eauto.
   - eapply H_block. 1: eauto. induction Hforall. 
     + econstructor.  
     + econstructor; eauto.
   - eapply H_field. 1: eauto. 1: eauto. all: lia.
 Qed.
 Set Elimination Schemes.
+
+End eval.
 
 Fixpoint names (x : t) {struct x} : list (Ident.t) :=
   match x with
@@ -348,7 +359,8 @@ Goal prod (prod Ident.t (forall _ : nat, Spec.value)) N.t = prod (prod Malfuncti
     Malfunction.t.
 Proof. cbv. *)
 
-Axiom lookup : Ident.t -> list (Ident.t * value) -> option value.
+Definition lookup : Ident.t -> list (Ident.t * value) -> option value :=
+  fun id l => match find (fun x => String.eqb (fst x) id) l with Some (x, v) => Some v | None => None end.
 
 #[bypass_check(guard)]
 Fixpoint namedv (v : value) : Spec.value :=
@@ -384,18 +396,18 @@ Definition namede locals : @Ident.Map.t Spec.value :=
   | _ => Spec.fail "notfound" 
   end.
 
-Lemma eval_ext l l' e e' v v' :
+Lemma eval_ext glb l l' e e' v v' :
   l' = l -> e' = e -> v' = v ->
-  Spec.eval l e v -> Spec.eval l' e' v'.
+  Spec.eval glb l e v -> Spec.eval glb l' e' v'.
 Proof.
   intros. subst. eauto.
 Qed.
 
-Lemma eval_correct locals e v :
+Lemma eval_correct glb locals e v :
   Forall (fun '(x,v) => wfv v = true) locals ->
   wf e = true ->
-  eval locals e v ->
-  Spec.eval (namede locals) (named (map fst locals) e) (namedv v).
+  eval glb locals e v ->
+  Spec.eval (map (fun '(x,e) => (x, named [] e)) glb) (namede locals) (named (map fst locals) e) (namedv v).
 Proof.
   intros Hloc Hwf Heval.
   induction Heval; cbn in Hwf.
@@ -453,4 +465,5 @@ Proof.
     + eapply IHHeval; eauto.
     + admit.
     + admit.
+  - admit.
 Admitted.

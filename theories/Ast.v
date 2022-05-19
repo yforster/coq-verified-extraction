@@ -37,3 +37,5 @@ Inductive t :=
 with binding :=
 | Unnamed of t | Named of Ident.t * t | Recursive of (Ident.t * t) list.
 End list_notation.
+
+Definition program : Type := list (Ident.t * t) * t.

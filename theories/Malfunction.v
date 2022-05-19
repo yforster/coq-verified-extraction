@@ -134,3 +134,5 @@ with binding :=
 End list_notation.
 
 Definition var := Ident.t.
+
+Definition program : Type := list (Ident.t * t) * t.

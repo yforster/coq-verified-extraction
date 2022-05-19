@@ -1,13 +1,19 @@
+Require Import String Ascii.
 Require Import Malfunction.Malfunction.
 
-Require Import Ceres.Ceres.
-Require Import String.
+Require Import Ceres.Ceres Ceres.CeresString.
 
 Local Open Scope sexp.
 Local Open Scope string.
 
+Fixpoint _escape_ident (_end s : string) : string :=
+  match s with
+  | ""%string => _end
+  | (c :: s')%string => let escaped_s' := _escape_ident _end s' in if ("'" =? c)%char2 then ("_" :: escaped_s')%string else (c :: escaped_s')%string
+  end.
+
 Instance Serialize_Ident : Serialize Ident.t :=
-  fun a => Atom (append "$" a).
+  fun a => Atom (append "$" (_escape_ident "" a)).
 
 Instance Integral_int : Integral int :=
   fun n => (Int63.to_Z n).
@@ -36,7 +42,7 @@ Definition rawapp (s : sexp) (a : string) :=
 
 Instance Serialize_case : Serialize case :=
   fun a => match a with
-        | Tag x => to_sexp x
+        | Tag tag => [Atom "tag"; Atom (Int63.to_Z tag)]
         | Deftag => Atom "_"
         | Intrange (i1, i2) => [ to_sexp i1 ; to_sexp i2  ]
         end.
@@ -96,6 +102,9 @@ Instance Serialize_binary_num_op : Serialize binary_num_op :=
         | embed_binary_comparison x => to_sexp x
         end.
 
+Definition Serialize_singleton_list {A} `{Serialize A} : Serialize (list A)
+  := fun xs => match xs with cons x nil => to_sexp x | xs =>List (List.map to_sexp xs) end.
+
 Fixpoint to_sexp_t (a : t) : sexp :=
   match a with
   | Mvar x => to_sexp x
@@ -105,7 +114,7 @@ Fixpoint to_sexp_t (a : t) : sexp :=
   | Mnum x => to_sexp x
   | Mstring x => Atom (Str x)
   | Mglobal x => Atom (Raw "ERROR: globals not supported")
-  | Mswitch (x, sels) => Cons (Atom "switch") (Cons (to_sexp_t x) (@Serialize_list _ (@Serialize_product _ _ _ to_sexp_t) sels))
+  | Mswitch (x, sels) => Cons (Atom "switch") (Cons (to_sexp_t x) (@Serialize_list _ (@Serialize_product _ _ (@Serialize_singleton_list _ _) to_sexp_t) sels))
   | Mnumop1 (op, num, x) => [ rawapp (to_sexp op) (numtype_to_string num) ; to_sexp_t x ]
   | Mnumop2 (op, num, x1, x2) => [ rawapp (to_sexp op) (numtype_to_string num) ; to_sexp_t x1 ; to_sexp_t x2 ]
   | Mconvert (from, to, x) => [rawapp (rawapp (Atom "convert") (numtype_to_string from)) (numtype_to_string to) ; to_sexp_t x]

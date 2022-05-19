@@ -10,3 +10,5 @@ theories/Semantics.v
 
 theories/Serialize.v
 theories/Deserialize.v
+
+theories/Compile.v

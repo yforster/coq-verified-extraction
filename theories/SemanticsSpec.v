@@ -62,7 +62,11 @@ Fixpoint add_recs' (locals : Ident.Map.t) allrecs recs  :=
   end.
 Definition add_recs locals recs := add_recs' locals recs recs.
 
-Unset Elimination Schemes.           
+Section eval.
+
+Variable globals : list (Ident.t * t).
+
+Unset Elimination Schemes.
 Inductive eval (locals : @Ident.Map.t value) : t -> value -> Prop :=
 | eval_lambda_sing x e :
   eval locals (Mlambda ([x], e)) (Func (x, locals, e))
@@ -104,8 +108,12 @@ Inductive eval (locals : @Ident.Map.t value) : t -> value -> Prop :=
   eval locals b (Block (tag, vals)) ->
   Datatypes.length vals < Z.to_nat Int63.wB ->
   Datatypes.length vals <= int_to_nat max_length ->
-  eval locals (Mfield (idx, b)) (nth (int_to_nat idx) vals (fail "")).
-
+  eval locals (Mfield (idx, b)) (nth (int_to_nat idx) vals (fail ""))
+| eval_global nm e v :
+  In (nm, e) globals ->
+  eval locals e v ->
+  eval locals (Mglobal nm) v.
+About eval_ind.
 Lemma eval_ind :
 forall P : Ident.Map.t -> t -> value -> Prop,
 (forall (locals : Ident.Map.t) (x : Ident.t) (e : t),
@@ -164,15 +172,14 @@ forall P : Ident.Map.t -> t -> value -> Prop,
  Datatypes.length vals < Z.to_nat Int63.wB ->
  Datatypes.length vals <= int_to_nat max_length ->
  P locals (Mfield (idx, b)) (nth (int_to_nat idx) vals (fail ""))) ->
+(forall (locals : Ident.Map.t) (nm : Ident.t) (e : t) (v : value), In (nm, e) globals -> eval locals e v -> P locals e v -> P locals (Mglobal nm) v) ->
 forall (locals : Ident.Map.t) (t : t) (v : value), eval locals t v -> P locals t v.
 Proof.
   intros P H_lambda_sing H_lambda H_app_sing H_app H_var H_let_body H_let_unnamed H_let_named 
-        H_let_rec H_switch H_block H_field.
-  fix f 4. intros locals t v [ | | | | | | | | | | ? ? ? Hforall | ].
-  1-10: eauto.
-  - eapply H_block. 1: eauto. induction Hforall. 
-    + econstructor.  
-    + econstructor; eauto.
+        H_let_rec H_switch H_block H_field H_global.
+  fix f 4. intros locals t v [ | | | | | | | | | | ? ? ? Hforall | | ].
+  1-10, 13: eauto. 
+  - eapply H_block. 1: eauto. induction Hforall; econstructor; eauto.
   - eapply H_field. 1: eauto. 1: eauto. all: lia.
 Qed.
 Set Elimination Schemes.
@@ -348,8 +355,6 @@ Proof.
   subst. reflexivity.
 Qed.
 
-Axiom todo : forall {A : Type}, A.
-
 (* Lemma newlocals_env interpret recs locals1 locals2 x :
   (forall x, ~ In x (map fst recs) -> locals1 x = locals2 x) ->
   newlocals interpret recs locals1 x =
@@ -364,9 +369,13 @@ Proof.
     + destruct t0; try reflexivity.
       eapply Func_ext. *)
 
-Lemma eval_correct locals e v ilocals :
+End eval.
+
+Axiom todo : forall {A : Type}, A.
+
+Lemma eval_correct globals locals e v ilocals :
   (forall x, ilocals x = vtrans (locals x)) ->
-  eval locals e v -> interpret ilocals e = vtrans v.
+  eval globals locals e v -> interpret ilocals e = vtrans v.
 Proof.
   intros Hloc.
   induction 1 as [ (* lambda_sing *) locals x e
@@ -377,8 +386,9 @@ Proof.
                  | (* let_body *) | (* let_unnamed *) | (* let_named *) | (* let_rec *)
                  | (* switch *) loc2 ? ? ? ? ? ? IHeval1 H0 ? IHeval2
                  | (* block *) loc3 IHeval2 
-                 | (* field *) locals idx b vals tag H IHeval ] 
+                 | (* field *) locals idx b vals tag H IHeval | ] 
     in ilocals, Hloc |- *.
+  13:{ apply todo. }
   1-6,11,12: cbn.
   11, 12: cycle 1.
   - eapply Func_ext. intros.
