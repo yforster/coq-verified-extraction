@@ -30,6 +30,9 @@ Proof.
   eapply mapi_InP_spec'.
 Qed.
 
+Local Coercion conv :=
+  fun x => bytestring.String.to_string (Kernames.string_of_kername x).
+
 Section Compile.
   Context (Σ : global_declarations).
 
@@ -61,7 +64,7 @@ Section Compile.
     | tLetIn nm dfn bod => Mlet ([Named (bytestring.String.to_string (BasicAst.string_of_name nm), compile dfn)], compile bod)
     | tApp fn args napp nnil =>
         Mapply_ (compile fn, map_InP args (fun x H => compile x))
-    | tConst nm => Mglobal (bytestring.String.to_string (Kernames.string_of_kername nm))
+    | tConst nm => Mglobal nm
     | tConstruct i m args => Mblock (int_of_nat m, map_InP args (fun x H => compile x))
     | tCase i mch brs =>
         Mswitch (compile mch, mapi_InP brs 0 (fun i '(nms, b) H => ([Malfunction.Tag (int_of_nat i)], Mapply_ (Mlambda_ (rev_map (fun nm => bytestring.String.to_string (BasicAst.string_of_name nm)) nms, compile b),
@@ -76,7 +79,7 @@ Section Compile.
         | None => Mstring "Proj" }
     | tCoFix mfix idx => Mstring "TCofix"
     | tVar _ => Mstring "tVar"
-    | tEvar _ _ => Mstring "Evar"
+    | tEvar _ _ => Mstring "Eva"
     }.
   Proof.
     all: try (cbn; lia).
@@ -92,66 +95,19 @@ Section Compile.
   
 End Compile.
 
-From MetaCoq Require Import ETransform Transform bytestring.
-Import Transform.
-
-Require Malfunction.SemanticsSpec Malfunction.Semantics.
-
-Program Definition block_erasure_pipeline {guard : PCUICWfEnvImpl.abstract_guard_impl} (efl := EWellformed.all_env_flags) :=
-  erasure_pipeline ▷ constructors_as_blocks_transformation (hastrel := eq_refl) (hastbox := eq_refl).
-Next Obligation.
-  intros. cbn. MCUtils.todo "ok"%bs.
-Qed.
-
-Program Definition malfunction_pipeline {guard : PCUICWfEnvImpl.abstract_guard_impl} (efl := EWellformed.all_env_flags) :
- Transform.t TemplateProgram.template_program Malfunction.t
-             Ast.term Malfunction.t
-             TemplateProgram.eval_template_program
-             (fun _ _ => True) :=
-  block_erasure_pipeline ▷ 
-  _.
-Next Obligation.
-  intros. unshelve econstructor.
-  - exact (fun _ => True).
-  - cbn. intros [Σ t] _. refine (Semantics.named _ (compile Σ t)). exact [].
-  - exact (fun _ => True).
-  - exact (fun _ _ _ _ => True).
-  - exact "malfunction"%bs.
-  - cbn. eauto.
-  - cbn. econstructor. exact (Malfunction.Mvar ""%string). eauto.
-Defined.
-Next Obligation.
-  cbn. intros. eauto.
-Qed.
-
-From Ceres Require Import Ceres.
-From Malfunction Require Import Serialize.
-
-Definition compile_malfunction {cf : config.checker_flags} (p : Ast.Env.program)
-  : String.string :=
-  let p' := run malfunction_pipeline p (MCUtils.todo "wf_env and welltyped term"%bs) in
-  time "Pretty printing"%bs to_string  p'.
-
-From MetaCoq.Template Require Import All Loader.
-
-Fixpoint ack (n m:nat) {struct n} : nat :=
-  match n with
-    | 0 => S m
-    | S p => let fix ackn (m:nat) {struct m} :=
-                 match m with
-                   | 0 => ack p 1
-                   | S q => ack p (ackn q)
-                 end
-             in ackn m
+Definition compile_constant_decl Σ cb := 
+  option_map (compile Σ) cb.(cst_body).
+  
+Definition compile_decl Σ d :=
+  match d with
+  | ConstantDecl cb => compile_constant_decl Σ cb
+  | InductiveDecl idecl => None
   end.
-Definition ack35 := (ack 3 5).
 
-MetaCoq Quote Recursively Definition cbv_ack35 :=
-  ltac:(let t:=(eval cbv delta [ack35 ack] in ack35) in exact t).
-Local Open Scope string_scope.
+Definition compile_env Σ : list (string * t) := 
+  flat_map (fun '(x,d) => match compile_decl Σ d with Some t => [(conv x, t)] | _ => [] end) Σ.
 
-(* MetaCoq Quote Recursively Definition p := ltac:(let plus := eval cbv in plus in *)
-(*                                                 let mult := eval cbv in mult in *)
-(*                                                   let eqb := eval cbv in Nat.eqb in *)
-(*                                                     exact (let six := 6 in eqb (plus (mult six six) six) (mult six (plus six 1)))). *)
-Compute (compile_malfunction cbv_ack35).
+Definition compile_program (p : EProgram.eprogram) : program :=
+  (compile_env (fst p), compile (fst p) (snd p)).
+
+

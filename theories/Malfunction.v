@@ -135,4 +135,5 @@ End list_notation.
 
 Definition var := Ident.t.
 
+Definition module := list (Malfunction.Ident.t * t).
 Definition program : Type := list (Ident.t * t) * t.

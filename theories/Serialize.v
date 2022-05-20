@@ -105,6 +105,21 @@ Instance Serialize_binary_num_op : Serialize binary_num_op :=
 Definition Serialize_singleton_list {A} `{Serialize A} : Serialize (list A)
   := fun xs => match xs with cons x nil => to_sexp x | xs =>List (List.map to_sexp xs) end.
 
+(* Fixpoint split_dot accl accw (s : string) := *)
+(*   match s with *)
+(*   | EmptyString => (string_reverse accl, string_reverse accw) *)
+(*   | String c s => *)
+(*       if (c =? ".")%char2 then *)
+(*         let accl' := match accl with EmptyString => accw *)
+(*                                 | accl => (accw ++ "." ++ accl) *)
+(*                      end in *)
+(*         split_dot accl' EmptyString s *)
+(*       else *)
+(*         split_dot accl (String c accw) s *)
+(*   end. *)
+(* Definition before_dot s := fst (split_dot EmptyString EmptyString s). *)
+(* Definition after_dot s := snd (split_dot EmptyString EmptyString s). *)
+
 Fixpoint to_sexp_t (a : t) : sexp :=
   match a with
   | Mvar x => to_sexp x
@@ -113,7 +128,7 @@ Fixpoint to_sexp_t (a : t) : sexp :=
   | Mlet (binds, x) => List (Atom "let" :: List.map to_sexp_binding binds ++ (to_sexp_t x :: nil))
   | Mnum x => to_sexp x
   | Mstring x => Atom (Str x)
-  | Mglobal x => Atom (Raw "ERROR: globals not supported")
+  | Mglobal x => (* [Atom "global" ; Atom ("$Top") ; *) to_sexp x  (* ] *)
   | Mswitch (x, sels) => Cons (Atom "switch") (Cons (to_sexp_t x) (@Serialize_list _ (@Serialize_product _ _ (@Serialize_singleton_list _ _) to_sexp_t) sels))
   | Mnumop1 (op, num, x) => [ rawapp (to_sexp op) (numtype_to_string num) ; to_sexp_t x ]
   | Mnumop2 (op, num, x1, x2) => [ rawapp (to_sexp op) (numtype_to_string num) ; to_sexp_t x1 ; to_sexp_t x2 ]
@@ -137,3 +152,12 @@ to_sexp_binding (a : binding) : sexp :=
 
 Instance Serialize_t : Serialize t := to_sexp_t.
 Instance Serialize_binding : Serialize binding := to_sexp_binding.
+
+Definition Serialize_program : Serialize program :=
+  fun '(m, x) =>
+    match
+      Cons (Atom "module") (Serialize_list (m ++ (("_main", x)  :: nil))%list)
+    with
+      List l => List (l ++ ([Atom "export"] :: nil))
+    | x => x
+    end.

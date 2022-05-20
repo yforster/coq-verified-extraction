@@ -340,19 +340,22 @@ with namedb env (b : binding) : list string * N.binding :=
     | Recursive l => let nas := map fst l in 
       (app (rev nas) env, N.Recursive (map (fun '(x,e) => (x, named (app (rev nas) env) e)) l))
     end.
-    
-Compute (named []
-(Mlambda (["z"%string; "x"%string], Mvar 0))).
 
-Local Open Scope string_scope.
+Definition namedp (p : program) : N.program :=
+  (map (fun '(x, e) => (x, named [] e)) (fst p), named [] (snd p)). 
 
-Compute (named []
-  (Mlet
-    ([ Named ("x1", (Mlambda (["z"],Mvar 0))) ;
-       Named ("x2", Mvar 0)
-     ],
-    (Mvar 0))
-)).
+(* Compute (named [] *)
+(* (Mlambda (["z"%string; "x"%string], Mvar 0))). *)
+
+(* Local Open Scope string_scope. *)
+
+(* Compute (named [] *)
+(*   (Mlet *)
+(*     ([ Named ("x1", (Mlambda (["z"],Mvar 0))) ; *)
+(*        Named ("x2", Mvar 0) *)
+(*      ], *)
+(*     (Mvar 0)) *)
+(* )). *)
 
 (* 
 Goal prod (prod Ident.t (forall _ : nat, Spec.value)) N.t = prod (prod Malfunction.Ident.t (@Malfunction.Ident.Map.t Spec.value))

@@ -56,8 +56,8 @@ Require Malfunction.SemanticsSpec Malfunction.Semantics.
 Require Import Malfunction.Compile.
 
 Program Definition malfunction_pipeline {guard : PCUICWfEnvImpl.abstract_guard_impl} (efl := EWellformed.all_env_flags) :
- Transform.t TemplateProgram.template_program Malfunction.t
-             Ast.term Malfunction.t
+ Transform.t TemplateProgram.template_program Malfunction.program
+             Ast.term Malfunction.program
              TemplateProgram.eval_template_program
              (fun _ _ => True) :=
   block_erasure_pipeline ▷ 
@@ -65,11 +65,10 @@ Program Definition malfunction_pipeline {guard : PCUICWfEnvImpl.abstract_guard_i
 Next Obligation.
   intros. unshelve econstructor.
   - exact (fun _ => True).
-  - cbn. intros [Σ t] _. refine (Semantics.named _ (compile Σ t)). exact [].
+  - cbn. intros p _. refine (Semantics.namedp (compile_program p)). 
   - exact (fun _ => True).
   - exact (fun _ _ _ _ => True).
   - exact "malfunction"%bs.
   - cbn. eauto.
-  - cbn. econstructor. refine (Malfunction.Mvar _). red. econstructor. eauto.
+  - cbn. econstructor. refine ([], Malfunction.Mvar _). red. econstructor. eauto.
 Defined.
-

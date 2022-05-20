@@ -12,3 +12,6 @@ theories/Serialize.v
 theories/Deserialize.v
 
 theories/Compile.v
+theories/Pipeline.v
+
+theories/Tests.v

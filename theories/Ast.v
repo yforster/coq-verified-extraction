@@ -38,4 +38,5 @@ with binding :=
 | Unnamed of t | Named of Ident.t * t | Recursive of (Ident.t * t) list.
 End list_notation.
 
+Definition module := list (Malfunction.Ident.t * t).
 Definition program : Type := list (Ident.t * t) * t.
