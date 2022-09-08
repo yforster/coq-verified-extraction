@@ -7,11 +7,24 @@ From MetaCoq.Template Require All Loader TemplateMonad.
 
 Import Transform.
 
+Definition Mlet_ '(l, b) :=
+  match l with
+  | nil => b
+  | _ => Malfunction.Mlet (l, b)
+  end.
+
 Definition eval_malfunction (cf := config.extraction_checker_flags) (p : Ast.Env.program)
   : String.string :=
   let p' := run malfunction_pipeline p (MCUtils.todo "wf_env and welltyped term"%bs) in
-  let t := Malfunction.Mlet (MCList.rev_map Malfunction.Named (fst p'), snd p') in
+  let t := Mlet_ (MCList.rev_map Malfunction.Named (fst p'), snd p') in
   time "Pretty printing"%bs (@to_string _ Serialize_t) t.
+
+Definition eval_malfunction_sexp (cf := config.extraction_checker_flags) (p : Ast.Env.program)
+  : Malfunction.t :=
+  let p' := run malfunction_pipeline p (MCUtils.todo "wf_env and welltyped term"%bs) in
+  let t := Mlet_ (MCList.rev_map Malfunction.Named (fst p'), snd p') in
+  time "Pretty printing"%bs id t.
+
 
 Definition compile_malfunction {cf : config.checker_flags} (p : Ast.Env.program)
   : String.string :=
@@ -28,6 +41,23 @@ Definition extract {A : Type} (a : A) :=
   s <- tmEval lazy (eval_malfunction t) ;;
   (* tmMsg "Extraction to Malfunction:"%bs ;; *)
   tmMsg (String.of_string s) ;; tmReturn tt.
+
+Definition extract_def {A : Type} (a : A) (nm : string) :=
+  t <- tmQuoteRec a ;;
+  s <- tmEval lazy (eval_malfunction_sexp t) ;;
+  (* tmMsg "Extraction to Malfunction:"%bs ;; *)
+  tmDefinition nm s.
+
+From Malfunction Require Import Interpreter.
+
+(* Compute (interpret (fun x => fail "empty"%string) def). *)
+
+Definition interpret_mlf {A : Type} (a : A) :=
+  t <- tmQuoteRec a ;;
+  s <- tmEval lazy (eval_malfunction_sexp t) ;;
+  v <- tmEval lazy (interpret (fun x => fail "empty"%string) s) ;;
+  (* tmMsg "Extraction to Malfunction:"%bs ;; *)
+  tmMsg (String.of_string (to_string v)) ;; tmReturn tt.
 
 End something.
 
@@ -52,7 +82,7 @@ Fixpoint ack (n m:nat) {struct n} : nat :=
 
 MetaCoq Run Extraction (ack 3 5).
 
-MetaCoq Run Extraction (@exist _ _ 0 (@eq_refl _ 0) : {x : nat | x = 0}).
+MetaCoq Run Extraction (@exist nat (fun x => x = 0) 0 (@eq_refl _ 0)).
 
 Definition vplus {n:nat} :
   Vector.t nat n -> Vector.t nat n -> Vector.t nat n := (Vector.map2 plus).
@@ -89,3 +119,25 @@ Definition arden: forest bool :=
                (leaf false)).
 
 MetaCoq Run Extraction (forest_size arden).
+MetaCoq Run (interpret_mlf (forest_size arden)).
+
+(*
+with length - idx:
+
+(let ($Coq.Init.Nat.add (lambda ($n) (apply (let (rec ($add (lambda ($n) (lambda ($m) (switch $n ((tag 0) $m) ((tag 1) (apply (lambda ($p) (block (tag 1) (apply $add $p $m))) (field 0 $n)))))))) $n) $n))) ($Malfunction.Tests.forest_size (lambda ($f) (apply (let (rec ($tree_size (lambda ($t) (switch $t ((tag 0) (apply (lambda ($a $f) (block (tag 1) (apply $forest_size $f))) (field 0 $t) (field 1 $t)))))) ($forest_size (lambda ($f) (switch $f ((tag 0) (apply (lambda ($b) (block (tag 1) (block (tag 0)))) (field 0 $f))) ((tag 1) (apply (lambda ($t $f1) (apply $Coq.Init.Nat.add (apply $tree_size $t) (apply $forest_size $f1))) (field 0 $f) (field 1 $f))))))) $tree_size) $f))) ($Malfunction.Tests.arden (block (tag 1) (block (tag 0) (block (tag 0)) (block (tag 1) (block (tag 0) (block (tag 0)) (block (tag 0) (block (tag 1)))) (block (tag 0) (block (tag 0))))) (block (tag 1) (block (tag 0) (block (tag 0)) (block (tag 1) (block (tag 0) (block (tag 0)) (block (tag 0) (block (tag 1)))) (block (tag 0) (block (tag 0))))) (block (tag 0) (block (tag 1)))))) (apply $Malfunction.Tests.forest_size $Malfunction.Tests.arden))
+
+ *)
+
+MetaCoq Run (extract_sexp (forest_size arden) "def"%bs).
+
+From Malfunction Require Import Interpreter.
+
+MetaCoq Run (extract_sexp (ack 1 1) "def2"%bs).
+
+Compute (interpret (fun x => fail "empty"%string) def).
+
+Print def.
+Compute def.
+
+Definition parse := "(let ($Coq.Init.Nat.add (lambda ($n) (apply (let (rec ($add (lambda ($n) (lambda ($m) (switch $n ((tag 0) $m) ((tag 1) (apply (lambda ($p) (block (tag 1) (apply $add $p $m))) (field 0 $n)))))))) $add) $n))) ($Malfunction.Tests.forest_size (lambda ($f) (apply (let (rec ($tree_size (lambda ($t) (switch $t ((tag 0) (apply (lambda ($a $f) (block (tag 1) (apply $forest_size $f))) (field 0 $t) (field 1 $t)))))) ($forest_size (lambda ($f) (switch $f ((tag 0) (apply (lambda ($b) (block (tag 1) (block (tag 0)))) (field 0 $f))) ((tag 1) (apply (lambda ($t $f1) (apply $Coq.Init.Nat.add (apply $tree_size $t) (apply $forest_size $f1))) (field 0 $f) (field 1 $f))))))) $tree_size) $f))) ($Malfunction.Tests.arden (block (tag 1) (block (tag 0) (block (tag 0)) (block (tag 1) (block (tag 0) (block (tag 0)) (block (tag 0) (block (tag 1)))) (block (tag 0) (block (tag 0))))) (block (tag 1) (block (tag 0) (block (tag 0)) (block (tag 1) (block (tag 0) (block (tag 0)) (block (tag 0) (block (tag 1)))) (block (tag 0) (block (tag 0))))) (block (tag 0) (block (tag 1)))))) (apply $Malfunction.Tests.forest_size $Malfunction.Tests.arden))
+"%string.

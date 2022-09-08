@@ -150,6 +150,7 @@ to_sexp_binding (a : binding) : sexp :=
   | Recursive x => Cons (Atom "rec") (@Serialize_list _ (@Serialize_product _ _ _ to_sexp_t) x)
   end.
 
+
 Instance Serialize_t : Serialize t := to_sexp_t.
 Instance Serialize_binding : Serialize binding := to_sexp_binding.
 

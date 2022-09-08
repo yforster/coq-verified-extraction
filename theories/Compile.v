@@ -71,7 +71,7 @@ Section Compile.
                                                                                                         mapi (fun i _ => Mfield (int_of_nat i, compile mch)) (rev nms)))))
     | tFix mfix idx =>
         let bodies := map_InP mfix (fun d H => (bytestring.String.to_string (BasicAst.string_of_name (d.(dname))), compile d.(dbody))) in
-        Mlet ([Recursive bodies], Mvar idx)
+        Mlet ([Recursive bodies], Mvar (List.length mfix - idx - 1))
     | tProj (Kernames.mkProjection ind _ nargs) bod with lookup_record_projs Σ ind :=
       { | Some args =>
             let len := List.length args in
@@ -79,7 +79,7 @@ Section Compile.
         | None => Mstring "Proj" }
     | tCoFix mfix idx => Mstring "TCofix"
     | tVar _ => Mstring "tVar"
-    | tEvar _ _ => Mstring "Eva"
+    | tEvar _ _ => Mstring "Evar"
     }.
   Proof.
     all: try (cbn; lia).

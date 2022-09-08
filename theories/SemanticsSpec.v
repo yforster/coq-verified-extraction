@@ -113,7 +113,7 @@ Inductive eval (locals : @Ident.Map.t value) : t -> value -> Prop :=
   In (nm, e) globals ->
   eval locals e v ->
   eval locals (Mglobal nm) v.
-About eval_ind.
+
 Lemma eval_ind :
 forall P : Ident.Map.t -> t -> value -> Prop,
 (forall (locals : Ident.Map.t) (x : Ident.t) (e : t),
@@ -416,7 +416,7 @@ Proof.
     unfold Ident.eqb. destruct (String.eqb_spec x0 x).
     + eapply IHeval2. eauto.
     + reflexivity.
-  - cbn in IHeval. eauto.
+  - cbn in IHeval. eauto. apply todo.
   - unfold Ident.Map.find. eauto.
   - eauto.
   - repeat f_equal. eapply Forall2_map.
