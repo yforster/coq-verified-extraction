@@ -1,6 +1,6 @@
 From MetaCoq Require Import PCUICAstUtils.
 From MetaCoq.Erasure Require Import EAst ESpineView EEtaExpanded EInduction ERemoveParams Erasure EGlobalEnv.
-From Malfunction Require Import Ast.
+From Malfunction Require Import Malfunction.
 From Equations Require Import Equations.
 From Coq Require Import List String Arith Lia.
 Import ListNotations.
@@ -46,8 +46,10 @@ Section Compile.
   Definition Mlambda_ '(e, l) :=
       match e with [] => l | _ => Mlambda (e, l) end.
 
+  Open Scope string.
+
   Definition Mbox :=
-    Mlet ([Recursive [("reccall"%string, Mlambda (["_"%string], Mvar 1) )]], Mvar 0).
+    Mlet ([Recursive [("reccall", Mlambda (["_"%string], Mvar "reccall") )]], Mvar "reccall").
 
   Definition lookup_record_projs (e : global_declarations) (ind : Kernames.inductive) : option (list Kernames.ident) :=
     match lookup_inductive e ind with
@@ -55,10 +57,10 @@ Section Compile.
     | None => None
     end.
 
-  Equations? compile (t: term) : Malfunction.Ast.t
+  Equations? compile (t: term) : Malfunction.t
   by wf t (fun x y : EAst.term => size x < size y) :=
   | e with TermSpineView.view e := {
-    | tRel n => Mvar n
+    | tRel n => Mstring "tRel"
     | tBox => Mbox
     | tLambda nm bod => Mlambda ([bytestring.String.to_string (BasicAst.string_of_name nm)], compile bod)
     | tLetIn nm dfn bod => Mlet ([Named (bytestring.String.to_string (BasicAst.string_of_name nm), compile dfn)], compile bod)
@@ -71,14 +73,14 @@ Section Compile.
                                                                                                         mapi (fun i _ => Mfield (int_of_nat i, compile mch)) (rev nms)))))
     | tFix mfix idx =>
         let bodies := map_InP mfix (fun d H => (bytestring.String.to_string (BasicAst.string_of_name (d.(dname))), compile d.(dbody))) in
-        Mlet ([Recursive bodies], Mvar (List.length mfix - idx - 1))
+        Mlet ([Recursive bodies], Mvar (fst (nth (#|mfix| - idx - 1) bodies ("", Mstring ""))))
     | tProj (Kernames.mkProjection ind _ nargs) bod with lookup_record_projs Σ ind :=
       { | Some args =>
             let len := List.length args in
             Mfield (int_of_nat (len - 1 - nargs), compile bod)
         | None => Mstring "Proj" }
     | tCoFix mfix idx => Mstring "TCofix"
-    | tVar _ => Mstring "tVar"
+    | tVar na => Mvar (bytestring.String.to_string na)
     | tEvar _ _ => Mstring "Evar"
     }.
   Proof.
@@ -109,5 +111,3 @@ Definition compile_env Σ : list (string * t) :=
 
 Definition compile_program (p : EProgram.eprogram) : program :=
   (compile_env (fst p), compile (fst p) (snd p)).
-
-

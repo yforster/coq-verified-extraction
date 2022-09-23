@@ -61,7 +61,7 @@ Definition splitfirst (l : list binding) : (list binding * t) :=
   | _ => (nil, (Mvar "ERROR"))
   end.
 
-From ReductionEffect Require Import PrintingEffect.
+(* From ReductionEffect Require Import PrintingEffect. *)
 
 #[bypass_check(guard)]
 Fixpoint ds (l : loc) (e : sexp) {struct e} : error + t :=

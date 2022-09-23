@@ -8,6 +8,8 @@ theories/SemanticsSpec.v
 theories/Ast.v
 theories/Semantics.v
 
+theories/Mcase.v
+
 theories/Serialize.v
 theories/Deserialize.v
 

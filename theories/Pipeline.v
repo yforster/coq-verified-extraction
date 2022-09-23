@@ -5,9 +5,11 @@ From MetaCoq.PCUIC Require PCUICAst PCUICAstUtils PCUICProgram.
 From MetaCoq.SafeChecker Require Import PCUICErrors PCUICWfEnvImpl.
 From MetaCoq.Erasure Require EAstUtils ErasureFunction ErasureCorrectness EPretty Extract.
 From MetaCoq.Erasure Require Import ETransform EConstructorsAsBlocks.
+From MetaCoq.Erasure Require Import EWcbvEvalNamed.
 
 Import PCUICProgram.
-Import TemplateProgram (template_eta_expand).
+(* Import TemplateProgram (template_eta_expand).
+ *)
 Import PCUICTransform (template_to_pcuic_transform, pcuic_expand_lets_transform).
 
 (* This is the total erasure function +
@@ -24,7 +26,6 @@ Obligation Tactic := program_simpl.
 Import EWcbvEval.
 
 Program Definition block_erasure_pipeline {guard : PCUICWfEnvImpl.abstract_guard_impl} (efl := EWellformed.all_env_flags) :=
-  template_eta_expand ▷
   (* Casts are removed, application is binary, case annotations are inferred from the global environment *)
   template_to_pcuic_transform ▷
   (* Branches of cases are expanded to bind only variables, constructor types are expanded accordingly *)
@@ -44,7 +45,12 @@ Program Definition block_erasure_pipeline {guard : PCUICWfEnvImpl.abstract_guard
   (* Rebuild the efficient lookup table *)
   rebuild_wf_env_transform (efl := EWellformed.all_env_flags) ▷
   (* Constructors are treated as blocks, not higher-order *)
-  constructors_as_blocks_transformation (hastrel := eq_refl) (hastbox := eq_refl).
+  constructors_as_blocks_transformation (hastrel := eq_refl) (hastbox := eq_refl) (* ▷
+  (* Named variables and environment semantics *)
+  named_environment_semantics_transformation *).
+Next Obligation.
+  intros. cbn. MCUtils.todo "ok"%bs.
+Qed.
 Next Obligation.
   intros. cbn. MCUtils.todo "ok"%bs.
 Qed.
@@ -65,7 +71,8 @@ Program Definition malfunction_pipeline {guard : PCUICWfEnvImpl.abstract_guard_i
 Next Obligation.
   intros. unshelve econstructor.
   - exact (fun _ => True).
-  - cbn. intros p _. refine (Semantics.namedp (compile_program p)). 
+  - cbn. intros [Σ s] _. 
+    refine (compile_program ( (annotate_env [] Σ, annotate [] s))).
   - exact (fun _ => True).
   - exact (fun _ _ _ _ => True).
   - exact "malfunction"%bs.

@@ -2,7 +2,7 @@ Require Import ssreflect.
 
 Require Import ZArith Array.PArray List String Floats.
 Require Ascii.
-Require Int63.
+Require Uint63.
 Import ListNotations.
 Open Scope string_scope.
 
@@ -51,6 +51,7 @@ Proof.
     intros h. destruct H. eauto.
 Qed.
 
+#[bypass_check(positivity)]
 Inductive value :=
 | Block of int * array value      
 | Vec of vector_type * array value

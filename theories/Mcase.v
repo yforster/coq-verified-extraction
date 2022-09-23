@@ -52,6 +52,8 @@ Proof.
       cbn. eauto.
 Qed.
 
+Require Import FunctionalExtensionality.
+
 Lemma add_to_add_multiple nm y nms' values' locals :
   NoDup (nm :: nms') ->
   #|nms'| = #|values'| ->
@@ -65,8 +67,13 @@ Proof.
     fold (add_multiple (nms') (values') locals).
     fold (add_multiple (nms' ++ [nm]) (values' ++ [y]) locals).
     rewrite <- IHnms'.
-    3: lia. 2:{ inversion H; eauto. }
-Admitted.
+    3: lia. 2:{ inversion H; subst. econstructor; firstorder. inversion H3; eauto. }
+    inversion H; subst. inversion H3; subst.
+    assert (nm <> a) by (intros ->; firstorder).
+    eapply functional_extensionality. intros x.
+    unfold Ident.Map.add, Ident.eqb. 
+    destruct (Strings.String.eqb_spec x nm), (Strings.String.eqb_spec x a); subst; congruence.
+Qed.
 
 Lemma NoDup_app {X} (l1 l2 : list X) :
   NoDup (l1 ++ l2) ->
@@ -79,7 +86,6 @@ Qed.
 Lemma eval_app_ globals locals args values values' nms' nms b v l :
   #|args| = #|nms| -> 
   #|nms'| = #|values'| ->
-
   NoDup (nms' ++ nms) ->
   Forall2 (eval globals locals) args values ->
   eval globals (add_multiple (nms' ++ nms) (values' ++ values) locals) b v ->
@@ -117,6 +123,7 @@ Qed.
 
 Lemma eval_apply_lambda globals locals args nms b values v : 
   #|args| = #|nms| -> 
+  NoDup nms ->
   Forall2 (eval globals locals) args values ->
   eval globals (add_multiple nms values locals) b v ->
   eval globals locals (Mapply_ (Mlambda_ (nms, b), args)) v.
@@ -126,9 +133,12 @@ Proof.
   destruct nms.
   - cbn. eauto.
   - cbn. destruct nms.
-    + econstructor.
+    + econstructor; firstorder.
     + econstructor. cbn. lia.
 Qed.
+
+Axiom todo : forall {A}, A.
+Ltac todo s := apply todo.
 
 Lemma eval_case globals locals discr i args brs nms br v :
   eval globals locals discr (Block (int_of_nat i, args)) ->
@@ -154,21 +164,27 @@ Proof.
            eapply Int63.eqb_correct in E.
            eapply (f_equal int_to_nat) in E.
            rewrite !int_to_of_nat in E.
-           lia. all:admit.           
+           lia. all: todo "int size"%bs.           
         -- fold find_match. erewrite <- (IH i _ _ _ (S n)). do 4 f_equal. lia.
-  - eapply eval_apply_lambda. 3: eassumption. 1: now rewrite mapi_length.
+  - eapply eval_apply_lambda. 2: eassumption. 3: eassumption. 1: now rewrite mapi_length.
     unfold mapi. change 0 with (#|@nil value|).
     revert Hdiscr. change args with ([] ++ args) at 1. generalize (@nil value) as args'. 
     intros args' Hdiscr.
     induction args in nms, Hlen, Hdup, Hdiscr, args' |- *.
     + destruct nms; inversion Hlen. cbn. econstructor.
     + destruct nms; inversion Hlen. cbn. econstructor.
-      2: eapply IHargs with (args' := a :: args').
+      2: specialize IHargs with (args' := args' ++ [a]).
+      2: rewrite app_length in IHargs. 2: cbn in IHargs.
+      2: replace (S #|args'|) with (#|args'| + 1) by lia.
+      2: eapply IHargs.
       * evar (v' : value).
         enough (a = v') as E. subst v'. rewrite E. econstructor.
-        eapply Hdiscr. admit. admit.
-        subst v'. rewrite int_to_of_nat. 2: admit.
+        eapply Hdiscr. 1-2: todo "int size"%bs.
+        subst v'. rewrite int_to_of_nat. 2: todo "int size"%bs.
         rewrite app_nth2, PeanoNat.Nat.sub_diag; [ reflexivity | lia].
       * now inversion Hdup.
       * assumption.
-Admitted.
+      * rewrite <- app_assoc. eapply Hdiscr. 
+      Unshelve. eauto.
+Qed.
+Print Assumptions eval_case.
