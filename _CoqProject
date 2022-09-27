@@ -16,4 +16,6 @@ theories/Deserialize.v
 theories/Compile.v
 theories/Pipeline.v
 
+theories/CompileCorrect.v
+
 theories/Tests.v

@@ -119,7 +119,7 @@ Definition arden: forest bool :=
                (leaf false)).
 
 MetaCoq Run Extraction (forest_size arden).
-MetaCoq Run (interpret_mlf (forest_size arden)).
+(* MetaCoq Run (interpret_mlf (forest_size arden)). *)
 
 (*
 with length - idx:
@@ -128,10 +128,10 @@ with length - idx:
 
  *)
 
-MetaCoq Run (extract_sexp (forest_size arden) "def"%bs).
+(* MetaCoq Run (extract_sexp (forest_size arden) "def"%bs). *)
 
-From Malfunction Require Import Interpreter.
 
+(* 
 MetaCoq Run (extract_sexp (ack 1 1) "def2"%bs).
 
 Compute (interpret (fun x => fail "empty"%string) def).
@@ -141,3 +141,4 @@ Compute def.
 
 Definition parse := "(let ($Coq.Init.Nat.add (lambda ($n) (apply (let (rec ($add (lambda ($n) (lambda ($m) (switch $n ((tag 0) $m) ((tag 1) (apply (lambda ($p) (block (tag 1) (apply $add $p $m))) (field 0 $n)))))))) $add) $n))) ($Malfunction.Tests.forest_size (lambda ($f) (apply (let (rec ($tree_size (lambda ($t) (switch $t ((tag 0) (apply (lambda ($a $f) (block (tag 1) (apply $forest_size $f))) (field 0 $t) (field 1 $t)))))) ($forest_size (lambda ($f) (switch $f ((tag 0) (apply (lambda ($b) (block (tag 1) (block (tag 0)))) (field 0 $f))) ((tag 1) (apply (lambda ($t $f1) (apply $Coq.Init.Nat.add (apply $tree_size $t) (apply $forest_size $f1))) (field 0 $f) (field 1 $f))))))) $tree_size) $f))) ($Malfunction.Tests.arden (block (tag 1) (block (tag 0) (block (tag 0)) (block (tag 1) (block (tag 0) (block (tag 0)) (block (tag 0) (block (tag 1)))) (block (tag 0) (block (tag 0))))) (block (tag 1) (block (tag 0) (block (tag 0)) (block (tag 1) (block (tag 0) (block (tag 0)) (block (tag 0) (block (tag 1)))) (block (tag 0) (block (tag 0))))) (block (tag 0) (block (tag 1)))))) (apply $Malfunction.Tests.forest_size $Malfunction.Tests.arden))
 "%string.
+ *)

@@ -111,7 +111,7 @@ Inductive eval (locals : @Ident.Map.t value) : t -> value -> Prop :=
   eval locals (Mfield (idx, b)) (nth (int_to_nat idx) vals (fail ""))
 | eval_global nm e v :
   In (nm, e) globals ->
-  eval locals e v ->
+  eval (fun _ => fail "notfound") e v ->
   eval locals (Mglobal nm) v.
 
 Lemma eval_ind :
@@ -172,13 +172,13 @@ forall P : Ident.Map.t -> t -> value -> Prop,
  Datatypes.length vals < Z.to_nat Int63.wB ->
  Datatypes.length vals <= int_to_nat max_length ->
  P locals (Mfield (idx, b)) (nth (int_to_nat idx) vals (fail ""))) ->
-(forall (locals : Ident.Map.t) (nm : Ident.t) (e : t) (v : value), In (nm, e) globals -> eval locals e v -> P locals e v -> P locals (Mglobal nm) v) ->
+(forall (locals : Ident.Map.t) (nm : Ident.t) (e : t) (v : value), In (nm, e) globals -> eval (fun _ => fail "notfound") e v -> P (fun _ => fail "notfound") e v -> P locals (Mglobal nm) v) ->
 forall (locals : Ident.Map.t) (t : t) (v : value), eval locals t v -> P locals t v.
 Proof.
   intros P H_lambda_sing H_lambda H_app_sing H_app H_var H_let_body H_let_unnamed H_let_named 
         H_let_rec H_switch H_block H_field H_global.
   fix f 4. intros locals t v [ | | | | | | | | | | ? ? ? Hforall | | ].
-  1-10, 13: eauto. 
+  1-10, 13: eauto.
   - eapply H_block. 1: eauto. induction Hforall; econstructor; eauto.
   - eapply H_field. 1: eauto. 1: eauto. all: lia.
 Qed.
@@ -354,20 +354,6 @@ Proof.
   intros H. eapply funext in H.
   subst. reflexivity.
 Qed.
-
-(* Lemma newlocals_env interpret recs locals1 locals2 x :
-  (forall x, ~ In x (map fst recs) -> locals1 x = locals2 x) ->
-  newlocals interpret recs locals1 x =
-  newlocals interpret recs locals2 x.
-Proof.
-  rewrite !newlocals_eqn.
-  generalize recs at 2 4.
-  intros allrecs Hext.
-  induction recs as [ | [] ].
-  - cbn. eapply Hext. firstorder.
-  - cbn. f_equal.
-    + destruct t0; try reflexivity.
-      eapply Func_ext. *)
 
 End eval.
 

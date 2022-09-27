@@ -57,37 +57,37 @@ Section Compile.
     | None => None
     end.
 
+  From MetaCoq Require Import EAst.
+
+  Definition Mapply_u t a :=
+    match t with Mapply (fn, args) => Mapply (fn, List.app args [a]) | _ => Mapply (t, [a]) end.
+
   Equations? compile (t: term) : Malfunction.t
-  by wf t (fun x y : EAst.term => size x < size y) :=
-  | e with TermSpineView.view e := {
-    | tRel n => Mstring "tRel"
-    | tBox => Mbox
-    | tLambda nm bod => Mlambda ([bytestring.String.to_string (BasicAst.string_of_name nm)], compile bod)
-    | tLetIn nm dfn bod => Mlet ([Named (bytestring.String.to_string (BasicAst.string_of_name nm), compile dfn)], compile bod)
-    | tApp fn args napp nnil =>
-        Mapply_ (compile fn, map_InP args (fun x H => compile x))
-    | tConst nm => Mglobal nm
-    | tConstruct i m args => Mblock (int_of_nat m, map_InP args (fun x H => compile x))
-    | tCase i mch brs =>
-        Mswitch (compile mch, mapi_InP brs 0 (fun i '(nms, b) H => ([Malfunction.Tag (int_of_nat i)], Mapply_ (Mlambda_ (rev_map (fun nm => bytestring.String.to_string (BasicAst.string_of_name nm)) nms, compile b),
-                                                                                                        mapi (fun i _ => Mfield (int_of_nat i, compile mch)) (rev nms)))))
-    | tFix mfix idx =>
-        let bodies := map_InP mfix (fun d H => (bytestring.String.to_string (BasicAst.string_of_name (d.(dname))), compile d.(dbody))) in
-        Mlet ([Recursive bodies], Mvar (fst (nth (#|mfix| - idx - 1) bodies ("", Mstring ""))))
-    | tProj (Kernames.mkProjection ind _ nargs) bod with lookup_record_projs Σ ind :=
-      { | Some args =>
-            let len := List.length args in
-            Mfield (int_of_nat (len - 1 - nargs), compile bod)
-        | None => Mstring "Proj" }
-    | tCoFix mfix idx => Mstring "TCofix"
-    | tVar na => Mvar (bytestring.String.to_string na)
-    | tEvar _ _ => Mstring "Evar"
-    }.
-  Proof.
-    all: try (cbn; lia).
-    - eapply size_mkApps_f; eauto.
-    - eapply le_lt_trans. 2: eapply size_mkApps_l; eauto. eapply (In_size id size) in H.
-      unfold id in H. change size with (fun x => size x) at 2. lia.
+    by wf t (fun x y : EAst.term => size x < size y) :=
+      | tRel n => Mstring "tRel"
+      | tBox => Mbox
+      | tLambda nm bod => Mlambda ([bytestring.String.to_string (BasicAst.string_of_name nm)], compile bod)
+      | tLetIn nm dfn bod => Mlet ([Named (bytestring.String.to_string (BasicAst.string_of_name nm), compile dfn)], compile bod)
+      | tApp fn arg =>
+          Mapply_u (compile fn) (compile arg)
+      | tConst nm => Mglobal nm
+      | tConstruct i m args => Mblock (int_of_nat m, map_InP args (fun x H => compile x))
+      | tCase i mch brs =>
+          Mswitch (compile mch, mapi_InP brs 0 (fun i br H => ([Malfunction.Tag (int_of_nat i)], Mapply_ (Mlambda_ (rev_map (fun nm => bytestring.String.to_string (BasicAst.string_of_name nm)) (fst br), compile (snd br)),
+                                                                                                          mapi (fun i _ => Mfield (int_of_nat i, compile mch)) (rev (fst br))))))
+      | tFix mfix idx =>
+          let bodies := map_InP mfix (fun d H => (bytestring.String.to_string (BasicAst.string_of_name (d.(dname))), compile d.(dbody))) in
+          Mlet ([Recursive bodies], Mvar (fst (nth (#|mfix| - idx - 1) bodies ("", Mstring ""))))
+      | tProj (Kernames.mkProjection ind _ nargs) bod with lookup_record_projs Σ ind :=
+        { | Some args =>
+              let len := List.length args in
+              Mfield (int_of_nat (len - 1 - nargs), compile bod)
+          | None => Mstring "Proj" }
+      | tCoFix mfix idx => Mstring "TCofix"
+      | tVar na => Mvar (bytestring.String.to_string na)
+      | tEvar _ _ => Mstring "Evar".
+    Proof.
+      all: try (cbn; lia).
     - eapply (In_size id size) in H.
       unfold id in H. change size with (fun x => size x) at 2. lia.
     - eapply (In_size snd size) in H. cbn in H.
@@ -106,8 +106,20 @@ Definition compile_decl Σ d :=
   | InductiveDecl idecl => None
   end.
 
-Definition compile_env Σ : list (string * t) := 
-  flat_map (fun '(x,d) => match compile_decl Σ d with Some t => [(conv x, t)] | _ => [] end) Σ.
+Definition compile_env Σ := flat_map
+(fun '(x, d) =>
+ match compile_decl Σ d with
+ | Some t => [(Compile.conv x, t)]
+ | None => []
+ end) Σ.
+
+Fixpoint compile_env' Σ : list (string * t) := 
+  match Σ with
+  | [] => []
+  | (x,d) :: Σ => match compile_decl Σ d with Some t => (conv x, t) :: compile_env' Σ 
+                                         | _ => compile_env' Σ
+              end
+  end.
 
 Definition compile_program (p : EProgram.eprogram) : program :=
   (compile_env (fst p), compile (fst p) (snd p)).
