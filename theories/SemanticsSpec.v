@@ -55,7 +55,7 @@ Fixpoint add_recs' (locals : Ident.Map.t) allrecs recs  :=
   | [] => Some locals
   | (x, Mlambda (y :: more, e)) :: recs =>  
     match add_recs' locals allrecs recs with
-    | Some locals => Some (Ident.Map.add x (Func (y, locals, Mlet ([Recursive allrecs], Mklambda more e))) locals)
+    | Some locals' => Some (Ident.Map.add x (Func (y, locals, Mlet ([Recursive allrecs], Mklambda more e))) locals')
     | None => None
     end
   | _ => None
@@ -466,7 +466,7 @@ Unset Guard Checking.
         (Ident.Map.add y v
            (fun x : Ident.t => newlocals interpret allrecs ilocals x))
         (Mklambda bindings e) =
-      interpret (Ident.Map.add y v (fun x : Ident.t => vtrans (newlocals' x)))
+      interpret (Ident.Map.add y v (fun x : Ident.t => vtrans (locals x)))
         (Mlet ([Recursive allrecs], Mklambda bindings e))) by (destruct bindings; eauto).
       generalize (Mklambda bindings e). clear e. intros e.
       cbn.
