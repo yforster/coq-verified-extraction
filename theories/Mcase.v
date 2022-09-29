@@ -52,6 +52,20 @@ Proof.
       cbn. eauto.
 Qed.
 
+Lemma eval_app_nested_inv globals locals args l args' v :
+  eval globals locals (Mapply_ (Mnapply l args', args)) v ->
+  eval globals locals (Mnapply l (args' ++ args)) v.
+Proof.
+  induction args in args' |- *.
+  - cbn. now rewrite app_nil_r.
+  - cbn. intros H. specialize (IHargs (args' ++ [a])). destruct args.
+    + rewrite Mnapply_app. cbn. eauto.
+    + cbn in *. rewrite <- app_assoc in *. cbn in IHargs.
+      eapply IHargs.
+      inversion H; subst.
+      rewrite Mnapply_app. eauto.
+Qed.
+
 Require Import FunctionalExtensionality.
 
 Lemma add_to_add_multiple nm y nms' values' locals :
