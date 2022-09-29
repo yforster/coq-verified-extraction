@@ -20,18 +20,21 @@ Fixpoint compile_value (Σ : EAst.global_declarations) (s : EWcbvEvalNamed.value
   | vClos na b env => Func (bytestring.String.to_string na, (fun x =>
                                                               match lookup (map (fun '(x,v) => (x, compile_value Σ v)) env) (String.of_string x) with Some v => v | None => fail "notfound" end), compile Σ b)
   | vConstruct ind c args => Block (int_of_nat c, map (compile_value Σ) args)
-  | vRecClos mfix idx env => match nth_error mfix (Datatypes.length mfix - idx - 1) with Some (dname, EAst.tLambda y' t') =>
+  | vRecClos mfix idx env => let y'_t' :=
+                             match
+                               nth_error mfix (Datatypes.length mfix - idx - 1) with Some (dname, EAst.tLambda y' t') => (String.to_string (BasicAst.string_of_name y'), t')
+                               | _ => ("", EAst.tVar "invalid recursive closure"%bs)
+                               end in
                                 Func
-                                (String.to_string (BasicAst.string_of_name y'), 
+                                (fst y'_t', 
                                 fun x => match lookup (map (fun '(x,v) => (x, compile_value Σ v)) env) (String.of_string x) with Some v => v | _ => fail "notfound" end,
                                 Malfunction.Mlet
                                  ([Malfunction.Recursive
                                      (map
                                         (fun x =>
                                          (String.to_string ( (fst x)),
-                                          compile Σ (snd x))) mfix)], compile Σ t'))
-                                | _ => fail "invalid recursive closure"
-                              end
+                                          compile Σ (snd x))) mfix)], compile Σ (snd y'_t')))
+                                
   end.
 
 Require Import FunctionalExtensionality.
@@ -171,6 +174,10 @@ Proof.
   destruct args; cbn; congruence.
 Qed.
 
+(* TODO: annotate wellformedness in both fix rules *)
+(* annotate pars = 0 *)
+(* use n-ary constructor rule *)
+
 Lemma compile_correct Σ s t Γ Γ' :
   (forall na, Malfunction.Ident.Map.find (bytestring.String.to_string na) Γ' =
                 match lookup Γ na with Some v => compile_value Σ v | _ => fail "notfound" end) ->
@@ -284,14 +291,19 @@ Proof.
                Malfunction.Mfield (Compile.int_of_nat i0, compile Σ discr))
               (MCList.rev (fst br0))))))))
               with (Mcase (compile Σ discr, map (fun '(brs, b) => (MCList.rev_map (fun x => String.to_string (BasicAst.string_of_name x)) brs, compile Σ b)) brs)).
-    + destruct br as [br1 br2]. 
-      assert (pars = 0) as -> by todo "pars = 0".
-      rewrite skipn_O in *.
+    + destruct br as [br1 br2].
       eapply eval_case. 
       * cbn in *. eapply IHHeval1. eauto.
       * rewrite nth_error_map, e0. cbn. reflexivity.
-      * rewrite MCList.rev_map_spec. eapply NoDup_rev.
-        todo "nodup names case".
+      * cbn in *. clear - f n. rewrite MCList.rev_map_spec. eapply NoDup_rev. induction f.
+        -- econstructor.
+        -- cbn. inversion n; subst. econstructor. 2: eauto.
+           intros (? & ? & ?) % in_map_iff.
+           eapply (f_equal String.of_string) in H. rewrite !of_string_to_string in H.
+           assert (forall n1 n, BasicAst.string_of_name n1 = BasicAst.string_of_name n -> n1 = n) by todo "string_of_name injective".
+           eapply H1 in H as ->.
+           eapply H2. clear - f H0.
+           induction f; cbn in *. tauto. destruct H0 as [-> | ?]. inversion H; subst. eauto. subst. eauto.           
       * rewrite !map_length. cbn in *. rewrite MCList.rev_map_spec. rewrite rev_length, map_length. lia. 
       * cbn in *. eapply IHHeval2. intros na.
         rewrite lookup_multiple. 2: 
