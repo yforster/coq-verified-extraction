@@ -195,9 +195,9 @@ Proof.
   - (* box app *)
     cbn. todo "fix statement to talk about box: then we can't just compile, but need to existentially quantify over the environment in the closure".
   - (* beta *)
-    destruct (Mapply_u_spec (compile Σ f) (compile Σ a)) as [(fn & arg & E & ->) | (E & ->) ].
-    + destruct f; simp compile; intros [? [=]]. 
-      * destruct (compile Σ f1); cbn in H0; try congruence. destruct p, l; cbn in *; congruence.
+    destruct (Mapply_u_spec (compile Σ f1) (compile Σ a)) as [(fn & arg & E & ->) | (E & ->) ].
+    + destruct f1; simp compile; intros [? [=]]. 
+      * destruct (compile Σ f1_1); cbn in H0; try congruence. destruct p, l; cbn in *; congruence.
       * revert H0. destruct p. simp compile. unfold compile_unfold_clause_10. 
         destruct lookup_record_projs; congruence.
     + rewrite Mapply_spec. 2: destruct arg; cbn; congruence.
@@ -294,8 +294,8 @@ Proof.
     + destruct br as [br1 br2].
       eapply eval_case. 
       * cbn in *. eapply IHHeval1. eauto.
-      * rewrite nth_error_map, e0. cbn. reflexivity.
-      * cbn in *. clear - f n. rewrite MCList.rev_map_spec. eapply NoDup_rev. induction f.
+      * rewrite nth_error_map, e1. cbn. reflexivity.
+      * cbn in *. rename f4 into f. clear - f n. rewrite MCList.rev_map_spec. eapply NoDup_rev. induction f.
         -- econstructor.
         -- cbn. inversion n; subst. econstructor. 2: eauto.
            intros (? & ? & ?) % in_map_iff.
@@ -306,8 +306,9 @@ Proof.
            induction f; cbn in *. tauto. destruct H0 as [-> | ?]. inversion H; subst. eauto. subst. eauto.           
       * rewrite !map_length. cbn in *. rewrite MCList.rev_map_spec. rewrite rev_length, map_length. lia. 
       * cbn in *. eapply IHHeval2. intros na.
-        rewrite lookup_multiple. 2: 
-        clear - HΓ f e2.        
+        rewrite lookup_multiple.
+        all: rename f4 into f.
+        clear - HΓ f e3. rename e3 into e2.
         induction br1 using rev_ind in nms, f, e2, br1, args |- *.
         -- inversion f. subst. cbn. now eapply HΓ.
         -- eapply Forall2_app_inv_l in f as (? & ? & ? & ? & ->). inversion H0. subst. inversion H5.
@@ -319,7 +320,7 @@ Proof.
            destruct (eqb_spec na y).
            ++ subst. now rewrite String.eqb_refl.
            ++ destruct (String.eqb_spec (String.to_string na) (String.to_string y)).
-              ** eapply (f_equal (String.of_string)) in e0. rewrite !of_string_to_string in e0. congruence.
+              ** eapply (f_equal (String.of_string)) in e. rewrite !of_string_to_string in e. congruence.
               ** rewrite <- IHbr1. 2: lia. 2: eauto.
                  rewrite MCList.rev_map_spec. reflexivity.
         -- eapply All_Forall.Forall2_length in f. rewrite rev_length. lia.
@@ -407,6 +408,7 @@ Proof.
       rewrite <- Eqn.
       rewrite MCList.map2_length.
       rewrite PeanoNat.Nat.min_r.
+      all: rename f6 into f.
       2: eapply All_Forall.Forall2_length in f; lia.
       eapply All_Forall.Forall2_nth_error_Some in f as f'. destruct f' as (? & ? & ?); eauto.
       erewrite TemplateToPCUICCorrectness.nth_error_map2; eauto.
@@ -431,10 +433,13 @@ Proof.
     + cbn. unfold compile_constant_decl. rewrite e. cbn. eauto.
   - (* constructor application *)
     cbn. econstructor.
-    rewrite MCList.map_InP_spec, !map_app. cbn.
-    eapply Forall2_app.
-    + todo "switch to eval rule with Forall2".
-    + repeat econstructor. now eapply IHHeval2.
+    rewrite MCList.map_InP_spec.
+    clear l.
+    induction a.
+    + econstructor.
+    + econstructor.
+      * eapply IHa; eauto.
+      * eapply IHa0. destruct IHa. eapply a0.
   - cbn. repeat econstructor.
 Qed.
 Print Assumptions compile_correct.

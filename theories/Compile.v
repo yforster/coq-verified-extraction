@@ -85,7 +85,8 @@ Section Compile.
           | None => Mstring "Proj" }
       | tCoFix mfix idx => Mstring "TCofix"
       | tVar na => Mvar (bytestring.String.to_string na)
-      | tEvar _ _ => Mstring "Evar".
+      | tEvar _ _ => Mstring "Evar"
+      | tPrim _ => Mstring "Prim".
     Proof.
       all: try (cbn; lia).
     - eapply (In_size id size) in H.

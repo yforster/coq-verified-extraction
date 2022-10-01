@@ -39,15 +39,19 @@ Program Definition block_erasure_pipeline {guard : PCUICWfEnvImpl.abstract_guard
   (* Remove all constructor parameters *)
   remove_params_optimization (wcon := eq_refl) ▷ 
   (* Rebuild the efficient lookup table *)
-  rebuild_wf_env_transform (efl := ERemoveParams.switch_no_params EWellformed.all_env_flags) ▷
+  rebuild_wf_env_transform (efl := ERemoveParams.switch_no_params EWellformed.all_env_flags) true ▷
   (* Remove all cases / projections on propositional content *)
   optimize_prop_discr_optimization (efl := ERemoveParams.switch_no_params EWellformed.all_env_flags) (wcon := eq_refl) (hastrel := eq_refl) (hastbox := eq_refl) ▷
   (* Rebuild the efficient lookup table *)
-  rebuild_wf_env_transform (efl := EWellformed.all_env_flags) ▷
+  rebuild_wf_env_transform (efl := EWellformed.all_env_flags) false ▷
   (* Constructors are treated as blocks, not higher-order *)
-  constructors_as_blocks_transformation (hastrel := eq_refl) (hastbox := eq_refl) (* ▷
+  @constructors_as_blocks_transformation _ _ _ _.
+  (*  ▷
   (* Named variables and environment semantics *)
-  named_environment_semantics_transformation *).
+  named_environment_semantics_transformation. *)
+Next Obligation.
+  intros. cbn. MCUtils.todo "ok"%bs.
+Qed.
 Next Obligation.
   intros. cbn. MCUtils.todo "ok"%bs.
 Qed.
