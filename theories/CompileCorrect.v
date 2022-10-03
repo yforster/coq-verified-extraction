@@ -189,11 +189,6 @@ Proof.
   eauto.
 Qed.
 
-Lemma string_of_name_inj n1 n2 : 
-  BasicAst.string_of_name n1 = BasicAst.string_of_name n2 -> n1 = n2.
-Proof.
-Admitted.
-
 Lemma compile_correct Σ s t Γ Γ' :
   (forall na, Malfunction.Ident.Map.find (bytestring.String.to_string na) Γ' =
                 match lookup Γ na with Some v => compile_value Σ v | _ => fail "notfound" end) ->
@@ -316,8 +311,7 @@ Proof.
         -- cbn. inversion n; subst. econstructor. 2: eauto.
            intros (? & ? & ?) % in_map_iff.
            eapply (f_equal String.of_string) in H. rewrite !of_string_to_string in H.
-           assert (forall n1 n, BasicAst.string_of_name n1 = BasicAst.string_of_name n -> n1 = n) by eapply string_of_name_inj.
-           eapply H1 in H as ->.
+           cbn in H. subst.
            eapply H2. clear - f H0.
            induction f; cbn in *. tauto. destruct H0 as [-> | ?]. inversion H; subst. eauto. subst. eauto.           
       * rewrite !map_length. cbn in *. rewrite MCList.rev_map_spec. rewrite rev_length, map_length. lia. 
@@ -362,7 +356,7 @@ Proof.
     destruct ((MCList.nth_error_Some' mfix (Datatypes.length mfix - idx - 1))) as [_ Hnth].
     forward Hnth.
     assert (Datatypes.length mfix > 0) by lia.  1: lia. 
-    assert ({ l | Forall2 (fun d '(x, y, b) => d.(EAst.dname) = x /\ d.(EAst.dbody) = EAst.tLambda y b) mfix l /\
+    assert ({ l | Forall2 (fun d '(x, y, b) => d.(EAst.dname) = BasicAst.nNamed x /\ d.(EAst.dbody) = EAst.tLambda y b) mfix l /\
                   NoDup (map (fun x => fst (fst x)) l) }) as [l [Hl Hnodup]].
     {
      unfold is_true in Hbodies.
@@ -373,15 +367,16 @@ Proof.
      - inversion Hbodies; subst. destruct IHf6 as [l_ Hl]; eauto. now inversion n; subst.
        destruct Hl. destruct x; cbn in *. destruct dbody; cbn in *; try congruence.
        eexists ((_, _, _) :: l_); cbn. repeat econstructor; eauto. cbn.
-       intros (? & ? & ?) % in_map_iff. subst. inversion n; subst. eapply H6.
+       intros (? & ? & ?) % in_map_iff. subst. inversion n; subst. eapply H5.
        eapply All_Forall.Forall2_All2 in H.
        eapply In_nth_error in H3 as [n_ Hn].
        eapply All2_nth_error_Some_right in H; eauto.
-       destruct H as (? & ? & ?). 
-       destruct x, p, y0, x0; cbn in *; subst.
+       destruct H as (? & ? & ?).
+       destruct x, p, y; cbn in *; subst.
        eapply All_Forall.All2_nth_error_Some in f6; eauto.
        destruct f6 as (? & ? & ?). cbn in *.
-       inversion e1; subst. eapply nth_error_In; eauto.
+       inversion e1; subst. destruct x0; cbn in *; subst. inversion H4; subst.
+       eapply nth_error_In; eauto.
     }
     assert (map
       (fun x : EAst.def EAst.term =>
@@ -390,16 +385,17 @@ Proof.
         (fun '(y0, t) =>
          let
          '(x, y) := y0 in
-          (String.to_string (BasicAst.string_of_name x), compile Σ (EAst.tLambda y t))) l)) as Eqn.
+          (String.to_string (x), compile Σ (EAst.tLambda y t))) l)) as Eqn.
       { clear -Hl. induction Hl; cbn.
         - reflexivity.
-        - destruct y as [[] ]. destruct H as [<- ->].
+        - destruct y as [[] ]. destruct H as [? ->].
           simp compile.
-          repeat f_equal. eapply IHHl.
+          repeat f_equal. 2: eapply IHHl.
+          now rewrite H. 
       }   
     unshelve econstructor.
-    + refine (add_recs'' Γ_ (map (fun '(x, y, t) => (bytestring.String.to_string (BasicAst.string_of_name x), compile Σ (EAst.tLambda y t)) ) l) 
-                            (map (fun '(x, y, t) => (bytestring.String.to_string (BasicAst.string_of_name x), (bytestring.String.to_string (BasicAst.string_of_name y), compile Σ t) )) l)).
+    + refine (add_recs'' Γ_ (map (fun '(x, y, t) => (bytestring.String.to_string (x), compile Σ (EAst.tLambda y t)) ) l) 
+                            (map (fun '(x, y, t) => (bytestring.String.to_string (x), (bytestring.String.to_string (BasicAst.string_of_name y), compile Σ t) )) l)).
     + rewrite MCList.map_InP_spec in *.
       unfold add_recs.
       rewrite <- Eqn.
@@ -412,9 +408,9 @@ Proof.
       * cbn. reflexivity.
       * cbn. 
         destruct y as [[y1 y3] y2]. cbn in *.
-        destruct H as [<- ->]. cbn.
+        destruct H as [? ->]. cbn.
         simp compile.
-        now rewrite IHHl.
+        rewrite IHHl. repeat f_equal. now rewrite H.
     + econstructor. evar (v : SemanticsSpec.value).
       match goal with [ |- SemanticsSpec.eval _ _ _ ?fv ] =>
       replace fv with v end.
@@ -424,21 +420,21 @@ Proof.
       2: rewrite nth_error_map.
       2: now rewrite (projT2 Hnth). cbn.
       destruct Hnth as [[] Hx]; cbn.
-      eapply All_Forall.Forall2_nth_error_Some in Hl as [ [[x' y'] t'] [H1 [<- H3]]]; eauto. cbn in *.
+      pose proof (Hl_ := Hl).
+      eapply All_Forall.Forall2_nth_error_Some in Hl as [ [[x' y'] t'] [H1 [Hname H3]]]; eauto. cbn in *.
       subst. eapply nth_error_In in H1.
       erewrite add_recs''_spec.
       3:{ eapply in_map_iff. eexists (_, _, _). split. 2: eauto. f_equal. }
-      2:{ clear - Hnodup. induction l; cbn.
+      2:{ clear - Hnodup Hl_. induction l in Hnodup, mfix, Hl_ |- *; cbn.
           - econstructor.
-          - inversion Hnodup; subst. econstructor. 2: eauto.
+          - inversion Hnodup; subst. econstructor. 2:{ inversion Hl_; subst; eauto. }
             destruct a as [[] ]. cbn in *.
             rewrite in_map_iff. intros ([? []] & ? & ?). cbn in *. subst.
             eapply in_map_iff in H0 as ([[]] & [=] & ?). subst.
             eapply (f_equal String.of_string) in H0. rewrite !of_string_to_string in H0.
             eapply H1. eapply in_map_iff. eexists (_, _, _). cbn.
             split. 2: eauto.
-            assert (forall n1 n, BasicAst.string_of_name n1 = BasicAst.string_of_name n -> n1 = n) by eapply string_of_name_inj.
-            eauto.
+            now inversion Hl_; subst.
       }
       rewrite <- Eqn.
       rewrite MCList.map2_length.
