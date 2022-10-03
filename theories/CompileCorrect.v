@@ -189,6 +189,11 @@ Proof.
   eauto.
 Qed.
 
+Lemma string_of_name_inj n1 n2 : 
+  BasicAst.string_of_name n1 = BasicAst.string_of_name n2 -> n1 = n2.
+Proof.
+Admitted.
+
 Lemma compile_correct Σ s t Γ Γ' :
   (forall na, Malfunction.Ident.Map.find (bytestring.String.to_string na) Γ' =
                 match lookup Γ na with Some v => compile_value Σ v | _ => fail "notfound" end) ->
@@ -311,7 +316,7 @@ Proof.
         -- cbn. inversion n; subst. econstructor. 2: eauto.
            intros (? & ? & ?) % in_map_iff.
            eapply (f_equal String.of_string) in H. rewrite !of_string_to_string in H.
-           assert (forall n1 n, BasicAst.string_of_name n1 = BasicAst.string_of_name n -> n1 = n) by todo "string_of_name injective".
+           assert (forall n1 n, BasicAst.string_of_name n1 = BasicAst.string_of_name n -> n1 = n) by eapply string_of_name_inj.
            eapply H1 in H as ->.
            eapply H2. clear - f H0.
            induction f; cbn in *. tauto. destruct H0 as [-> | ?]. inversion H; subst. eauto. subst. eauto.           
@@ -432,7 +437,7 @@ Proof.
             eapply (f_equal String.of_string) in H0. rewrite !of_string_to_string in H0.
             eapply H1. eapply in_map_iff. eexists (_, _, _). cbn.
             split. 2: eauto.
-            assert (forall n1 n, BasicAst.string_of_name n1 = BasicAst.string_of_name n -> n1 = n) by todo "string_of_name injective".
+            assert (forall n1 n, BasicAst.string_of_name n1 = BasicAst.string_of_name n -> n1 = n) by eapply string_of_name_inj.
             eauto.
       }
       rewrite <- Eqn.
