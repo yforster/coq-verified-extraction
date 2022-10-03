@@ -178,6 +178,17 @@ Qed.
 (* annotate pars = 0 *)
 (* use n-ary constructor rule *)
 
+
+Lemma All2_nth_error_Some_right {A B} {P : A -> B -> Type} {l l'} n t :
+  All_Forall.All2 P l l' ->
+  nth_error l' n = Some t ->
+  { t' : A & (nth_error l n = Some t') * P t' t}%type.
+Proof.
+  intros Hall. revert n.
+  induction Hall; destruct n; simpl; try congruence. intros [= ->]. exists x. intuition auto.
+  eauto.
+Qed.
+
 Lemma compile_correct Σ s t Γ Γ' :
   (forall na, Malfunction.Ident.Map.find (bytestring.String.to_string na) Γ' =
                 match lookup Γ na with Some v => compile_value Σ v | _ => fail "notfound" end) ->
@@ -345,9 +356,28 @@ Proof.
     cbn.
     destruct ((MCList.nth_error_Some' mfix (Datatypes.length mfix - idx - 1))) as [_ Hnth].
     forward Hnth.
-    assert (Datatypes.length mfix > 0) by todo "wf_mfix". 1: lia. 
+    assert (Datatypes.length mfix > 0) by lia.  1: lia. 
     assert ({ l | Forall2 (fun d '(x, y, b) => d.(EAst.dname) = x /\ d.(EAst.dbody) = EAst.tLambda y b) mfix l /\
-                  NoDup (map (fun x => fst (fst x)) l) }) as [l [Hl Hnodup]] by todo "consequence of wf_fixpoint".
+                  NoDup (map (fun x => fst (fst x)) l) }) as [l [Hl Hnodup]].
+    {
+     unfold is_true in Hbodies.
+     rewrite forallb_forall, <- Forall_forall in Hbodies.
+     clear - Hbodies n f6. eapply All_Forall.Forall2_All2 in f6. eapply All_Forall.Forall_All in Hbodies.
+     induction f6.
+     - exists []; repeat econstructor.
+     - inversion Hbodies; subst. destruct IHf6 as [l_ Hl]; eauto. now inversion n; subst.
+       destruct Hl. destruct x; cbn in *. destruct dbody; cbn in *; try congruence.
+       eexists ((_, _, _) :: l_); cbn. repeat econstructor; eauto. cbn.
+       intros (? & ? & ?) % in_map_iff. subst. inversion n; subst. eapply H6.
+       eapply All_Forall.Forall2_All2 in H.
+       eapply In_nth_error in H3 as [n_ Hn].
+       eapply All2_nth_error_Some_right in H; eauto.
+       destruct H as (? & ? & ?). 
+       destruct x, p, y0, x0; cbn in *; subst.
+       eapply All_Forall.All2_nth_error_Some in f6; eauto.
+       destruct f6 as (? & ? & ?). cbn in *.
+       inversion e1; subst. eapply nth_error_In; eauto.
+    }
     assert (map
       (fun x : EAst.def EAst.term =>
        (String.to_string (BasicAst.string_of_name (EAst.dname x)),
