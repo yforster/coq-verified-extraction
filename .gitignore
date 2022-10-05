@@ -63,3 +63,7 @@ doc/equations_intro.tex
 doc/equations_intro.html
 doc/coqdoc.css
 doc/index.html
+plugin/extraction
+plugin/Makefile.conf
+plugin/Makefile
+plugin/g_metacoq_malfunction.ml

@@ -19,3 +19,5 @@ theories/Pipeline.v
 theories/CompileCorrect.v
 
 theories/Tests.v
+
+theories/Extraction.v
