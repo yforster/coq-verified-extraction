@@ -22,7 +22,7 @@ Fixpoint compile_value (Σ : EAst.global_declarations) (s : EWcbvEvalNamed.value
   | vConstruct ind c args => Block (int_of_nat c, map (compile_value Σ) args)
   | vRecClos mfix idx env => let y'_t' :=
                              match
-                               nth_error mfix (Datatypes.length mfix - idx - 1) with Some (dname, EAst.tLambda y' t') => (String.to_string (BasicAst.string_of_name y'), t')
+                               nth_error mfix (idx ) with Some (dname, EAst.tLambda y' t') => (String.to_string (BasicAst.string_of_name y'), t')
                                | _ => ("", EAst.tVar "invalid recursive closure"%bs)
                                end in
                                 Func
@@ -174,11 +174,6 @@ Proof.
   destruct args; cbn; congruence.
 Qed.
 
-(* TODO: annotate wellformedness in both fix rules *)
-(* annotate pars = 0 *)
-(* use n-ary constructor rule *)
-
-
 Lemma All2_nth_error_Some_right {A B} {P : A -> B -> Type} {l l'} n t :
   All_Forall.All2 P l l' ->
   nth_error l' n = Some t ->
@@ -187,6 +182,15 @@ Proof.
   intros Hall. revert n.
   induction Hall; destruct n; simpl; try congruence. intros [= ->]. exists x. intuition auto.
   eauto.
+Qed.
+
+Lemma eval_Mvar (globals : list (Malfunction.Ident.t * Malfunction.t))
+  (locals : Malfunction.Ident.Map.t) (id : Malfunction.Ident.t) v :
+  v = (Malfunction.Ident.Map.find id locals) ->
+SemanticsSpec.eval globals locals (Malfunction.Mvar id)
+  v.
+Proof.
+  intros ->. econstructor.
 Qed.
 
 Lemma compile_correct Σ s t Γ Γ' :
@@ -204,7 +208,20 @@ Proof.
     rewrite e in HΓ. rewrite <- HΓ.
     econstructor. 
   - (* box app *)
-    cbn. todo "fix statement to talk about box: then we can't just compile, but need to existentially quantify over the environment in the closure".
+    cbn. 
+    destruct (Mapply_u_spec (compile Σ a) (compile Σ t)) as [(fn & arg & E & ->) | (E & ->) ].
+    + destruct a; simp compile; intros [? [=]]. 
+      * destruct (compile Σ a1); cbn in H0; try congruence. destruct p, l; cbn in *; congruence.
+      * revert H0. destruct p. simp compile. unfold compile_unfold_clause_10. 
+        destruct lookup_record_projs; congruence.
+    + rewrite Mapply_spec. 2: destruct arg; cbn; congruence.
+      eapply Mapply_eval.
+      * rewrite <- E. eapply IHHeval1; eauto.
+      * eapply IHHeval2; eauto.
+      * econstructor. 2: econstructor. cbn. reflexivity.
+        eapply eval_Mvar. cbn. repeat f_equal.
+        todo "box".
+    + todo "fix statement to talk about box: then we can't just compile, but need to existentially quantify over the environment in the closure".
   - (* beta *)
     destruct (Mapply_u_spec (compile Σ f1) (compile Σ a)) as [(fn & arg & E & ->) | (E & ->) ].
     + destruct f1; simp compile; intros [? [=]]. 
@@ -350,10 +367,107 @@ Proof.
       repeat f_equal. 
       all: now rewrite map_length.
   - (* recursion *)
-    todo "recursion".
+    cbn.
+    assert ({ l | Forall2 (fun d '(x, y, b) => fst d = x /\ snd d = EAst.tLambda y b) mfix l /\
+                  NoDup (map (fun x => fst (fst x)) l) }) as [l [Hl Hnodup]].
+    {
+     unfold is_true in Hbodies.
+     rewrite forallb_forall, <- Forall_forall in Hbodies.
+     clear - Hbodies n. eapply All_Forall.Forall_All in Hbodies. induction Hbodies.
+     - exists []; repeat econstructor.
+     - cbn in n. destruct IHHbodies as [l_ [Hl1 Hl2]]. now inversion n.
+       destruct x as [na t]. destruct t; cbn in *; try congruence.
+       eexists ((_, _, _) :: l_); cbn; repeat econstructor; eauto.
+       cbn. intros H. inversion n; subst. eapply H2.
+       clear - Hl1 H. induction Hl1; cbn in *; eauto.
+       destruct H, y, p, H0, x; cbn in *; subst; eauto.
+    }
+    eapply All_Forall.Forall2_nth_error_Some in Hl as Hl'.
+    destruct Hl' as ([[na_ na'_] b_] & Hnth_ & Eq & Eq'). 2: eapply Hnth.
+    cbn in *. subst.
+    cbn in IHHeval3. simp compile in IHHeval3.
+    unshelve epose proof (IH := IHHeval3 _ _).
+    exact (fun na => match lookup (add_multiple (map fst mfix) (fix_env mfix Γ') Γ') (String.of_string na) with
+    | Some v => compile_value Σ v
+    | None => fail "notfound"
+    end).
+    intros na. unfold Malfunction.Ident.Map.find. now rewrite of_string_to_string.
+    inversion IH; subst; clear IH.
+    2:{ cbn in *; lia. }
+    eapply (f_equal String.of_string) in H.
+    rewrite !of_string_to_string in H. subst.
+    clear IHHeval3.
+    
+    assert (map
+      (fun x =>
+       (String.to_string ((fst x)),
+        compile Σ (snd x))) mfix =(map
+        (fun '(y0, t) =>
+         let
+         '(x, y) := y0 in
+          (String.to_string (x), compile Σ (EAst.tLambda y t))) l)) as Eqn.
+      { clear -Hl. induction Hl; cbn.
+        - reflexivity.
+        - destruct y as [[] ]. destruct x. cbn in *. destruct H as [-> ->].
+          simp compile.
+          repeat f_equal. eapply IHHl.
+      }   
+    
+    destruct (Mapply_u_spec (compile Σ f5) (compile Σ a)) as [(fn_ & arg & E & ->) | (E & ->) ].
+    + destruct f5; simp compile; intros [? [=]]. 
+      * destruct (compile Σ f5_1); cbn in H0; try congruence. destruct p, l0; cbn in *; congruence.
+      * revert H0. destruct p. simp compile. unfold compile_unfold_clause_10. 
+        destruct lookup_record_projs; congruence.
+    + rewrite Mapply_spec. 2: destruct arg; cbn; congruence.
+      eapply Mapply_eval.
+      * rewrite Hnth in IHHeval1. cbn in IHHeval1. rewrite <- E. cbn in IHHeval1. eauto.
+      * eauto.
+      * cbn. set (Γn := (Malfunction.Ident.Map.add
+      (String.to_string (BasicAst.string_of_name na'_)) 
+      (compile_value Σ av)
+      (fun x : Malfunction.Ident.t =>
+       match
+         lookup (map (fun '(x0, v) => (x0, compile_value Σ v)) Γ')
+           (String.of_string x)
+       with
+       | Some v => v
+       | None => fail "notfound"
+       end))).      
+        unshelve econstructor. 3: econstructor; rewrite H4; eapply IHHeval4.
+        1: refine (add_recs'' Γn (map (fun '(x, y, t) => (bytestring.String.to_string (x), compile Σ (EAst.tLambda y t)) ) l) 
+                                  (map (fun '(x, y, t) => (bytestring.String.to_string (x), (bytestring.String.to_string (BasicAst.string_of_name y), compile Σ t) )) l)).
+        1:{ unfold add_recs. rewrite <- Eqn.
+            generalize ((map (fun x : string * EAst.term =>
+             (String.to_string (fst x), compile Σ (snd x))) mfix)) at 1 3.
+            unfold Malfunction.Ident.Map.find in *.
+            clear - Hl HΓ.
+            induction Hl.
+            * cbn. intros. f_equal.
+            * cbn. 
+              destruct y as [[y1 y3] y2]. cbn in *. destruct x.
+              cbn in *.
+              destruct H as [-> ->]. cbn.
+              simp compile. intros.
+              erewrite IHHl. repeat f_equal.
+        }
+        intros.
+        subst Γn. unfold Malfunction.Ident.Map.add.
+        rewrite lookup_add.
+        destruct (eqb_spec na (BasicAst.string_of_name na'_)). todo "sunny!".
+
+        all: admit.
+    + rewrite Mapply_spec. 2: congruence.
+      econstructor.
+      * cbn in IHHeval1. eapply IHHeval1; eauto.
+      * eauto.
+      * econstructor. 2: econstructor.
+        2: rewrite Hnth; cbn.
+        2: rewrite H4.
+        2: eapply IHHeval4.
+        all: admit.
   - (* fix *)
     cbn.
-    destruct ((MCList.nth_error_Some' mfix (Datatypes.length mfix - idx - 1))) as [_ Hnth].
+    destruct ((MCList.nth_error_Some' mfix (idx))) as [_ Hnth].
     forward Hnth.
     assert (Datatypes.length mfix > 0) by lia.  1: lia. 
     assert ({ l | Forall2 (fun d '(x, y, b) => d.(EAst.dname) = BasicAst.nNamed x /\ d.(EAst.dbody) = EAst.tLambda y b) mfix l /\
@@ -437,10 +551,7 @@ Proof.
             now inversion Hl_; subst.
       }
       rewrite <- Eqn.
-      rewrite MCList.map2_length.
-      rewrite PeanoNat.Nat.min_r.
       all: rename f6 into f.
-      2: eapply All_Forall.Forall2_length in f; lia.
       eapply All_Forall.Forall2_nth_error_Some in f as f'. destruct f' as (? & ? & ?); eauto.
       erewrite TemplateToPCUICCorrectness.nth_error_map2; eauto.
       cbn. repeat f_equal.
@@ -472,5 +583,6 @@ Proof.
       * eapply IHa; eauto.
       * eapply IHa0. destruct IHa. eapply a0.
   - cbn. repeat econstructor.
-Qed.
+  Unshelve. all:todo "evar".
+Admitted.
 Print Assumptions compile_correct.
