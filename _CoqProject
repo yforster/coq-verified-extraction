@@ -1,4 +1,6 @@
--Q theories "Malfunction"
+-Q theories Malfunction
+-Q plugin Malfunction.Plugin
+-I plugin
 
 theories/Malfunction.v
 theories/Interpreter.v
@@ -16,7 +18,7 @@ theories/Deserialize.v
 theories/Compile.v
 theories/Pipeline.v
 
-theories/CompileCorrect.v
+# theories/CompileCorrect.v
 
 theories/Tests.v
 

@@ -25,24 +25,35 @@ let pr_char_list l =
   (* We allow utf8 encoding *)
   str (Caml_bytestring.caml_string_of_bytestring l)
 
-let check ~bypass env evm c =
+let extract ~bypass env evm c dest =
   debug (fun () -> str"Quoting");
-  let term = time (str"Quoting") (Ast_quoter.quote_term_rec ~bypass env) (EConstr.to_constr evm c) in
-  let erase = time (str"Extraction") Pipeline.compile_malfunction term in
-  Feedback.msg_info (pr_char_list erase)
+  let prog = time (str"Quoting") (Ast_quoter.quote_term_rec ~bypass env) (EConstr.to_constr evm c) in
+  let eprog = time (str"Extraction") Pipeline.compile_malfunction prog in
+  match dest with
+  | None -> Feedback.msg_info (pr_char_list eprog)
+  | Some fname -> 
+    let oc = open_out fname in (* Does not raise? *)
+    let () = output_string oc (Caml_bytestring.caml_string_of_bytestring eprog) in
+    let () = output_char oc '\n' in
+    close_out oc;
+    Feedback.msg_notice (str"Extracted written to " ++ str fname)
 }
 
 VERNAC COMMAND EXTEND MetaCoqExtract CLASSIFIED AS QUERY
-| [ "MetaCoq" "Bypass" "Extract" constr(c) ] -> {
-    let env = Global.env () in
-    let evm = Evd.from_env env in
-    let (c, _) = Constrintern.interp_constr env evm c in
-    check ~bypass:true env evm c
+| [ "MetaCoq" "Extract" "-help" ] -> {
+  let usage = "MetaCoq (Bypass)? Extract [term] [output_file]?" in
+  Feedback.msg_notice (str usage)
   }
-| [ "MetaCoq" "Extract" constr(c) ] -> {
+| [ "MetaCoq" "Bypass" "Extract" constr(c) string_opt(dest) ] -> {
     let env = Global.env () in
     let evm = Evd.from_env env in
     let (c, _) = Constrintern.interp_constr env evm c in
-    check ~bypass:false env evm c
+    extract ~bypass:true env evm c dest
+  }
+| [ "MetaCoq" "Extract" constr(c) string_opt(dest) ] -> {
+    let env = Global.env () in
+    let evm = Evd.from_env env in
+    let (c, _) = Constrintern.interp_constr env evm c in
+    extract ~bypass:false env evm c dest
   }  
 END

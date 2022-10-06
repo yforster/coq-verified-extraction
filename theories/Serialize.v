@@ -162,3 +162,14 @@ Definition Serialize_program : Serialize program :=
       List l => List (l ++ ([Atom "export"] :: nil))
     | x => x
     end.
+
+Definition Serialize_module : Serialize program :=
+  fun '(m, x) =>
+    match
+      Cons (Atom "module") (Serialize_list m)
+    with
+      List l =>
+        let exports := List.map (fun x => Atom (Str (fst x))) m in
+        List (l ++ (Cons (Atom "export") (List exports) :: nil))
+    | x => x
+    end.

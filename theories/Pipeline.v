@@ -51,3 +51,8 @@ Definition compile_malfunction (cf := config.extraction_checker_flags) (p : Ast.
   : string :=
   let p' := run malfunction_pipeline p (MCUtils.todo "wf_env and welltyped term"%bs) in
   time "Pretty printing"%bs (fun p => bytestring.String.of_string (@to_string _ Serialize_program p)) p'.
+
+Definition compile_module_malfunction (cf := config.extraction_checker_flags) (p : Ast.Env.program)
+  : string :=
+  let p' := run malfunction_pipeline p (MCUtils.todo "wf_env and welltyped term"%bs) in
+  time "Pretty printing"%bs (fun p => bytestring.String.of_string (@to_string _ Serialize_module p)) p'.

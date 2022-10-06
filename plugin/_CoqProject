@@ -1,6 +1,7 @@
 -I .
 -I extraction
 -Q . Malfunction.Plugin
+
 META.coq-metacoq-malfunction
 # extraction/classes0.mli
 # extraction/classes0.ml
@@ -170,3 +171,4 @@ g_metacoq_malfunction.mlg
 metacoq_malfunction_plugin.mlpack
 
 Loader.v
+tests/test_extract.v

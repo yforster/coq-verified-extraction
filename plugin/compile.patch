@@ -1,0 +1,15 @@
+--- extraction/compile.mli.orig	2022-10-05 18:01:25.000000000 +0200
++++ extraction/compile.mli	2022-10-06 09:28:55.000000000 +0200
+@@ -8,11 +8,11 @@
+ open Kernames
+ open List0
+ open MCList
+-open Malfunction
+ open Nat0
+ open String0
+ open Uint0
+ open Bytestring
++open Malfunction
+ 
+ type __ = Obj.t
+ 

@@ -4,7 +4,7 @@ echo "Cleaning result of extraction"
 
 if [ ! -d "extraction" ]
 then
-    mkdir src
+    mkdir extraction
 fi
 
 shopt -s nullglob # make the for loop do nothnig when there is no *.ml* files
@@ -35,3 +35,6 @@ then
 else
     echo "Extraction up-to date"
 fi
+
+# Extraction bug: opens are in the wrong order
+patch -p0 < compile.patch
