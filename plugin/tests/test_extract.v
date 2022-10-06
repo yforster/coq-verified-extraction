@@ -5,10 +5,12 @@ From Coq Require Vector.
 
 Inductive three := ZERO | ONE | TWO | THREE.
 
+Definition two := TWO.
+
+MetaCoq Extract Module two "tests/three.mlf".
+
 MetaCoq Extract (match cons THREE nil with cons x _ => x | _ => ONE end).
 MetaCoq Extract -help.
-
-MetaCoq Extract plus "plus.mlf".
 
 Fixpoint ack (n m:nat) {struct n} : nat :=
   match n with

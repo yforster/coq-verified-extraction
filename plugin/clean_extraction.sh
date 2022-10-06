@@ -37,4 +37,5 @@ else
 fi
 
 # Extraction bug: opens are in the wrong order
-patch -p0 < compile.patch
+patch -r - -N -p0 -i fix_extraction.patch
+exit 0
