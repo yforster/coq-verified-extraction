@@ -1,0 +1,4 @@
+
+post-all::
+	echo "Done extracting the extraction, moving extraction files!"
+	cd plugin && sh clean_extraction.sh

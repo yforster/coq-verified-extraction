@@ -5,8 +5,8 @@ From MetaCoq.PCUIC Require PCUICAst PCUICAstUtils PCUICProgram.
 From MetaCoq.SafeChecker Require Import PCUICErrors PCUICWfEnvImpl.
 From MetaCoq.Erasure Require EAstUtils ErasureFunction ErasureCorrectness EPretty Extract.
 From MetaCoq.Erasure Require Import ETransform EConstructorsAsBlocks.
-From MetaCoq.Erasure Require Import EWcbvEvalNamed.
-
+From MetaCoq.Erasure Require Import EWcbvEvalNamed Erasure.
+From Ceres Require Import Ceres.
 Import PCUICProgram.
 (* Import TemplateProgram (template_eta_expand).
  *)
@@ -25,52 +25,15 @@ Obligation Tactic := program_simpl.
 
 Import EWcbvEval.
 
-Program Definition block_erasure_pipeline {guard : PCUICWfEnvImpl.abstract_guard_impl} (efl := EWellformed.all_env_flags) :=
-  (* Casts are removed, application is binary, case annotations are inferred from the global environment *)
-  template_to_pcuic_transform ▷
-  (* Branches of cases are expanded to bind only variables, constructor types are expanded accordingly *)
-  pcuic_expand_lets_transform ▷
-  (* Erasure of proofs terms in Prop and types *)
-  erase_transform ▷
-  (* Simulation of the guarded fixpoint rules with a single unguarded one: 
-    the only "stuck" fixpoints remaining are unapplied. 
-    This translation is a noop on terms and environments.  *)
-  guarded_to_unguarded_fix (wcon := eq_refl) eq_refl ▷
-  (* Remove all constructor parameters *)
-  remove_params_optimization (wcon := eq_refl) ▷ 
-  (* Rebuild the efficient lookup table *)
-  rebuild_wf_env_transform (efl := ERemoveParams.switch_no_params EWellformed.all_env_flags) true ▷
-  (* Remove all cases / projections on propositional content *)
-  optimize_prop_discr_optimization (efl := ERemoveParams.switch_no_params EWellformed.all_env_flags) (wcon := eq_refl) (hastrel := eq_refl) (hastbox := eq_refl) ▷
-  (* Rebuild the efficient lookup table *)
-  rebuild_wf_env_transform (efl := EWellformed.all_env_flags) false ▷
-  (* Constructors are treated as blocks, not higher-order *)
-  @constructors_as_blocks_transformation _ _ _ _.
-  (*  ▷
-  (* Named variables and environment semantics *)
-  named_environment_semantics_transformation. *)
-Next Obligation.
-  intros. cbn. MCUtils.todo "ok"%bs.
-Qed.
-Next Obligation.
-  intros. cbn. MCUtils.todo "ok"%bs.
-Qed.
-Next Obligation.
-  intros. cbn. MCUtils.todo "ok"%bs.
-Qed.
-Next Obligation.
-  intros. cbn. MCUtils.todo "ok"%bs.
-Qed.
-
 Require Malfunction.SemanticsSpec Malfunction.Semantics.
-Require Import Malfunction.Compile.
+From Malfunction Require Import Compile Serialize.
 
-Program Definition malfunction_pipeline {guard : PCUICWfEnvImpl.abstract_guard_impl} (efl := EWellformed.all_env_flags) :
+Program Definition malfunction_pipeline (efl := EWellformed.all_env_flags) :
  Transform.t TemplateProgram.template_program Malfunction.program
              Ast.term Malfunction.program
              TemplateProgram.eval_template_program
              (fun _ _ => True) :=
-  block_erasure_pipeline ▷ 
+  erasure_pipeline_fast ▷ 
   _.
 Next Obligation.
   intros. unshelve econstructor.
@@ -83,3 +46,13 @@ Next Obligation.
   - cbn. eauto.
   - cbn. econstructor. refine ([], Malfunction.Mvar _). red. econstructor. eauto.
 Defined.
+
+Definition compile_malfunction (cf := config.extraction_checker_flags) (p : Ast.Env.program)
+  : string :=
+  let p' := run malfunction_pipeline p (MCUtils.todo "wf_env and welltyped term"%bs) in
+  time "Pretty printing"%bs (fun p => bytestring.String.of_string (@to_string _ Serialize_program p)) p'.
+
+Definition compile_module_malfunction (cf := config.extraction_checker_flags) (p : Ast.Env.program)
+  : string :=
+  let p' := run malfunction_pipeline p (MCUtils.todo "wf_env and welltyped term"%bs) in
+  time "Pretty printing"%bs (fun p => bytestring.String.of_string (@to_string _ Serialize_module p)) p'.

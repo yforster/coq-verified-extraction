@@ -71,7 +71,11 @@ Section Compile.
       | tApp fn arg =>
           Mapply_u (compile fn) (compile arg)
       | tConst nm => Mglobal nm
-      | tConstruct i m args => Mblock (int_of_nat m, map_InP args (fun x H => compile x))
+      | tConstruct i m args => 
+        match args with 
+        | [] => Mnum (numconst_Int (int_of_nat m))
+        | _ => Mblock (int_of_nat m, map_InP args (fun x H => compile x))
+        end
       | tCase i mch brs =>
           Mswitch (compile mch, mapi_InP brs 0 (fun i br H => ([Malfunction.Tag (int_of_nat i)], Mapply_ (Mlambda_ (rev_map (fun nm => bytestring.String.to_string (BasicAst.string_of_name nm)) (fst br), compile (snd br)),
                                                                                                           mapi (fun i _ => Mfield (int_of_nat i, compile mch)) (rev (fst br))))))

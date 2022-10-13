@@ -1,4 +1,4 @@
-Require Import String Ascii.
+Require Import String Ascii Bool Arith.
 Require Import Malfunction.Malfunction.
 
 Require Import Ceres.Ceres Ceres.CeresString.
@@ -160,5 +160,47 @@ Definition Serialize_program : Serialize program :=
       Cons (Atom "module") (Serialize_list (m ++ (("_main", x)  :: nil))%list)
     with
       List l => List (l ++ ([Atom "export"] :: nil))
+    | x => x
+    end.
+
+Fixpoint string_map (f : ascii -> ascii) (s : string) : string :=
+  match s with
+  | EmptyString => EmptyString
+  | String c s => String (f c) (string_map f s)
+  end.
+
+Definition dot_to_underscore (id : string) :=
+  string_map (fun c => 
+    match c with
+    | "."%char => "_"%char
+    | _ => c
+    end) id.
+
+Definition uncapitalize_char (c : ascii) : ascii :=
+  let n := nat_of_ascii c in
+  if (65 <=? n)%nat && (n <=? 90)%nat then ascii_of_nat (n + 32)
+  else c.
+
+Definition uncapitalize (s : string) : string :=
+  match s with
+  | EmptyString => EmptyString
+  | String c s => String (uncapitalize_char c) s
+  end.
+
+Definition encode_name (s : string) : string :=
+  uncapitalize (dot_to_underscore s).
+
+Definition exports (m : list (Ident.t * t)) : list (Ident.t * t) :=
+  List.map (fun '(x, v) => (encode_name x, Mglobal x)) m.
+
+Definition Serialize_module : Serialize program :=
+  fun '(m, x) =>
+    let exports := exports m in
+    match
+      Cons (Atom "module") (Serialize_list (m ++ exports)%list)
+    with
+      List l =>
+        let exports := List.map (fun x => Atom (Raw ("$" ++ (fst x)))) exports in
+        List (l ++ (Cons (Atom "export") (List exports) :: nil))
     | x => x
     end.
