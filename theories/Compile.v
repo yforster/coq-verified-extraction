@@ -33,12 +33,12 @@ Qed.
 Local Coercion conv :=
   fun x => bytestring.String.to_string (Kernames.string_of_kername x).
 
+From MetaCoq Require Import EAst.
+
 Section Compile.
   Context (Σ : global_declarations).
 
   Definition int_of_nat n := Uint63.of_Z (Coq.ZArith.BinInt.Z.of_nat n).
-
-  Import TermSpineView.
 
   Definition Mapply_ '(e, l) :=
       match l with [] => e | _ => Mapply (e, l) end.
@@ -57,10 +57,16 @@ Section Compile.
     | None => None
     end.
 
-  From MetaCoq Require Import EAst.
+  Definition lookup_constructor_args (e : global_declarations) (ind : Kernames.inductive) : option (list nat) :=
+    match lookup_inductive e ind with
+    | Some (mdecl, idecl) => Some (map cstr_nargs idecl.(ind_ctors))
+    | None => None
+    end.
 
   Definition Mapply_u t a :=
     match t with Mapply (fn, args) => Mapply (fn, List.app args [a]) | _ => Mapply (t, [a]) end.
+
+  Obligation Tactic := idtac.
 
   Equations? compile (t: term) : Malfunction.t
     by wf t (fun x y : EAst.term => size x < size y) :=
@@ -71,14 +77,34 @@ Section Compile.
       | tApp fn arg =>
           Mapply_u (compile fn) (compile arg)
       | tConst nm => Mglobal nm
-      | tConstruct i m args => 
-        match args with 
-        | [] => Mnum (numconst_Int (int_of_nat m))
-        | _ => Mblock (int_of_nat m, map_InP args (fun x H => compile x))
+      | tConstruct i m [] =>
+        match lookup_constructor_args Σ i with
+        | Some num_args => let num_args_until_m := firstn m num_args in
+                          let index := #| filter (fun x => match x with 0 => true | _ => false end) num_args_until_m| in
+                          Mnum (numconst_Int (int_of_nat index))
+        | None => Mstring "inductive not found"
+        end
+      | tConstruct i m args =>
+        match lookup_constructor_args Σ i with
+        | Some num_args => let num_args_until_m := firstn m num_args in
+                          let index := #| filter (fun x => match x with 0 => false | _ => true end) num_args_until_m| in
+                          Mblock (int_of_nat index, map_InP args (fun x H => compile x))
+        | None => Mstring "inductive not found"
         end
       | tCase i mch brs =>
-          Mswitch (compile mch, mapi_InP brs 0 (fun i br H => ([Malfunction.Tag (int_of_nat i)], Mapply_ (Mlambda_ (rev_map (fun nm => bytestring.String.to_string (BasicAst.string_of_name nm)) (fst br), compile (snd br)),
+          match lookup_constructor_args Σ (fst i) with
+          | Some num_args =>
+              Mswitch (compile mch, mapi_InP brs 0 (fun i br H => (match fst br with
+                                                                | [] => let num_args_until_i := firstn i num_args in
+                                                                       let index := #| filter (fun x => match x with 0 => true | _ => false end) num_args_until_i| in
+                                                                       [Malfunction.Tag (int_of_nat index)]
+                                                                | args => let num_args_until_i := firstn i num_args in
+                                                                         let index := #| filter (fun x => match x with 0 => false | _ => true end) num_args_until_i| in
+                                                                         [Malfunction.Intrange (int_of_nat index, int_of_nat index)]
+                                                                end, Mapply_ (Mlambda_ (rev_map (fun nm => bytestring.String.to_string (BasicAst.string_of_name nm)) (fst br), compile (snd br)),
                                                                                                           mapi (fun i _ => Mfield (int_of_nat i, compile mch)) (rev (fst br))))))
+          | None => Mstring "inductive not found"
+          end
       | tFix mfix idx =>
           let bodies := map_InP mfix (fun d H => (bytestring.String.to_string (BasicAst.string_of_name (d.(dname))), compile d.(dbody))) in
           Mlet ([Recursive bodies], Mvar (fst (nth (idx) bodies ("", Mstring ""))))
@@ -93,13 +119,13 @@ Section Compile.
       | tPrim _ => Mstring "Prim".
     Proof.
       all: try (cbn; lia).
-    - eapply (In_size id size) in H.
-      unfold id in H. change size with (fun x => size x) at 2. lia.
-    - eapply (In_size snd size) in H. cbn in H.
-      lia.
-    - eapply (In_size dbody size) in H. cbn in H. lia.
-  Qed.
-  
+      - subst args. eapply (In_size id size) in H.
+        unfold id in H. change size with (fun x => size x) at 2. cbn [size]. exact H.
+      - eapply (In_size snd size) in H. cbn in *.
+        lia.
+      - eapply (In_size dbody size) in H. cbn in *. lia.
+    Qed.
+ 
 End Compile.
 
 Definition compile_constant_decl Σ cb := 
@@ -126,5 +152,5 @@ Fixpoint compile_env' Σ : list (string * t) :=
               end
   end.
 
-Definition compile_program (p : EProgram.eprogram) : program :=
+Definition compile_program (p : EProgram.eprogram) : Malfunction.program :=
   (compile_env (fst p), compile (fst p) (snd p)).
