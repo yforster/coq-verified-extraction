@@ -14,7 +14,7 @@ Verification is work in progress.
 opam switch create coq-malfunction --packages="ocaml-variants.4.13.1+options,ocaml-option-flambda"
 eval $(opam env --switch=coq-malfunction)
 opam repo add coq-released https://coq.inria.fr/opam/released
-opam pin add coq-metacoq-erasure+unshadowing+dev https://github.com/yforster/template-coq.git#unshadowing
+opam pin add coq-metacoq-erasure "https://github.com/yforster/template-coq.git#unshadowing"
 make
 ```
 
