@@ -1,10 +1,11 @@
-From MetaCoq Require Import PCUICAstUtils.
-From MetaCoq.Erasure Require Import EAst ESpineView EEtaExpanded EInduction ERemoveParams Erasure EGlobalEnv.
-From Malfunction Require Import Malfunction.
-From Equations Require Import Equations.
 From Coq Require Import List String Arith Lia.
 Import ListNotations.
-From MetaCoq Require Import MCList.
+From Equations Require Import Equations.
+
+From MetaCoq Require Import PCUICAstUtils MCList.
+From MetaCoq.Erasure Require Import EAst ESpineView EEtaExpanded EInduction ERemoveParams Erasure EGlobalEnv.
+
+From Malfunction Require Import Malfunction.
 
 Section MapiInP.
   Context {A B : Type}.
@@ -68,6 +69,12 @@ Section Compile.
 
   Obligation Tactic := idtac.
 
+  Definition to_primitive (v : PCUICPrimitive.prim_val EAst.term) : Malfunction.t :=
+    match projT2 v with
+    | PCUICPrimitive.primIntModel i => Mnum (numconst_Int i)
+    | PCUICPrimitive.primFloatModel f => Mnum (numconst_Float64 f)
+    end.
+
   Equations? compile (t: term) : Malfunction.t
     by wf t (fun x y : EAst.term => size x < size y) :=
       | tRel n => Mstring "tRel"
@@ -116,7 +123,7 @@ Section Compile.
       | tCoFix mfix idx => Mstring "TCofix"
       | tVar na => Mvar (bytestring.String.to_string na)
       | tEvar _ _ => Mstring "Evar"
-      | tPrim _ => Mstring "Prim".
+      | tPrim p => to_primitive p.
     Proof.
       all: try (cbn; lia).
       - subst args. eapply (In_size id size) in H.
