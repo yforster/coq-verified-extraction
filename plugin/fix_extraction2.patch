@@ -1,0 +1,21 @@
+*** extraction/serialize.mli	2022-12-06 16:11:44.314092830 +0100
+--- extraction/serialize.new	2022-12-06 16:11:54.293970696 +0100
+*************** open CeresSerialize
+*** 4,11 ****
+  open CeresString
+  open Datatypes
+  open List0
+- open Malfunction
+  open Nat0
+  open PeanoNat
+  open String0
+  
+--- 4,11 ----
+  open CeresString
+  open Datatypes
+  open List0
+  open Nat0
++ open Malfunction
+  open PeanoNat
+  open String0
+  
