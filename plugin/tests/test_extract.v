@@ -7,7 +7,10 @@ Inductive three := ZERO | ONE | TWO | THREE.
 
 Definition two := TWO.
 
-MetaCoq Extract Module two "tests/three.mlf".
+MetaCoq Extract Module two "two.mlf".
+
+From Malfunction Require Import Compile.
+MetaCoq Extract Module compile "compile.mlf".
 
 MetaCoq Extract (match cons THREE nil with cons x _ => x | _ => ONE end).
 MetaCoq Extract -help.

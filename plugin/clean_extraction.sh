@@ -38,4 +38,5 @@ fi
 
 # Extraction bug: opens are in the wrong order
 patch -r - -N -p0 -i fix_extraction.patch
+patch -r - -N -p0 -i fix_extraction2.patch
 exit 0
