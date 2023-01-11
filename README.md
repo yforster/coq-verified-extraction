@@ -15,6 +15,7 @@ opam switch create coq-malfunction --packages="ocaml-variants.4.13.1+options,oca
 eval $(opam env --switch=coq-malfunction)
 opam repo add coq-released https://coq.inria.fr/opam/released
 opam pin add coq-metacoq-erasure "https://github.com/yforster/template-coq.git#unshadowing"
+opam pin add coq-ceres "https://github.com/yforster/coq-ceres.git#master"
 make
 ```
 

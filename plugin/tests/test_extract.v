@@ -1,4 +1,5 @@
 From Malfunction.Plugin Require Import Loader.
+From MetaCoq.Template Require Import All.
 
 From Coq Require Import String.
 From Coq Require Vector.
@@ -11,6 +12,14 @@ MetaCoq Extract Module two "two.mlf".
 
 From Malfunction Require Import Compile.
 MetaCoq Extract Module compile "compile.mlf".
+
+From Malfunction Require Import Pipeline.
+MetaCoq Extract Module compile_malfunction "compile_malfunction.mlf".
+(* 
+MetaCoq Quote Recursively Definition tm := compile_malfunction.
+
+Definition test := compile_malfunction tm.
+MetaCoq Extract Module test "test.mlf". *)
 
 MetaCoq Extract (match cons THREE nil with cons x _ => x | _ => ONE end).
 MetaCoq Extract -help.

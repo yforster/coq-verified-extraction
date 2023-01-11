@@ -14,7 +14,7 @@ Definition Mlet_ '(l, b) :=
   end.
 
 Definition eval_malfunction (cf := config.extraction_checker_flags) (p : Ast.Env.program)
-  : String.string :=
+  : string :=
   let p' := run malfunction_pipeline p (MCUtils.todo "wf_env and welltyped term"%bs) in
   let t := Mlet_ (MCList.rev_map Malfunction.Named (fst p'), snd p') in
   time "Pretty printing"%bs (@to_string _ Serialize_t) t.
@@ -27,7 +27,7 @@ Definition eval_malfunction_sexp (cf := config.extraction_checker_flags) (p : As
 
 
 Definition compile_malfunction {cf : config.checker_flags} (p : Ast.Env.program)
-  : String.string :=
+  : string :=
   let p' := run malfunction_pipeline p (MCUtils.todo "wf_env and welltyped term"%bs) in
   time "Pretty printing"%bs (@to_string _ Serialize_program) p'.
 
@@ -40,7 +40,7 @@ Definition extract {A : Type} (a : A) :=
   t <- tmQuoteRec a ;;
   s <- tmEval lazy (eval_malfunction t) ;;
   (* tmMsg "Extraction to Malfunction:"%bs ;; *)
-  tmMsg (String.of_string s) ;; tmReturn tt.
+  tmMsg s ;; tmReturn tt.
 
 Definition extract_def {A : Type} (a : A) (nm : string) :=
   t <- tmQuoteRec a ;;
@@ -57,7 +57,7 @@ Definition interpret_mlf {A : Type} (a : A) :=
   s <- tmEval lazy (eval_malfunction_sexp t) ;;
   v <- tmEval lazy (interpret (fun x => fail "empty"%string) s) ;;
   (* tmMsg "Extraction to Malfunction:"%bs ;; *)
-  tmMsg (String.of_string (to_string v)) ;; tmReturn tt.
+  tmMsg (to_string v) ;; tmReturn tt.
 
 End something.
 

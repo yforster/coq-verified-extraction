@@ -7,6 +7,7 @@ Import ListNotations.
 Open Scope string_scope.
 
 Require Import Malfunction.Malfunction Malfunction.Deserialize Ceres.Ceres.
+From MetaCoq Require bytestring.
 
 (* type value = *)
 (* | Block of int * value array *)
@@ -218,7 +219,7 @@ Fixpoint interpret
   | Mapply (f_, vs) =>
      List.fold_left (fun f v => match f with
      | Func f => f (interpret locals v)
-     | v_wrong => fail ("not a function: " ++ to_string f_ ++ " evaluated to: " ++ to_string v_wrong) end) vs (interpret locals f_)
+     | v_wrong => fail ("not a function: " ++ bytestring.String.to_string (to_string f_) ++ " evaluated to: " ++ bytestring.String.to_string (to_string v_wrong)) end) vs (interpret locals f_)
   | Mlet (bindings, body) =>
      let bind :=
         fix bind (locals : @Ident.Map.t value) (bindings : list binding) : value :=

@@ -14,7 +14,8 @@ install: [
 ]
 depends: [
   "coq" {= "8.16+rc1"}
-  "coq-ceres" 
+  "coq-ceres"
+  "coq-metacoq-erasure"
 ]
 
 synopsis: "Mechanised semantics of malfunction in Coq"
