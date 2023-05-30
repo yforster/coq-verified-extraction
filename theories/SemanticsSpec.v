@@ -19,9 +19,8 @@ Definition CanonicalHeap : Heap :=
    heapGen := fun value => (int * (int -> list value)) % type;
    fresh :=  fun _ '(ptr,h) fresh_ptr '(ptr',h') => Int63.ltb ptr fresh_ptr = true /\ fresh_ptr = ptr' /\ h = h' ;
    deref := fun _ '(_,h) ptr val => h ptr = val;
-   update := fun _ '(_,h) ptr arr '(_,h') => forall ptr', h' ptr' = if Int63.eqb ptr ptr' then arr else h ptr |}. 
-
-Record fresh_id : Type := freshid {}.
+   update := fun _ '(max_ptr,h) ptr arr '(max_ptr',h') => 
+     max_ptr' = int_of_nat (max (int_to_nat max_ptr) (int_to_nat ptr)) /\ forall ptr', h' ptr' = if Int63.eqb ptr ptr' then arr else h ptr |}. 
 
 Inductive rec_value `{Heap} := 
   | RFunc of Ident.t * t
@@ -33,7 +32,7 @@ Inductive value `{Heap} :=
 | Vec of vector_type * pointer
 | BString of vector_type * pointer
 | Func of @Ident.Map.t value * Ident.t *  t
-| RClos of @Ident.Map.t value * list rec_value * nat
+| RClos of @Ident.Map.t value * list Ident.t * list rec_value * nat
 | Lazy of @Ident.Map.t value * t
 | value_Int of inttype * Z
 | Float of float
@@ -123,7 +122,10 @@ Definition RFunc_build `{Heap} recs :=
     recs.
 
 Definition add_recs `{Heap} locals (self : list Ident.t) rfunc := 
-    mapi (fun n x => (x , RClos (locals, rfunc, n))) self.
+    mapi (fun n x => (x , RClos (locals, self, rfunc, n))) self.
+
+Definition add_self `{Heap} self rfunc locals := 
+    List.fold_left (fun l '(x,t) => Ident.Map.add x t l) (add_recs locals self rfunc) locals.
 
 Definition Forall2Array {A B:Type} (R : A -> B -> Prop) 
   (l:list A) (a:array B) default := 
@@ -154,11 +156,11 @@ Inductive eval (locals : @Ident.Map.t value) : heap -> t -> heap -> value -> Pro
   eval locals h1 e2 h2 v2 ->
   eval (Ident.Map.add x v2 locals') h2 e h3 v ->
   eval locals h (Mapply (e1, [e2])) h3 v
-| eval_app_sing_rec h h1 h2 h3 mfix n y e locals' locals'' e2 v2 e1 v : 
-  eval locals h e1 h1 (RClos (locals', mfix , n)) -> 
+| eval_app_sing_rec h h1 h2 h3 mfix self n y e locals' e2 v2 e1 v : 
+  eval locals h e1 h1 (RClos (locals', self, mfix , n)) -> 
   eval locals h1 e2 h2 v2 ->
   nth n mfix Bad_recursive_value = RFunc (y , e) -> 
-  eval (Ident.Map.add y v2 locals'') h2 e h3 v ->
+  eval (Ident.Map.add y v2 (add_self self mfix locals')) h2 e h3 v ->
   eval locals h (Mapply (e1, [e2])) h3 v
 | eval_app_fail h h1 e2 e1 v :
   eval locals h e1 h1 v ->
@@ -179,12 +181,10 @@ Inductive eval (locals : @Ident.Map.t value) : heap -> t -> heap -> value -> Pro
   eval locals h e1 h1 v1 ->
   eval (Ident.Map.add x v1 locals) h1 (Mlet (lts, e2)) h2 v ->
   eval locals h (Mlet (Named (x,e1) :: lts, e2)) h2 v 
-| eval_let_rec h h1 recs newlocals lts e2 v :
+| eval_let_rec h h1 recs lts e2 v :
   let self := map fst recs in
   let rfunc := RFunc_build (map snd recs) in
-    newlocals = fold_left (fun l '(x,t) => Ident.Map.add x t l) 
-                          (add_recs locals self rfunc) locals ->
-    eval newlocals h (Mlet (lts, e2)) h1 v ->
+    eval (add_self self rfunc locals) h (Mlet (lts, e2)) h1 v ->
     eval locals h (Mlet (Recursive recs :: lts, e2)) h1 v 
 | eval_switch h h1 h2 scr cases v v' e :
   eval locals h scr h1 v' ->
