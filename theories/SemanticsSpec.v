@@ -154,7 +154,7 @@ Inductive eval (locals : @Ident.Map.t value) : heap -> t -> heap -> value -> Pro
   eval locals h1 e2 h2 v2 ->
   eval (Ident.Map.add x v2 locals') h2 e h3 v ->
   eval locals h (Mapply (e1, [e2])) h3 v
-| eval_app_sing_rec h h1 h2 h3 mfix n y e locals' locals'' e2 v2 e1 v : (* todo *)
+| eval_app_sing_rec h h1 h2 h3 mfix n y e locals' locals'' e2 v2 e1 v : 
   eval locals h e1 h1 (RClos (locals', mfix , n)) -> 
   eval locals h1 e2 h2 v2 ->
   nth n mfix Bad_recursive_value = RFunc (y , e) -> 
@@ -234,7 +234,7 @@ Inductive eval (locals : @Ident.Map.t value) : heap -> t -> heap -> value -> Pro
   In (nm, v) globals ->
   eval locals h (Mglobal nm) h v.
 
-Lemma eval_inf :
+Lemma eval_ind :
 forall P : Ident.Map.t -> heap -> t -> heap -> value -> Prop,
        (forall (locals : Ident.Map.t) (h : heap) (x : Ident.t) (e : t),
         P locals h (Mlambda ([x], e)) h (Func (locals, x, e))) ->
