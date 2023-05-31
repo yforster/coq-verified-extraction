@@ -122,10 +122,10 @@ Definition RFunc_build `{Heap} recs :=
     recs.
 
 Definition add_recs `{Heap} locals (self : list Ident.t) rfunc := 
-    mapi (fun n x => (x , RClos (locals, self, rfunc, n))) self.
+    mapi (fun n x => (x , RClos (locals, self, rfunc, List.length self - S n))) self.
 
 Definition add_self `{Heap} self rfunc locals := 
-    List.fold_left (fun l '(x,t) => Ident.Map.add x t l) (add_recs locals self rfunc) locals.
+    List.fold_right (fun '(x,t) l => Ident.Map.add x t l) locals (add_recs locals self rfunc).
 
 Definition Forall2Array {A B:Type} (R : A -> B -> Prop) 
   (l:list A) (a:array B) default := 
@@ -303,8 +303,8 @@ forall P : Ident.Map.t -> heap -> t -> heap -> value -> Prop,
         let self := map fst recs in
         let rfunc := RFunc_build (map snd recs) in
         newlocals =
-        fold_left (fun (l : Ident.Map.t) '(x, t) => Ident.Map.add x t l)
-          (add_recs locals self rfunc) locals ->
+        fold_right (fun '(x, t) (l : Ident.Map.t) => Ident.Map.add x t l)
+          locals (add_recs locals self rfunc) ->
         eval newlocals h (Mlet (lts, e2)) h1 v ->
         P newlocals h (Mlet (lts, e2)) h1 v ->
         P locals h (Mlet (Recursive recs :: lts, e2)) h1 v) ->
@@ -378,7 +378,7 @@ Proof.
         H_let_rec H_switch H_block H_field H_field_fail H_lazy H_force_done H_force H_force_fail H_global.
   fix f 6. intros locals h t h' v [| | | | | | | | | | | | ? ? ? ? ? Hforall | | | | | | | ].
   1-12, 15-20:eauto.
-  - eapply H_block; eauto. induction Hforall; try econstructor; eauto. 
+    - eapply H_block; eauto. induction Hforall; try econstructor; eauto. 
     eapply IHHforall. cbn in *. lia.  
   - eapply H_field. 1: eauto. 1: eauto. all: lia.
 Qed.

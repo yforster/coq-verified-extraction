@@ -17,7 +17,7 @@ Definition lookup {A} (E : list (Kernames.ident * A)) (x : string) :=
 Fixpoint compile_value `{H : Heap} (Σ : EAst.global_declarations) (s : EWcbvEvalNamed.value) : SemanticsSpec.value :=
   match s with
   | vBox =>
-      Func ((fun _ => fail "empty"), "_"%string,   Malfunction.Mlet ([Malfunction.Recursive [("reccall", Malfunction.Mlambda (["_"], Malfunction.Mvar "reccall") )]], Malfunction.Mvar "reccall"))
+      RClos (fun _ => fail "empty", ["reccall"], [RFunc ("_", Malfunction.Mvar "reccall")], 0)
   | vClos na b env => Func ((fun x => match lookup (map (fun '(x,v) => (x, compile_value Σ v)) env) (String.of_string x) with Some v => v | None => fail "notfound" end), bytestring.String.to_string na, compile Σ b)
   | vConstruct i m [] =>
       match lookup_constructor_args Σ i with
@@ -33,25 +33,18 @@ Fixpoint compile_value `{H : Heap} (Σ : EAst.global_declarations) (s : EWcbvEva
                         Block (int_of_nat index, map (compile_value Σ) args)
       | None => fail "inductive not found"
       end
-  | vRecClos mfix idx env => let y'_t' :=
-                              match
-                                nth_error mfix (idx ) with Some (dname, EAst.tLambda y' t') => (String.to_string (BasicAst.string_of_name y'), t')
-                                                      | _ => ("", EAst.tVar "invalid recursive closure"%bs)
-                              end in
-                            let e := Malfunction.Mlet
-                                       ([Malfunction.Recursive
-                                           (map
-                                              (fun x =>
-                                                 (String.to_string ( (fst x)),
-                                                   compile Σ (snd x))) mfix)], compile Σ (snd y'_t')) in
-                            Func
-                              (
-                                fun x => (* if in_dec string_dec x (freenames e)
-                                         then *) match lookup (map (fun '(x,v) => (x, compile_value Σ v)) env) (String.of_string x) with Some v => v | _ => fail "notfound" end
-                                  (* else fail "notfree" *), fst y'_t', e
-                              )
+  | vRecClos mfix idx env => 
+       RClos ((fun x => match lookup (map (fun '(x,v) => (x, compile_value Σ v)) env) (String.of_string x) with Some v => v | None => fail "notfound" end),
+              map String.to_string (map fst mfix),
+              map (fun '(_, b) => 
+                match b with
+                | EAst.tLambda na bd => RFunc (String.to_string (BasicAst.string_of_name na), compile Σ bd)
+                | _ => Bad_recursive_value
+                end
+              ) mfix,
+              idx)
   end.
-
+  
 Require Import FunctionalExtensionality.
 
 Lemma to_string_of_string s : 
@@ -168,6 +161,30 @@ Proof.
   generalize (@nil Malfunction.t) at 1 2.
   induction args in e1 |- *; intros l Hleft Hright Happ; cbn.
   - econstructor; cbn in *; eauto.
+  - cbn. econstructor.
+    replace (Malfunction.Mapply (Mnapply e1 l, [a])) with
+    (Mnapply e1 (l ++ [a])) by now rewrite Mnapply_app. cbn.
+    eapply IHargs; eauto.
+    cbn in Hleft.
+    eapply eval_app_nested_inv with (args := a :: args) in Hleft.
+    eapply eval_app_nested_. now rewrite <- app_assoc.
+Qed.
+
+Lemma Mapply_eval_rec `{H : Heap} globals locals (x : Malfunction.Ident.t)
+    (locals' : Malfunction.Ident.Map.t)
+    (e2 : Malfunction.t) (v2 : SemanticsSpec.value)
+    (e1 : Malfunction.t) (v : SemanticsSpec.value) args h1 h2 h3 h4 
+    self mfix n e :
+    nth n mfix Bad_recursive_value = RFunc (x , e) -> 
+    SemanticsSpec.eval globals locals h1 (Mapply_ (e1, args)) h2 (RClos (locals', self, mfix, n)) ->
+    SemanticsSpec.eval globals locals h2 e2 h3 v2 ->
+    SemanticsSpec.eval globals (Malfunction.Ident.Map.add x v2 (add_self self mfix locals')) h3 e h4 v ->
+    SemanticsSpec.eval globals locals h1 (Malfunction.Mapply (e1, args ++ [e2]))%list h4 v.
+Proof.
+  replace e1 with (Mnapply e1 []) by reflexivity.
+  generalize (@nil Malfunction.t) at 1 2.
+  induction args in e1 |- *; intros l Hnth Hleft Hright Happ; cbn.
+  - eapply eval_app_sing_rec; eauto.
   - cbn. econstructor.
     replace (Malfunction.Mapply (Mnapply e1 l, [a])) with
     (Mnapply e1 (l ++ [a])) by now rewrite Mnapply_app. cbn.
@@ -303,18 +320,16 @@ Proof.
         destruct lookup_record_projs; congruence.
       * revert H0. destruct p; cbn. unfold to_primitive. cbn. destruct p; cbn; congruence.
     + rewrite Mapply_spec. 2: destruct arg; cbn; congruence.
-      eapply Mapply_eval.
-      * rewrite <- E. eapply IHHeval1; eauto.
+      eapply Mapply_eval_rec.
+      2:{ rewrite <- E. eapply IHHeval1; eauto. }
+      * reflexivity.
       * eapply IHHeval2; eauto.
-      * econstructor. admit. (*  3: econstructor. 2: cbn. 2: reflexivity.
-        2: eapply eval_Mvar. 2: cbn. 2: reflexivity.
-        unfold equiv_wrt. cbn. intros ? [<- | []]; reflexivity. *)
-    + cbn. econstructor.
+      * unfold add_self. cbn. econstructor.
+    + cbn. eapply eval_app_sing_rec.
       * eapply IHHeval1; eauto.
       * eapply IHHeval2; eauto.
-      * econstructor. (* 2: cbn; reflexivity.
-        2: econstructor. 2: eapply eval_Mvar. 2: cbn; reflexivity.
-        unfold equiv_wrt. cbn. intros ? [<- | []]; reflexivity. *) admit.
+      * reflexivity.
+      * econstructor.
   - (* beta *)
     destruct (Mapply_u_spec (compile Σ f1) (compile Σ a)) as [(fn & arg & E & ->) | (E & ->) ].
     + destruct f1; simp compile; intros [? [=]].
@@ -378,12 +393,12 @@ Proof.
                                        | Some v => v
                                        | None => fail "notfound"
                                        end)).
-    econstructor. (*  eapply equiv_wrt_refl.
-    intros x. unfold Malfunction.Ident.Map.find in *.
-    specialize (HΓ (String.of_string x)).
-    rewrite to_string_of_string in HΓ.
-    rewrite HΓ, lookup_map.
-    destruct (lookup _ (String.of_string x)); eauto. *) admit.
+    econstructor.
+    intros x. specialize (HΓ (String.of_string x)). rewrite to_string_of_string in HΓ.
+    unfold Malfunction.Ident.Map.find in HΓ.
+    rewrite HΓ.
+    rewrite lookup_map.
+    now destruct lookup.
   - (* let *)
     cbn. econstructor.
     + now eapply IHHeval1.
@@ -400,275 +415,74 @@ Proof.
         -- rewrite <- HΓ. reflexivity.
   - (* case *)
     todo "case"%bs.
-    (* replace ((Malfunction.Mswitch *)
-    (* (compile Σ discr, *)
-    (*  mapi_InP brs 0 *)
-    (*    (fun (i : nat) (br0 : list BasicAst.name * EAst.term) *)
-    (*       (_ : In br0 brs) => *)
-    (*     ([Malfunction.Tag (Compile.int_of_nat i)], *)
-    (*      Compile.Mapply_ *)
-    (*        (Compile.Mlambda_ *)
-    (*           (MCList.rev_map *)
-    (*              (fun nm : BasicAst.name => *)
-    (*               String.to_string (BasicAst.string_of_name nm))  *)
-    (*              (fst br0), compile Σ (snd br0)), *)
-    (*         MCList.mapi *)
-    (*           (fun (i0 : nat) (_ : BasicAst.name) => *)
-    (*            Malfunction.Mfield (Compile.int_of_nat i0, compile Σ discr)) *)
-    (*           (MCList.rev (fst br0)))))))) *)
-    (*           with (Mcase (compile Σ discr, map (fun '(brs, b) => (MCList.rev_map (fun x => String.to_string (BasicAst.string_of_name x)) brs, compile Σ b)) brs)). *)
-    (* + destruct br as [br1 br2]. *)
-    (*   eapply eval_case.  *)
-    (*   * cbn in *. eapply IHHeval1. eauto. *)
-    (*   * rewrite nth_error_map, e1. cbn. reflexivity. *)
-    (*   * cbn in *. rename f4 into f. clear - f n. rewrite MCList.rev_map_spec. eapply NoDup_rev. induction f. *)
-    (*     -- econstructor. *)
-    (*     -- cbn. inversion n; subst. econstructor. 2: eauto. *)
-    (*        intros (? & ? & ?) % in_map_iff. *)
-    (*        eapply (f_equal String.of_string) in H. rewrite !of_string_to_string in H. *)
-    (*        cbn in H. subst. *)
-    (*        eapply H2. clear - f H0. *)
-    (*        induction f; cbn in *. tauto. destruct H0 as [-> | ?]. inversion H; subst. eauto. subst. eauto.            *)
-    (*   * rewrite !map_length. cbn in *. rewrite MCList.rev_map_spec. rewrite rev_length, map_length. lia.  *)
-    (*   * cbn in *. eapply IHHeval2. intros na. *)
-    (*     rewrite lookup_multiple. *)
-    (*     all: rename f4 into f. *)
-    (*     clear - HΓ f e3. rename e3 into e2. *)
-    (*     induction br1 using rev_ind in nms, f, e2, br1, args |- *. *)
-    (*     -- inversion f. subst. cbn. now eapply HΓ. *)
-    (*     -- eapply Forall2_app_inv_l in f as (? & ? & ? & ? & ->). inversion H0. subst. inversion H5. *)
-    (*        subst. rewrite rev_app_distr. *)
-    (*        destruct args; rewrite app_length in e2; cbn in *; try lia. *)
-    (*        rewrite MCList.rev_map_spec. rewrite map_app. *)
-    (*        rewrite rev_app_distr. cbn. *)
-    (*        unfold Malfunction.Ident.Map.add, Malfunction.Ident.eqb. *)
-    (*        destruct (eqb_spec na y). *)
-    (*        ++ subst. now rewrite String.eqb_refl. *)
-    (*        ++ destruct (String.eqb_spec (String.to_string na) (String.to_string y)). *)
-    (*           ** eapply (f_equal (String.of_string)) in e. rewrite !of_string_to_string in e. congruence. *)
-    (*           ** rewrite <- IHbr1. 2: lia. 2: eauto. *)
-    (*              rewrite MCList.rev_map_spec. reflexivity. *)
-    (*     -- eapply All_Forall.Forall2_length in f. rewrite rev_length. lia. *)
-    (* + unfold Mcase. repeat f_equal. *)
-    (*   rewrite !MCList.mapi_map. *)
-    (*   rewrite !mapi_InP_spec. *)
-    (*   eapply MCList.mapi_ext. clear. intros n [nms br]. *)
-    (*   f_equal. change Mapply_ with Compile.Mapply_. *)
-    (*   f_equal. change Mlambda_ with Compile.Mlambda_. *)
-    (*   f_equal. cbn [fst snd]. *)
-    (*   rewrite MCList.rev_map_spec. cbn. *)
-    (*   rewrite !MCList.mapi_rev.  *)
-    (*   rewrite MCList.mapi_map. *)
-    (*   rewrite rev_spec. *)
-    (*   rewrite !MCList.mapi_rev. f_equal. *)
-    (*   eapply MCList.mapi_ext. intros. *)
-    (*   repeat f_equal.  *)
-    (*   all: now rewrite map_length. *)
    - (* recursion *)
-    cbn. todo "recursion"%bs.
-    (* assert ({ l | Forall2 (fun d '(x, y, b) => fst d = x /\ snd d = EAst.tLambda y b) mfix l /\
-                  NoDup (map (fun x => fst (fst x)) l) }) as [l [Hl Hnodup]].
-    {
-     unfold is_true in Hbodies.
-     rewrite forallb_forall, <- Forall_forall in Hbodies.
-     clear - Hbodies n. eapply All_Forall.Forall_All in Hbodies. induction Hbodies.
-     - exists []; repeat econstructor.
-     - cbn in n. destruct IHHbodies as [l_ [Hl1 Hl2]]. now inversion n.
-       destruct x as [na t]. destruct t; cbn in *; try congruence.
-       eexists ((_, _, _) :: l_); cbn; repeat econstructor; eauto.
-       cbn. intros H. inversion n; subst. eapply H2.
-       clear - Hl1 H. induction Hl1; cbn in *; eauto.
-       destruct H, y, p, H0, x; cbn in *; subst; eauto.
-    } *)
-    (* eapply All_Forall.Forall2_nth_error_Some in Hl as Hl'. *)
-    (* destruct Hl' as ([[na_ na'_] b_] & Hnth_ & Eq & Eq'). 2: eapply Hnth. *)
-    (* cbn in *. subst. *)
-    (* cbn in IHHeval3. simp compile in IHHeval3. *)
-    (* unshelve epose proof (IH := IHHeval3 _ _). *)
-    (* exact (fun na => match lookup (add_multiple (map fst mfix) (fix_env mfix Γ') Γ') (String.of_string na) with *)
-    (* | Some v => compile_value Σ v *)
-    (* | None => fail "notfound" *)
-    (* end). *)
-    (* intros na. unfold Malfunction.Ident.Map.find. now rewrite of_string_to_string. *)
-    (* inversion IH; subst; clear IH. *)
-    (* 2:{ cbn in *; lia. } *)
-    (* eapply (f_equal String.of_string) in H. *)
-    (* rewrite !of_string_to_string in H. subst. *)
-    (* clear IHHeval3. *)
-    (* assert (map
-      (fun x =>
-       (String.to_string ((fst x)),
-        compile Σ (snd x))) mfix =(map
-        (fun '(y0, t) =>
-         let
-         '(x, y) := y0 in
-          (String.to_string (x), compile Σ (EAst.tLambda y t))) l)) as Eqn.
-      { clear -Hl. induction Hl; cbn.
-        - reflexivity.
-        - destruct y as [[] ]. destruct x. cbn in *. destruct H as [-> ->].
-          simp compile.
-          repeat f_equal. eapply IHHl.
-      }
+    cbn.
+    cbn - [compile_value] in *. subst.
     destruct (Mapply_u_spec (compile Σ f5) (compile Σ a)) as [(fn_ & arg & E & ->) | (E & ->) ].
     + destruct f5; simp compile; intros [? [=]].
-      * destruct (compile Σ f5_1); cbn in H0; try congruence. destruct p, l0; cbn in *; congruence.
-      * revert H0. destruct l0; simp compile; destruct lookup_constructor_args; cbn.  all: congruence.
+      * destruct (compile Σ f5_1); cbn in H0; try congruence. destruct p, l; cbn in *; congruence.
+      * revert H0. destruct l; simp compile; destruct lookup_constructor_args; cbn.  all: congruence.
       * revert H0. destruct l; simp compile; destruct lookup_constructor_args; cbn.  all: congruence.
       * revert H0. destruct p; simp compile. unfold compile_unfold_clause_11.
         destruct lookup_record_projs; cbn; congruence.
       * revert H0. repeat destruct p; cbn; try congruence. 
     + rewrite Mapply_spec. 2: destruct arg; cbn; congruence.
-      eapply Mapply_eval.
-      * rewrite <- E. cbn -[freenames] in IHHeval1. rewrite e0 in IHHeval1. cbn in IHHeval1. eauto.
-      * eauto.
-      * cbn - [freenames]. rewrite e0. cbn - [freenames]. (* set (Γn := (Malfunction.Ident.Map.add (String.to_string na) (compile_value Σ av) (fun x : Malfunction.Ident.t =>
-      if
-       in_dec string_dec x
-         (freenames
-            (Malfunction.Mlet
-               ([Malfunction.Recursive
-                   (map
-                      (fun x0 : string * EAst.term =>
-                       (String.to_string (fst x0), compile Σ (snd x0))) mfix)],
-                compile Σ fn)))
-      then
-       match
-         lookup (map (fun '(x0, v) => (x0, compile_value Σ v)) Γ')
-           (String.of_string x)
-       with
-       | Some v => v
-       | None => fail "notfound"
-       end
-      else fail "notfree"))). *)
-
-      set (Γn := Malfunction.Ident.Map.add (String.to_string na) (compile_value Σ av) (fun x : Malfunction.Ident.t => match lookup (map (fun '(x0, v) => (x0, compile_value Σ v)) Γ') (String.of_string x) with
-      | Some v => v
-      | None => fail "notfound"
-      end)).
-        unshelve econstructor.
-        5: econstructor; eapply IHHeval2.
-        2: refine Γn.
-        (* the environments really should only consider free variables. na is not free anymore, because it is rebound by the recursive occurrence of the lambda *)
-        1: refine (add_recs'' Γn (map (fun '(y0, t) => let '(x, y) := y0 in (String.to_string (x), compile Σ (EAst.tLambda y t))) l)
-                                  (map (fun '(x, y, t) => (bytestring.String.to_string (x), (bytestring.String.to_string (BasicAst.string_of_name y), compile Σ t) )) l)).
-        2:{ unfold add_recs. rewrite <- Eqn.
-            generalize ((map (fun x : string * EAst.term =>
-             (String.to_string (fst x), compile Σ (snd x))) mfix)) at 1 3.
-            unfold Malfunction.Ident.Map.find in *.
-            clear - Hl HΓ. clearbody Γn.
-            induction Hl.
-            * cbn. intros. f_equal.
-            * cbn -[freenames].
-              destruct y as [[y1 y3] y2]. cbn -[freenames] in *. destruct x.
-              cbn -[freenames] in *.
-              destruct H as [-> ->]. cbn.
-              simp compile. intros.
-              erewrite IHHl. repeat f_equal.
-        }
-        1: eapply equiv_wrt_refl.
-
-        intros.
-        replace ((add na av (add_multiple (map fst mfix) (fix_env mfix Γ') Γ'))) with
-        ((add_multiple (na :: map fst mfix) (av :: fix_env mfix Γ') Γ')) by reflexivity.
-        rewrite lookup_multiple. 2: cbn; now rewrite map_length, fix_env_length.
-        
-        admit. + admit.
-        (*
-        cbn.
-        destruct (eqb_spec na0 na); subst.
-        -- rewrite add_recs''_not.
-           unfold Malfunction.Ident.Map.add.
-           unfold Malfunction.Ident.eqb.
-           subst Γn. subst. unfold Malfunction.Ident.Map.add. 
-           rewrite String.eqb_refl. reflexivity.
-           rewrite map_map. intros (? & ? & ?) % in_map_iff.
-           destruct x. destruct p. cbn in *. subst.
-           eapply Hfresh. revert Eqn H H0.
-           clear.
-           induction mfix in l |- *; destruct l; cbn; intros; try congruence.
-           inversion Eqn; subst; clear Eqn.
-           destruct p. destruct p. inversion H2; subst; clear H2.
-           destruct a. cbn in *.
-           destruct H0 as [[= -> -> ->] | ].
-           left. rewrite H in H4.
-           eapply (f_equal String.of_string) in H4. rewrite !of_string_to_string in H4. eauto.
-           right. eapply IHmfix; eauto.
-        -- epose proof (in_dec _ na0 (map fst mfix)) as [Hin | Hr].
-           ++ eapply in_map_iff in Hin as ([] & ? & Hin). cbn in *. subst.
-              eapply In_nth_error in Hin as [i Hi].
-              eapply All_Forall.Forall2_nth_error_Some_l in Hi as Hi'. destruct Hi' as (? & ? & ?). 2: exact Hl. cbn in *.
-              destruct x as [[]]. destruct H1; subst.
-              
-              destruct find eqn:Eq_find.
-              ** eapply find_some in Eq_find as [E1 E2]. destruct p. cbn in *.
-                 eapply eqb_eq in E2. subst.
-                 eassert (v = vRecClos mfix i Γ') as -> by admit. 
-                 cbn.
-                 erewrite add_recs''_spec.
-                 --- rewrite Hi. cbn. f_equal. f_equal. f_equal.
-                     2:{ 
-                      f_equal. f_equal. f_equal. f_equal. clear - Hl. induction Hl; cbn; try congruence.
-                      destruct y as [[]]. destruct H, x ; cbn in *; subst. f_equal. eapply IHHl.
-                     }
-                     cbn. unfold lookup.
-                     cbn. eapply funext. intros.
-                     { unfold Malfunction.Ident.Map.add.
-                       unfold Malfunction.Ident.eqb.
-                       destruct (String.eqb_spec x (String.to_string na)).
-                       +++ subst. rewrite of_string_to_string.                           
-                           change (String.eqb na na) with (eqb na na). rewrite eqb_refl. eauto.
-                       +++ change (String.eqb (String.of_string x) na) with (eqb (String.of_string x) na).
-                           destruct (eqb_spec (String.of_string x) na).
-                           *** subst. rewrite to_string_of_string in n1. congruence.
-                           *** reflexivity.
-                     }
-                     f_equal. f_equal. f_equal. f_equal. clear - Hl. induction Hl; cbn; try congruence.
-                     destruct y as [[]]. destruct H, x ; cbn in *; subst. f_equal. eapply IHHl.
-                 --- rewrite map_map. clear - Hnodup. induction l; cbn in *; inversion Hnodup; subst; econstructor.
-                     destruct a as [[]]; cbn in *. intros ([[]] & ? & ?) % in_map_iff. cbn in *. eapply H1.
-                     eapply in_map_iff. exists (t0, n0, t1). cbn. eauto. eapply (f_equal String.of_string) in H.
-                     rewrite !of_string_to_string in H. eauto. eauto.
-                 --- eapply in_map_iff. rewrite Hi. eexists (_, _, _). split. repeat f_equal. cbn. reflexivity.
-                     cbn. eapply nth_error_In; eauto.
-                 admit.
-              ** unshelve eapply find_none in Eq_find. refine (i0,  vRecClos mfix i (Γ')).
-                 cbn in *. rewrite eqb_refl in Eq_find. congruence.
-                 eapply nth_error_In.
-                 erewrite TemplateToPCUICCorrectness.nth_error_map2; eauto.
-                 now rewrite nth_error_map, Hi.
-                 todo "In_map2".
-           ++ todo "...".
+      eapply Mapply_eval_rec. 2: rewrite <- E.
+      2: cbn in IHHeval1.
+      2: eapply IHHeval1. 2: eauto.
+      * erewrite nth_error_nth. reflexivity.
+        rewrite nth_error_map. rewrite e0. reflexivity.
+      * eapply IHHeval3. eauto.
+      * eapply IHHeval2. intros na0.
+        rewrite lookup_add.
+        unfold Malfunction.Ident.Map.find, Malfunction.Ident.Map.add, Malfunction.Ident.eqb. cbn.
+        destruct (eqb_spec na0 na).
+        -- subst. now rewrite String.eqb_refl.
+        -- destruct (String.eqb_spec (String.to_string na0) (String.to_string na)).
+           ++ exfalso. eapply H. rewrite <- of_string_to_string, <- (of_string_to_string na0).
+              now rewrite e.
+           ++ clear . rewrite lookup_multiple. 2: now rewrite fix_env_length, map_length.
+              unfold fix_env, add_self. unfold add_recs. unfold mapi.
+              rewrite <- (minus_diag #|mfix|). rewrite !map_length.
+              generalize (le_refl (List.length mfix)).
+              generalize mfix at 2 3 4 5 7 10.
+              induction mfix; intros mfix_ Hlen; cbn.
+              ** rewrite lookup_map, of_string_to_string. now destruct lookup.
+              ** cbn. unfold Malfunction.Ident.Map.add. unfold Malfunction.Ident.eqb. 
+                 destruct a. cbn. destruct (eqb_spec na0 i).
+                 --- subst. cbn in *. rewrite String.eqb_refl. repeat f_equal. lia.
+                 --- destruct (String.eqb_spec (String.to_string na0) (String.to_string i)).
+                     1:{ destruct H. eapply (f_equal String.of_string) in e.
+                     now rewrite !of_string_to_string in e. }
+                     rewrite <- IHmfix. repeat f_equal. cbn in *. lia. cbn in *. lia.
     + rewrite Mapply_spec. 2: congruence.
-      econstructor.
+      eapply eval_app_sing_rec.
       * cbn in IHHeval1. eapply IHHeval1; eauto.
       * eauto.
-      * rewrite e0. set (Γn := (Malfunction.Ident.Map.add (fst (String.to_string (BasicAst.string_of_name (BasicAst.nNamed na)), fn)) (compile_value Σ av)
-       (fun x : Malfunction.Ident.t =>
-        match lookup (map (fun '(x0, v) => (x0, compile_value Σ v)) Γ') (String.of_string x) with
-        | Some v => v
-        | None => fail "notfound"
-        end))). 
-        unshelve econstructor. 3: econstructor.
-        3: eapply IHHeval2.
-        1: refine (add_recs'' Γn (map (fun '(x, y, t) => (bytestring.String.to_string (x), compile Σ (EAst.tLambda y t)) ) l)
-                     (map (fun '(x, y, t) => (bytestring.String.to_string (x), (bytestring.String.to_string (BasicAst.string_of_name y), compile Σ t) )) l)).
-        1:{ unfold add_recs. rewrite <- Eqn.
-            generalize ((map (fun x : string * EAst.term =>
-             (String.to_string (fst x), compile Σ (snd x))) mfix)) at 1 3.
-            unfold Malfunction.Ident.Map.find in *.
-            clear - Hl HΓ.
-            induction Hl.
-            * cbn. intros. f_equal.
-            * cbn.
-              destruct y as [[y1 y3] y2]. cbn in *. destruct x.
-              cbn in *.
-              destruct H as [-> ->]. cbn.
-              simp compile. intros.
-              erewrite IHHl. repeat f_equal.
-        }
-        todo "copy paste above". *) *)
+      * erewrite nth_error_nth. reflexivity. rewrite nth_error_map, e0. cbn. reflexivity.
+      * eapply IHHeval2. intros na0.
+      rewrite lookup_add.
+      unfold Malfunction.Ident.Map.find, Malfunction.Ident.Map.add, Malfunction.Ident.eqb. cbn.
+      destruct (eqb_spec na0 na).
+      -- subst. now rewrite String.eqb_refl.
+      -- destruct (String.eqb_spec (String.to_string na0) (String.to_string na)).
+         ++ exfalso. eapply H. rewrite <- of_string_to_string, <- (of_string_to_string na0).
+            now rewrite e.
+         ++ clear . rewrite lookup_multiple. 2: now rewrite fix_env_length, map_length.
+            unfold fix_env, add_self. unfold add_recs. unfold mapi.
+            rewrite <- (minus_diag #|mfix|). rewrite !map_length.
+            generalize (le_refl (List.length mfix)).
+            generalize mfix at 2 3 4 5 7 10.
+            induction mfix; intros mfix_ Hlen; cbn.
+            ** rewrite lookup_map, of_string_to_string. now destruct lookup.
+            ** cbn. unfold Malfunction.Ident.Map.add. unfold Malfunction.Ident.eqb. 
+               destruct a. cbn. destruct (eqb_spec na0 i).
+               --- subst. cbn in *. rewrite String.eqb_refl. repeat f_equal. lia.
+               --- destruct (String.eqb_spec (String.to_string na0) (String.to_string i)).
+                   1:{ destruct H. eapply (f_equal String.of_string) in e.
+                   now rewrite !of_string_to_string in e. }
+                   rewrite <- IHmfix. repeat f_equal. cbn in *. lia. cbn in *. lia.
   - (* fix *)
-    cbn.
     destruct ((MCList.nth_error_Some' mfix (idx))) as [_ Hnth].
     forward Hnth.
     assert (Datatypes.length mfix > 0) by lia.  1: lia.
@@ -694,81 +508,15 @@ Proof.
        inversion e1; subst. destruct x0; cbn in *; subst. inversion H4; subst.
        eapply nth_error_In; eauto.
     }
-    assert (map
-      (fun x : EAst.def EAst.term =>
-       (String.to_string (BasicAst.string_of_name (EAst.dname x)),
-        compile Σ (EAst.dbody x))) mfix =(map
-        (fun '(y0, t) =>
-         let
-         '(x, y) := y0 in
-          (String.to_string (x), compile Σ (EAst.tLambda y t))) l)) as Eqn.
-      { clear -Hl. induction Hl; cbn.
-        - reflexivity.
-        - destruct y as [[] ]. destruct H as [? ->].
-          simp compile.
-          repeat f_equal. 2: eapply IHHl.
-          now rewrite H.
-      }
-(*     unshelve econstructor.
-    + refine (add_recs'' Γ_ (map (fun '(x, y, t) => (bytestring.String.to_string (x), compile Σ (EAst.tLambda y t)) ) l)
-                            (map (fun '(x, y, t) => (bytestring.String.to_string (x), (bytestring.String.to_string (BasicAst.string_of_name y), compile Σ t) )) l)).
-    + exact Γ_. 
-    + eapply equiv_wrt_refl.
-    + rewrite MCList.map_InP_spec in *.
-      unfold add_recs.
-      rewrite <- Eqn.
-      generalize (map
-      (fun x : EAst.def EAst.term =>
-       (String.to_string (BasicAst.string_of_name (EAst.dname x)),
-        compile Σ (EAst.dbody x))) mfix) at 1 3 as allrecs.
-      clear - Hl. intros.
-      induction Hl in Γ_.
-      * cbn. reflexivity.
-      * cbn.
-        destruct y as [[y1 y3] y2]. cbn in *.
-        destruct H as [? ->]. cbn.
-        simp compile.
-        rewrite IHHl. repeat f_equal. now rewrite H.
-    + econstructor. evar (v : SemanticsSpec.value).
-      match goal with [ |- SemanticsSpec.eval _ _ _ ?fv ] =>
-      replace fv with v end.
-      subst v. econstructor.
-      subst v. rewrite MCList.map_InP_spec.
-      erewrite nth_error_nth.
-      2: rewrite nth_error_map.
-      2: now rewrite (projT2 Hnth). cbn.
-      destruct Hnth as [[] Hx]; cbn.
-      pose proof (Hl_ := Hl).
-      eapply All_Forall.Forall2_nth_error_Some in Hl as [ [[x' y'] t'] [H1 [Hname H3]]]; eauto. cbn in *.
-      subst. eapply nth_error_In in H1.
-      erewrite add_recs''_spec.
-      3:{ eapply in_map_iff. eexists (_, _, _). split. 2: eauto. f_equal. }
-      2:{ clear - Hnodup Hl_. induction l in Hnodup, mfix, Hl_ |- *; cbn.
-          - econstructor.
-          - inversion Hnodup; subst. econstructor. 2:{ inversion Hl_; subst; eauto. }
-            destruct a as [[] ]. cbn in *.
-            rewrite in_map_iff. intros ([? []] & ? & ?). cbn in *. subst.
-            eapply in_map_iff in H0 as ([[]] & [=] & ?). subst.
-            eapply (f_equal String.of_string) in H0. rewrite !of_string_to_string in H0.
-            eapply H1. eapply in_map_iff. eexists (_, _, _). cbn.
-            split. 2: eauto.
-            now inversion Hl_; subst.
-      }
-      rewrite <- Eqn.
-      all: rename f6 into f.
-      eapply All_Forall.Forall2_nth_error_Some in f as f'. destruct f' as (? & ? & ?); eauto.
-      erewrite TemplateToPCUICCorrectness.nth_error_map2; eauto.
-      cbn. repeat f_equal.
-      * eapply functional_extensionality. intros x0.
-        rewrite <- (to_string_of_string x0).
-        unfold Malfunction.Ident.Map.find in *.
-        rewrite HΓ.
-        rewrite lookup_map.
-        rewrite of_string_to_string. now destruct lookup.
-      * clear -f. induction f; cbn; repeat f_equal; eauto.
-        now rewrite <- H.
-      * eauto. *)
-      admit.
+    cbn -[compile_value]. 
+    rewrite map_InP_spec.
+    econstructor. econstructor. eapply eval_Mvar.
+    rewrite !map_map.
+    destruct Hnth as [[na fn] Hnth].
+    cbn -[compile_value].
+    erewrite nth_error_nth. 
+    2:{ rewrite nth_error_map. rewrite Hnth. cbn. reflexivity. }
+    admit.
   - (* global *)
     econstructor. eapply HΣ; eauto.
   - (* constructor application *)
@@ -793,5 +541,4 @@ Proof.
       destruct (EGlobalEnv.lookup_inductive) as [ [] | ]; cbn in *; try congruence.
     eapply eval_num. lia. 2:reflexivity.
     todo "less constructors than Malfunction.Int63.wB"%bs.
-Qed.
-Print Assumptions compile_correct.
+Admitted.
