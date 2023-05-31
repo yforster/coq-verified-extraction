@@ -12,16 +12,16 @@ Fixpoint _escape_ident (_end s : string) : string :=
   | (c :: s')%string => let escaped_s' := _escape_ident _end s' in if ("'" =? c)%char2 then ("_" :: escaped_s')%string else (c :: escaped_s')%string
   end.
 
-Instance Serialize_Ident : Serialize Ident.t :=
+#[export] Instance Serialize_Ident : Serialize Ident.t :=
   fun a => Atom (append "$" (_escape_ident "" a)).
 
-Instance Integral_int : Integral int :=
+#[export] Instance Integral_int : Integral int :=
   fun n => (Int63.to_Z n).
 
-(* Instance Serialize_int : Serialize int := *)
+(* #[export] Instance Serialize_int : Serialize int := *)
 (*   fun i => to_sexp (Int63.to_Z i). *)
 
-Instance Serialize_numconst : Serialize numconst :=
+#[export] Instance Serialize_numconst : Serialize numconst :=
   fun a => match a with
         | numconst_Int i => to_sexp i
         | numconst_Bigint x => Atom (append (CeresString.string_of_Z x) ".bigint")
@@ -40,14 +40,14 @@ Definition rawapp (s : sexp) (a : string) :=
   | x => x
   end.
 
-Instance Serialize_case : Serialize case :=
+#[export] Instance Serialize_case : Serialize case :=
   fun a => match a with
         | Tag tag => [Atom "tag"; Atom (Int63.to_Z tag)]
         | Deftag => Atom "_"
         | Intrange (i1, i2) => [ to_sexp i1 ; to_sexp i2  ]
         end.
 
-Instance Serialize_unary_num_op : Serialize unary_num_op :=
+#[export] Instance Serialize_unary_num_op : Serialize unary_num_op :=
   fun a => match a with Neg => Atom "neg" | Not => Atom "what to insert for Not?" end.
 
 Definition numtype_to_string (n : numtype) :=
@@ -67,7 +67,7 @@ Definition vector_type_to_string (n : vector_type) :=
   | Bytevec => ".byte"
   end.
 
-Instance Serialize_binary_arith_op : Serialize binary_arith_op :=
+#[export] Instance Serialize_binary_arith_op : Serialize binary_arith_op :=
   fun a => Atom match a with
         | Add => "+"
         | Sub => "-"
@@ -76,7 +76,7 @@ Instance Serialize_binary_arith_op : Serialize binary_arith_op :=
         | Mod => "%"
         end.
 
-Instance Serialize_binary_bitwise_op : Serialize binary_bitwise_op :=
+#[export] Instance Serialize_binary_bitwise_op : Serialize binary_bitwise_op :=
   fun a => Atom match a with
              | And => "&"
              | Or => "|"
@@ -86,7 +86,7 @@ Instance Serialize_binary_bitwise_op : Serialize binary_bitwise_op :=
              | Asr => "a>>"
              end.
 
-Instance Serialize_binary_comparison : Serialize binary_comparison :=
+#[export] Instance Serialize_binary_comparison : Serialize binary_comparison :=
   fun a => Atom match a with
              | Lt => "<"
              | Gt => ">"
@@ -95,7 +95,7 @@ Instance Serialize_binary_comparison : Serialize binary_comparison :=
              | Eq => "=="
              end.
 
-Instance Serialize_binary_num_op : Serialize binary_num_op :=
+#[export] Instance Serialize_binary_num_op : Serialize binary_num_op :=
   fun a => match a with
         | embed_binary_arith_op x => to_sexp x
         | embed_binary_bitwise_op x => to_sexp x
@@ -151,8 +151,8 @@ to_sexp_binding (a : binding) : sexp :=
   end.
 
 
-Instance Serialize_t : Serialize t := to_sexp_t.
-Instance Serialize_binding : Serialize binding := to_sexp_binding.
+#[export] Instance Serialize_t : Serialize t := to_sexp_t.
+#[export] Instance Serialize_binding : Serialize binding := to_sexp_binding.
 
 Definition Serialize_program : Serialize program :=
   fun '(m, x) =>

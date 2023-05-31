@@ -43,8 +43,8 @@ Inductive value `{Heap} :=
 
 Definition heap `{Heap} := heapGen value.
 
-Class CompatiblePtr `{Heap} `{Interpreter.Heap} :=  
-{ R_ptr : pointer -> Interpreter.pointer -> Prop }.
+(* Class CompatiblePtr `{Heap} `{Interpreter.Heap} :=  
+{ R_ptr : pointer -> Interpreter.pointer -> Prop }. *)
 
  From Coq Require Import Uint63.
 

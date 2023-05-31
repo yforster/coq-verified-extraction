@@ -11,7 +11,7 @@ Local Open Scope string.
 Compute string_of_sexp (to_sexp (Mlambda (["x"], (Mvar "x")))).
 Compute string_of_sexp (to_sexp "x").
 
-Instance Deserialize_Ident : Deserialize Ident.t :=
+#[export] Instance Deserialize_Ident : Deserialize Ident.t :=
   fun l e =>
     match e with
     | Atom_ (Raw (String sym s)) => if String.eqb (String sym EmptyString) "$" then
@@ -20,10 +20,10 @@ Instance Deserialize_Ident : Deserialize Ident.t :=
     | _ => inl (DeserError l "could not read 'ident', got non-string atom")
     end.
 
-Instance SemiIntegral_int : SemiIntegral int :=
+#[export] Instance SemiIntegral_int : SemiIntegral int :=
   fun n => Some (Int63.of_Z n).
 
-(* Instance Deserialize_int : Serialize int := *)
+(* #[export] Instance Deserialize_int : Serialize int := *)
 (*   fun i => to_sexp (Int63.to_Z i). *)
 
 Definition Deserialize_tag : Deserialize int :=
@@ -32,7 +32,7 @@ Definition Deserialize_tag : Deserialize int :=
 
 Notation con2c f := (Deser.con2 (fun x y => f (x, y))).
 
-Instance Deserialize_case : Deserialize case :=
+#[export] Instance Deserialize_case : Deserialize case :=
   fun l c =>
     match c with
     | Atom_ "_" => inr Deftag
@@ -113,8 +113,8 @@ with dsb (l : loc) (e : sexp) {struct e} : error + binding :=
          end
   end.
 
-Instance Deserialize_t : Deserialize t := ds.
-Instance Deserialize_binding : Deserialize binding := dsb.
+#[export] Instance Deserialize_t : Deserialize t := ds.
+#[export] Instance Deserialize_binding : Deserialize binding := dsb.
 (* 
 Definition test input :=
   match parse_sexp input with

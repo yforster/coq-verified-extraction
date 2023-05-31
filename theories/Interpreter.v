@@ -6,7 +6,7 @@ Require Uint63.
 Import ListNotations.
 Open Scope string_scope.
 
-Require Import Malfunction.Malfunction Malfunction.Deserialize Ceres.Ceres.
+Require Import Malfunction.Malfunction Malfunction.Deserialize Malfunction.Serialize Ceres.Ceres.
 From MetaCoq Require bytestring.
 
 (* type value = *)
@@ -201,7 +201,7 @@ Fixpoint to_sexp_value (a : value) : sexp :=
   | fail x => Atom ("fail" ++ x)
   end.
 
-Instance Serialize_value : Serialize value := to_sexp_value.
+#[export] Instance Serialize_value : Serialize value := to_sexp_value.
 
 #[bypass_check(guard)]
 Fixpoint interpret

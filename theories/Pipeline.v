@@ -1,10 +1,10 @@
 (* Distributed under the terms of the MIT license. *)
 From Coq Require Import Program ssreflect ssrbool.
-From MetaCoq.Template Require Import Transform bytestring config utils.
+From MetaCoq Require Import Common.Transform bytestring config utils.
 From MetaCoq.PCUIC Require PCUICAst PCUICAstUtils PCUICProgram.
 From MetaCoq.SafeChecker Require Import PCUICErrors PCUICWfEnvImpl.
 From MetaCoq.Erasure Require EAstUtils ErasureFunction ErasureCorrectness EPretty Extract.
-From MetaCoq.Erasure Require Import ETransform EConstructorsAsBlocks.
+From MetaCoq Require Import ETransform EConstructorsAsBlocks.
 From MetaCoq.Erasure Require Import EWcbvEvalNamed Erasure.
 From Ceres Require Import Ceres.
 Import PCUICProgram.
