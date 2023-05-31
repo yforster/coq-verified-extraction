@@ -384,6 +384,8 @@ Proof.
 Qed.
 Set Elimination Schemes.
 
+(*
+
 Lemma int_of_to_nat i :
   Int63_of_nat (int_to_nat i) = i.
 Proof.
@@ -903,4 +905,5 @@ Set Guard Checking.
 
   destruct v. inversion Hvar.  eapply eval_var. 
 
-
+*)
+End eval.

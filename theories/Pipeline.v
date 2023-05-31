@@ -5,7 +5,8 @@ From MetaCoq.PCUIC Require PCUICAst PCUICAstUtils PCUICProgram.
 From MetaCoq.SafeChecker Require Import PCUICErrors PCUICWfEnvImpl.
 From MetaCoq.Erasure Require EAstUtils ErasureFunction ErasureCorrectness EPretty Extract.
 From MetaCoq Require Import ETransform EConstructorsAsBlocks.
-From MetaCoq.Erasure Require Import EWcbvEvalNamed Erasure.
+From MetaCoq.Erasure Require Import EWcbvEvalNamed.
+From MetaCoq.ErasurePlugin Require Import Erasure.
 From Ceres Require Import Ceres.
 Import PCUICProgram.
 (* Import TemplateProgram (template_eta_expand).
@@ -25,7 +26,7 @@ Obligation Tactic := program_simpl.
 
 Import EWcbvEval.
 
-Require Malfunction.SemanticsSpec Malfunction.Semantics.
+Require Malfunction.SemanticsSpec.
 From Malfunction Require Import Compile Serialize.
 
 Program Definition malfunction_pipeline (efl := EWellformed.all_env_flags) :

@@ -2,7 +2,7 @@ From Coq Require Import String.
 From Ceres Require Import Ceres.
 From Malfunction Require Import Pipeline Serialize.
 
-From MetaCoq Require Import ETransform Transform bytestring.
+From MetaCoq Require Import ETransform Common.Transform bytestring.
 From MetaCoq.Template Require All Loader TemplateMonad.
 
 Import Transform.
