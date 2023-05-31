@@ -255,10 +255,10 @@ forall P : Ident.Map.t -> heap -> t -> heap -> value -> Prop,
         P locals h (Mapply (e1, [e2])) h3 v) ->
        (forall (locals : Ident.Map.t) (h h1 h2 h3 : heap)
           (mfix : list rec_value) (n : nat) (y : Ident.t) 
-          (e : t) (locals' locals'' : Ident.Map.t) 
+          (e : t) (locals' locals'' : Ident.Map.t) self
           (e2 : t) (v2 : value) (e1 : t) (v : value),
-        eval locals h e1 h1 (RClos (locals', mfix, n)) ->
-        P locals h e1 h1 (RClos (locals', mfix, n)) ->
+        eval locals h e1 h1 (RClos (locals', self, mfix, n)) ->
+        P locals h e1 h1 (RClos (locals', self, mfix, n)) ->
         eval locals h1 e2 h2 v2 ->
         P locals h1 e2 h2 v2 ->
         nth n mfix Bad_recursive_value = RFunc (y, e) ->
