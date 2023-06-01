@@ -418,6 +418,7 @@ Proof.
       * destruct (compile Σ a1); cbn in H0; try congruence. destruct p, l; cbn in *; congruence.
       * revert H0. destruct l; simp compile; destruct lookup_constructor_args; cbn.
         all: congruence.
+      * revert H0. destruct l; simp compile; destruct lookup_constructor_args; cbn in *; congruence.
       * revert H0. destruct p. simp compile. unfold compile_unfold_clause_11.
         destruct lookup_record_projs; congruence.
       * revert H0. destruct p; cbn. unfold to_primitive. cbn. destruct p; cbn; congruence.
@@ -438,6 +439,7 @@ Proof.
       * destruct (compile Σ f1_1); cbn in H0; try congruence. destruct p, l; cbn in *; congruence.
       * revert H0. destruct l; simp compile; destruct lookup_constructor_args; cbn.
         all: congruence.
+      * revert H0. destruct l; simp compile; destruct lookup_constructor_args; cbn in *; congruence.
       * revert H0. destruct p. simp compile. unfold compile_unfold_clause_11.
         destruct lookup_record_projs; congruence.
       * revert H0. destruct p; cbn. unfold to_primitive. cbn. destruct p; cbn; congruence.
@@ -515,20 +517,54 @@ Proof.
   - (* case *)
     destruct br as [nms' b].
     destruct nms'.
-    + Arguments Mcase : simpl never. cbn in *. inversion f4; cbn -[Mcase] in *; try congruence. subst.
-      destruct args; cbn in *; try congruence. 
-      eapply eval_case_int.
-      2:{ rewrite map_InP_spec, nth_error_map, e1. reflexivity. }
-      2:{ eapply IHHeval2; eauto. }
+    + Arguments Mcase : simpl never.
+      cbn in *. inversion f4; cbn -[Mcase] in *; try congruence. subst.
+      destruct args; cbn in *; try congruence.
       unfold EGlobalEnv.constructor_isprop_pars_decl, lookup_constructor_args, EGlobalEnv.lookup_constructor in *;
-      destruct (EGlobalEnv.lookup_inductive) as [ [] | ]; cbn in *; try congruence.
-      rewrite map_InP_spec.
-      evar (f : nat).
-      replace ((nonblocks_until c (map (fun x : list BasicAst.name × EAst.term => (rev_map (fun nm : BasicAst.name => BasicAst.string_of_name nm) x.1, compile Σ x.2)) brs))) with f.
-      subst f. eapply IHHeval1; eauto.
-      subst f. unfold nonblocks_until.
-      rewrite map_map. cbn. admit.
-    + 
+      destruct (EGlobalEnv.lookup_inductive) as [ [] | ]; cbn in *; try congruence.      
+      destruct nth_error eqn:Econ; try congruence.
+      eapply eval_case_int.
+      2:{ todo "as many branches as constructors". }
+      4:{ eapply IHHeval2; eauto. }
+      2:{ rewrite nth_error_map, Econ. cbn. destruct c0; cbn in *; subst. inversion e0; subst. destruct m; cbn in *; subst. reflexivity. }
+      eapply IHHeval1. eauto.
+      rewrite map_InP_spec. rewrite nth_error_map, e1. cbn. reflexivity.
+    +  cbn -[lookup] in *. inversion f4; cbn -[Mcase lookup] in *; try congruence. subst. clear f4.
+       destruct args; cbn -[lookup add_multiple] in *; try congruence.
+       unfold EGlobalEnv.constructor_isprop_pars_decl, lookup_constructor_args, EGlobalEnv.lookup_constructor in *;
+       destruct (EGlobalEnv.lookup_inductive) as [ [] | ]; cbn -[add_multiple] in *; try congruence.
+       eapply Forall2_length in H3 as Hll.
+       destruct nth_error eqn:Econ; try congruence.
+       eapply eval_case_block.
+       3:{ todo "as many branches as constructors". }
+       5: eapply NoDup_rev; eauto. 2:{ cbn.  destruct (@List.rev Malfunction.Ident.t (l')); cbn; try congruence. }
+       eapply IHHeval1. eauto.
+       rewrite nth_error_map, Econ. cbn. destruct c0; cbn in *; subst. inversion e0; subst. destruct m; cbn in *; subst. repeat f_equal.
+       rewrite app_length. rewrite List.rev_length.
+       setoid_rewrite <- Hll. cbn. lia.
+       rewrite map_InP_spec. rewrite nth_error_map. 
+       rewrite e1. cbn [option_map].
+       rewrite rev_map_spec. cbn. repeat f_equal.
+       { clear - H3. induction H3; cbn; f_equal; subst; cbn; eauto. }
+       cbn. f_equal. rewrite map_length. rewrite app_length. rewrite List.rev_length.
+       setoid_rewrite <- Hll. cbn. lia. 
+       eapply IHHeval2. intros.
+       cbn [List.rev].
+       assert (#|List.rev l' ++ [y]| = List.length ((compile_value Σ v :: map (compile_value Σ) args))).
+       { rewrite app_length, List.rev_length. cbn. rewrite map_length. lia. }
+       revert H. unfold Kernames.ident, Malfunction.Ident.t in *. clear - HΓ.
+       generalize (List.rev l' ++ [y])%list. intros.
+       destruct l; cbn in *; try congruence. 
+       unfold lookup. cbn. unfold Malfunction.Ident.Map.add. cbn.
+       unfold Malfunction.Ident.eqb. change (String.eqb na t) with (na == t).
+       unfold Kernames.ident, Malfunction.Ident.t in *.
+       destruct (eqb_spec na t); try congruence. invs H. clear H0 H2.
+       induction l in args |- *; cbn.
+       -- destruct args; cbn. all: eapply HΓ.
+       -- destruct args; cbn. eapply HΓ.
+          unfold Malfunction.Ident.eqb. change (String.eqb na a) with (na == a).
+          unfold Kernames.ident, Malfunction.Ident.t in *.
+          destruct (eqb_spec na a); eauto.
    - (* recursion *)
     cbn.
     cbn - [compile_value] in *. subst.
@@ -536,6 +572,7 @@ Proof.
     + destruct f5; simp compile; intros [? [=]].
       * destruct (compile Σ f5_1); cbn in H0; try congruence. destruct p, l; cbn in *; congruence.
       * revert H0. destruct l; simp compile; destruct lookup_constructor_args; cbn.  all: congruence.
+      * revert H0.   destruct lookup_constructor_args; cbn; try congruence. unfold Mcase. congruence.
       * revert H0. destruct p; simp compile. unfold compile_unfold_clause_11.
         destruct lookup_record_projs; cbn; congruence.
       * revert H0. repeat destruct p; cbn; try congruence. 

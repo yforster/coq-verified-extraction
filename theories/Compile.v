@@ -40,18 +40,18 @@ Definition Mlambda_ '(e, l) :=
 
 Definition int_of_nat n := Uint63.of_Z (Coq.ZArith.BinInt.Z.of_nat n).
 
-Definition blocks_until i (brs : list (list Ident.t * t)) :=
-  #| filter (fun x => match x with [] => false | _ => true end) (firstn i (map fst brs))|.
+Definition blocks_until i (num_args : list nat) :=
+  #| filter (fun x => match x with 0 => false | _ => true end) (firstn i num_args)|.
 
-Definition nonblocks_until i (brs : list (list Ident.t * t)) :=
-    #| filter (fun x => match x with [] => true | _ => false end) (firstn i (map fst brs))|.
+Definition nonblocks_until i num_args :=
+    #| filter (fun x => match x with 0 => true | _ => false end) (firstn i num_args)|.
 
-Definition Mcase : t * list (list Ident.t * t) -> t :=
- fun '(discr, brs) =>
+Definition Mcase : list nat * t * list (list Ident.t * t) -> t :=
+ fun '(num_args, discr, brs) =>
    Mswitch (discr, mapi (fun i '(nms, b) => 
-      (match nth_error (map fst brs) i with
-      | Some [] =>  [Malfunction.Intrange (int_of_nat (nonblocks_until i brs), int_of_nat (nonblocks_until i brs))]
-      | _hasargs => [Malfunction.Tag (int_of_nat (blocks_until i brs))]
+      (match nth_error num_args i with
+      | Some 0 =>  [Malfunction.Intrange (int_of_nat (nonblocks_until i num_args), int_of_nat (nonblocks_until i num_args))]
+      | _hasargs => [Malfunction.Tag (int_of_nat (blocks_until i num_args))]
       end,
       Mapply_ (Mlambda_ (nms, b), mapi (fun i _ => Mfield (int_of_nat i, discr)) (nms)))) brs).
 
@@ -110,7 +110,9 @@ Section Compile.
         | None => Mstring "inductive not found"
         end
       | tCase i mch brs =>
-            Mcase (compile mch, map_InP brs (fun br H => (rev_map (fun nm => (BasicAst.string_of_name nm)) (fst br), compile (snd br)))) 
+        match lookup_constructor_args Σ (fst i) with
+        | Some num_args =>
+            Mcase (num_args, compile mch, map_InP brs (fun br H => (rev_map (fun nm => (BasicAst.string_of_name nm)) (fst br), compile (snd br)))) 
              (*  Mswitch (compile mch, mapi_InP brs 0 (fun i br H => let num_args_until_i := firstn i num_args in
                                                                   let blocks_until_i := #| filter (fun x => match x with 0 => true | _ => false end) num_args_until_i| in
                                                                   let nonblocks_until_i := #|num_args_until_i| - blocks_until_i in
@@ -120,6 +122,8 @@ Section Compile.
                                                                 end, Mapply_ (Mlambda_ (rev_map (fun nm => (BasicAst.string_of_name nm)) (fst br), compile (snd br)),
                                                                                                           mapi (fun i _ => Mfield (int_of_nat i, compile mch)) (rev (fst br))))))
  *)       
+       | None => Mstring "inductive not found"
+        end
       | tFix mfix idx =>
           let bodies := map_InP mfix (fun d H => ((BasicAst.string_of_name (d.(dname))), compile d.(dbody))) in
           Mlet ([Recursive bodies], Mvar (fst (nth (idx) bodies ("", Mstring ""))))

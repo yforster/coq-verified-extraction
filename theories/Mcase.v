@@ -216,53 +216,58 @@ Proof.
   now rewrite Nat2Z.id.
 Qed.
 
-Lemma eval_case_block {Hp : Heap} globals locals discr i args brs nms br v h  :
-  eval globals locals h discr h (Block (int_of_nat (blocks_until i brs), args)) ->
+Lemma eval_case_block {Hp : Heap} globals locals discr i args brs nms br v h num_args  :
+  eval globals locals h discr h (Block (int_of_nat (blocks_until i num_args), args)) ->
   nms <> [] ->
+  #|brs| = #|num_args| ->
+  nth_error num_args i = Some (length nms) ->
   nth_error brs i = Some (nms, br) -> 
   NoDup nms ->
   #|args| = #|nms| ->
   eval globals (add_multiple nms args locals) h br h v ->
-  eval globals locals h (Mcase (discr, brs)) h v.
+  eval globals locals h (Mcase (num_args, discr, brs)) h v.
 Proof.
-  intros Hdiscr Hnms Hnth Hdup Hlen Hbr.
+  intros Hdiscr Hnms Hle Hnum Hnth Hdup Hlen Hbr.
   eapply eval_switch with (e := Mapply_ (Mlambda_ (nms, br), mapi (fun i _ => Mfield (int_of_nat i, discr)) (nms))).
   - eauto.
-  - clear - Hnth Hnms.
-    revert Hnms Hnth.
+  - clear - Hnth Hnms Hnum Hle.
+    revert Hnms Hnth Hnum Hle.
     unfold mapi at 1.
-    change brs with ([] ++ brs) at 2 3 4 5 6 7.
-    assert (length (@nil (list Ident.t * t)) = 0) by reflexivity. revert H.
-    generalize (@nil (list Ident.t * t)).
-    change i with (0 + i) at 2.
+    change num_args with ([] ++ num_args) at 3 4 5 6 7 8.
+    assert (length (@nil nat) = 0) by reflexivity. revert H.
+    generalize (@nil nat).
+    change i with (0 + i) at 3.
     generalize 0 as n.
-    intros n brs0 Hbrs0 Hnms Hnth. induction brs as [ | [nms' br'] brs IH] in i, Hnth, Hnms, nms, br, n, brs0, Hbrs0 |- *.
+    intros n brs0 Hbrs0 Hnms Hnth Hnum Hle. induction brs as [ | [nms' br'] brs IH] in i, Hnth, Hnms, nms, br, n, brs0, Hbrs0, Hnum, Hle, num_args |- *.
     + destruct i; cbn in *; congruence.      
-    + destruct i; cbn in Hnth.
+    + destruct num_args; cbn in *; try congruence. destruct i; cbn in Hnth.
       * inversion Hnth as [ ]. subst; clear Hnth. cbn.
-        rewrite nth_error_map. rewrite nth_error_app2; try lia. cbn.
+        rewrite nth_error_app2; try lia. cbn.
         rewrite minus_diag. cbn.
+        destruct n0; cbn in *; try congruence.
         destruct nms; cbn in *; try congruence.
         cbn. rewrite Bool.orb_false_r. now rewrite <- plus_n_O, Int63.eqb_refl.
       * cbn [mapi_rec]. unfold find_match. cbn. fold find_match.
         destruct existsb eqn:E.
-        2:{ fold find_match. specialize IH with (i := i) (n := S n) (brs0 := brs0 ++ [(nms', br')]).
+        2:{ fold find_match. specialize IH with (i := i) (n := S n) (brs0 := brs0 ++ [n0]).
             replace (n + S i) with (S n + i) by lia.
-            replace ((brs0 ++ (nms', br') :: brs)) with ((brs0 ++ [(nms', br')]) ++ brs).
+            replace ((brs0 ++ n0 :: num_args)) with ((brs0 ++ [n0]) ++ num_args).
             etransitivity. eapply IH. 
             -- rewrite app_length. cbn. lia.
             -- eauto.
             -- eauto.
-            -- destruct nms; cbn; reflexivity.
+            -- eauto.
+            -- eauto.
+            -- reflexivity.
             -- now rewrite <- !app_assoc.
         } exfalso.
-        revert E. rewrite nth_error_map. subst. rewrite nth_error_app2; try lia. cbn.
+        revert E. subst. rewrite nth_error_app2; try lia. cbn.
         rewrite minus_diag. cbn.
-        destruct nms'; cbn in *; try congruence.
+        destruct n0; cbn in *; try congruence.
         cbn. rewrite Bool.orb_false_r. unfold blocks_until. cbn.
-        rewrite !map_app. cbn. rewrite firstn_app_left. 2: now rewrite map_length.
-        rewrite firstn_app. cbn. rewrite map_length.
-        rewrite firstn_ge. 2: rewrite map_length; lia.
+        rewrite firstn_app_left. 2: eauto.
+        rewrite firstn_app. cbn.
+        rewrite firstn_ge. 2: lia. 
         replace (#|brs0| + S i - #|brs0|) with (S i) by lia.
         cbn. rewrite !filter_app. cbn. rewrite app_length. 
         intros E. eapply Uint63.eqb_correct in E.
@@ -292,45 +297,49 @@ Proof.
       * rewrite <- app_assoc. eapply Hdiscr.
 Qed.
 
-Lemma eval_case_int {Hp : Heap} globals locals discr i brs br v h  :
-  eval globals locals h discr h (value_Int (Int, Z_of_nat (nonblocks_until i brs))) ->
+Lemma eval_case_int {Hp : Heap} globals locals discr i brs br v h  num_args :
+  eval globals locals h discr h (value_Int (Int, Z_of_nat (nonblocks_until i num_args))) ->
+  #|brs| = #|num_args| ->
+  nth_error num_args i = Some 0 ->
   nth_error brs i = Some ([], br) -> 
   eval globals locals h br h v ->
-  eval globals locals h (Mcase (discr, brs)) h v.
+  eval globals locals h (Mcase (num_args, discr, brs)) h v.
 Proof.
-  intros Hdiscr Hnth Hbr.
+  intros Hdiscr Hlen Hnum Hnth Hbr.
   eapply eval_switch with (e := br).
   - eauto.
-  - clear - Hnth.
-    revert Hnth.
+  - clear - Hnth Hlen Hnum.
+    revert Hnth Hlen Hnum.
     unfold mapi at 1.
-    change brs with ([] ++ brs) at 2 3 4 5 6 7.
-    assert (length (@nil (list Ident.t * t)) = 0) by reflexivity. revert H.
-    generalize (@nil (list Ident.t * t)).
-    change i with (0 + i) at 2.
-    generalize 0 as n.
-    intros n brs0 Hbrs0 Hnth. induction brs as [ | [nms' br'] brs IH] in i, Hnth, br, n, brs0, Hbrs0 |- *.
+    change num_args with ([] ++ num_args) at 3 4 5 6 7 8.
+    assert (length (@nil nat) = 0) by reflexivity. revert H.
+    generalize (@nil nat).
+    change i with (0 + i) at 3.
+    generalize 0 at 1 3 4 as n.
+    intros n brs0 Hbrs0 Hnth Hlen Hnum. induction brs as [ | [nms' br'] brs IH] in i, Hnth, br, n, brs0, Hbrs0, Hlen, Hnum, num_args |- *.
     + destruct i; cbn in *; congruence.      
-    + destruct i; cbn in Hnth.
+    + destruct num_args; cbn in *; try congruence. destruct i; cbn in Hnth.
       * inversion Hnth as [ ]. subst; clear Hnth. cbn.
-        rewrite nth_error_map. rewrite nth_error_app2; try lia. cbn.
-        rewrite minus_diag. cbn [existsb cond nth_error option_map fst].
+        rewrite nth_error_app2; try lia.
+        rewrite minus_diag. cbn. cbn in *. inversion Hnum. subst.
+        cbn [existsb cond nth_error option_map fst].
         rewrite Bool.orb_false_r. todo "ok".
       * cbn [mapi_rec]. unfold find_match. cbn. fold find_match.
         destruct existsb eqn:E.
-        2:{ fold find_match. specialize IH with (i := i) (n := S n) (brs0 := brs0 ++ [(nms', br')]).
+        2:{ fold find_match. specialize IH with (i := i) (n := S n) (brs0 := brs0 ++ [n0]).
             replace (n + S i) with (S n + i) by lia.
-            replace ((brs0 ++ (nms', br') :: brs)) with ((brs0 ++ [(nms', br')]) ++ brs).
+            replace ((brs0 ++ n0 :: num_args)) with ((brs0 ++ [n0]) ++ num_args).
             etransitivity. eapply IH. 
             -- rewrite app_length. cbn. lia.
             -- eauto.
             -- eauto.
+            -- eauto.
+            -- eauto.
             -- now rewrite <- !app_assoc.
         } exfalso.
-        revert E. rewrite nth_error_map. subst. rewrite nth_error_app2; try lia. cbn.
-        rewrite minus_diag. cbn [existsb cond nth_error option_map fst].
-        destruct nms'; try now (cbn in *; try congruence).
-        cbn [existsb cond nth_error option_map fst].
+        revert E. subst. rewrite nth_error_app2; try lia. cbn.
+        rewrite minus_diag. cbn.
+        destruct n0; cbn [existsb cond nth_error option_map fst]. 2: cbn; congruence.
         rewrite Bool.orb_false_r. rewrite Bool.andb_true_iff. intros [].
         eapply Zle_bool_imp_le in H.
         todo "ok".
