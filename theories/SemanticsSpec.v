@@ -122,10 +122,12 @@ Definition RFunc_build `{Heap} recs :=
     recs.
 
 Definition add_recs `{Heap} locals (self : list Ident.t) rfunc := 
-    mapi (fun n x => (x , RClos (locals, self, rfunc, List.length self - S n))) self.
+  mapi (fun n x => (x , RClos (locals, self, rfunc, n))) self.
+  (* mapi (fun n x => (x , RClos (locals, self, rfunc, List.length self - S n))) self. *)
 
 Definition add_self `{Heap} self rfunc locals := 
-    List.fold_right (fun '(x,t) l => Ident.Map.add x t l) locals (add_recs locals self rfunc).
+  List.fold_right (fun '(x,t) l => Ident.Map.add x t l) locals (add_recs locals self rfunc) .
+  (*   List.fold_right (fun '(x,t) l => Ident.Map.add x t l) locals (add_recs locals self rfunc). *)
 
 Definition Forall2Array {A B:Type} (R : A -> B -> Prop) 
   (l:list A) (a:array B) default := 
@@ -303,7 +305,7 @@ forall P : Ident.Map.t -> heap -> t -> heap -> value -> Prop,
         let self := map fst recs in
         let rfunc := RFunc_build (map snd recs) in
         newlocals =
-        fold_right (fun '(x, t) (l : Ident.Map.t) => Ident.Map.add x t l)
+        fold_right (fun '(x, t) (l : Ident.Map.t)  => Ident.Map.add x t l)
           locals (add_recs locals self rfunc) ->
         eval newlocals h (Mlet (lts, e2)) h1 v ->
         P newlocals h (Mlet (lts, e2)) h1 v ->
