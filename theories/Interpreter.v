@@ -7,7 +7,8 @@ Import ListNotations.
 Open Scope string_scope.
 
 Require Import Malfunction.Malfunction Malfunction.Deserialize Malfunction.Serialize Ceres.Ceres.
-From MetaCoq Require bytestring.
+From MetaCoq Require Import bytestring.
+Open Scope bs.
 
 (* type value = *)
 (* | Block of int * value array *)
@@ -198,8 +199,8 @@ Fixpoint to_sexp_value (a : value) : sexp :=
   | value_Int x => Atom "TODO INT"
   | Float x => Atom "TODO FLOAT"
   | Thunk x => Atom "THUNK"
-  | fail x => Atom ("fail" ++ x)
-  end.
+  | fail x => Atom ("fail" ++ String.to_string x)
+  end%string.
 
 #[export] Instance Serialize_value : Serialize value := to_sexp_value.
 
@@ -219,7 +220,7 @@ Fixpoint interpret
   | Mapply (f_, vs) =>
      List.fold_left (fun f v => match f with
      | Func f => f (interpret locals v)
-     | v_wrong => fail ("not a function: " ++ bytestring.String.to_string (to_string f_) ++ " evaluated to: " ++ bytestring.String.to_string (to_string v_wrong)) end) vs (interpret locals f_)
+     | v_wrong => fail ("not a function: " ++ (to_string f_) ++ " evaluated to: " ++ (to_string v_wrong)) end) vs (interpret locals f_)
   | Mlet (bindings, body) =>
      let bind :=
         fix bind (locals : @Ident.Map.t value) (bindings : list binding) : value :=
@@ -245,7 +246,7 @@ Fixpoint interpret
 
   | Mstring s =>
      Vec (Bytevec,
-           Array_init (Int63.of_Z (Z.of_nat (String.length s))) (fun i => value_Int (Int, (Z.of_nat (Ascii.nat_of_ascii (option_def Ascii.Space (String.get (Z.to_nat (Int63.to_Z i)) s)))))))
+           Array_init (Int63.of_Z (Z.of_nat (String.length s))) (fun i => value_Int (Int, (Z.of_nat (Ascii.nat_of_ascii (option_def Ascii.Space (String.get (Z.to_nat (Int63.to_Z i)) (String.to_string s))))))))
 
   | Mglobal v => Ident.Map.find v locals
 

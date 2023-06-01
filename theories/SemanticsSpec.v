@@ -2,6 +2,7 @@ Require Import ssreflect.
 From Malfunction Require Import Malfunction Interpreter.
 
 Require Import ZArith Array.PArray List String Floats Lia.
+From MetaCoq Require Import bytestring.
 Import ListNotations.
 
 Set Default Goal Selector "!".

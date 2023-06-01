@@ -1,5 +1,6 @@
 From Coq Require Import ssreflect.
 From Coq Require Import ZArith Floats String.
+From MetaCoq Require Import bytestring ReflectEq.
 Module Int63 := Numbers.Cyclic.Int63.Uint63.
 Notation int := Int63.int.
 
@@ -74,7 +75,7 @@ Inductive case := Tag of int | Deftag | Intrange of int * int.
 
 Module Ident.
   Definition t := string.
-  Definition eqb := String.eqb.
+  Definition eqb (x y : t) := x == y.
 
   Module Map.
     Section fix_A.

@@ -1,8 +1,9 @@
-From Malfunction Require Import Malfunction SemanticsSpec.
-From MetaCoq Require Import MCList.
 Require Import List Lia.
 Export ListNotations.
-From MetaCoq Require Import bytestring BasicAst.
+
+From MetaCoq Require Import MCList bytestring BasicAst EWcbvEvalNamed All_Forall ReflectEq.
+
+From Malfunction Require Import Malfunction SemanticsSpec.
 
 Definition Mapply_ '(e, l) :=
     match l with [] => e | _ => Mapply (e, l) end.
@@ -10,17 +11,16 @@ Definition Mapply_ '(e, l) :=
 Definition Mlambda_ '(e, l) :=
     match e with [] => l | _ => Mlambda (e, l) end.
 
+Definition int_of_nat n := Uint63.of_Z (Coq.ZArith.BinInt.Z.of_nat n).
+
 Definition Mcase : t * list (list Ident.t * t) -> t :=
  fun '(discr, brs) =>
    Mswitch (discr, mapi (fun i '(nms, b) => ([Malfunction.Tag (int_of_nat i)], Mapply_ (Mlambda_ (nms, b),
    mapi (fun i _ => Mfield (int_of_nat i, discr)) (nms)))) brs).
 
-Definition add_multiple (nms : list Ident.t) (args : list value) locals :=
-    fold_right (fun '(nm, arg) locals => Ident.Map.add nm arg locals) locals (map2 pair nms args). 
-
-Definition Func_ nms locals b v :=
+Definition Func_ `{H : Heap} nms locals b v :=
   match nms with
-  | n :: nms => Func (n, locals, Mlambda_ (nms, b))
+  | n :: nms => Func (locals, n, Mlambda_ (nms, b))
   | nil => v
   end.
 
@@ -38,13 +38,16 @@ Proof.
   - now rewrite IHargs1.
 Qed. 
 
-Lemma eval_app_nested_ globals locals args l args' v :
-  eval globals locals (Mnapply l (args' ++ args)) v ->
-  eval globals locals (Mapply_ (Mnapply l args', args)) v.
+
+Arguments SemanticsSpec.eval {_}.
+
+Lemma eval_app_nested_ `{Hp : Heap} globals locals args l args' v h h' :
+  SemanticsSpec.eval globals locals h (Mnapply l (args' ++ args)) h' v ->
+  SemanticsSpec.eval globals locals h (Mapply_ (Mnapply l args', args)) h' v.
 Proof.
   induction args in args' |- *.
   - cbn. now rewrite app_nil_r.
-  - cbn. intros H. specialize (IHargs (args' ++ [a])). destruct args.
+  - cbn. intros H. specialize (IHargs (args' ++ [a])%list). destruct args.
     + now rewrite Mnapply_app in H.
     + econstructor. cbn in *.
       rewrite !Mnapply_app in IHargs.
@@ -52,13 +55,13 @@ Proof.
       cbn. eauto.
 Qed.
 
-Lemma eval_app_nested_inv globals locals args l args' v :
-  eval globals locals (Mapply_ (Mnapply l args', args)) v ->
-  eval globals locals (Mnapply l (args' ++ args)) v.
+Lemma eval_app_nested_inv `{Hp : Heap} globals locals args l args' v h h' :
+  SemanticsSpec.eval globals locals h (Mapply_ (Mnapply l args', args)) h' v ->
+  SemanticsSpec.eval globals locals h (Mnapply l (args' ++ args)) h' v.
 Proof.
   induction args in args' |- *.
   - cbn. now rewrite app_nil_r.
-  - cbn. intros H. specialize (IHargs (args' ++ [a])). destruct args.
+  - cbn. intros H. specialize (IHargs (args' ++ [a])%list). destruct args.
     + rewrite Mnapply_app. cbn. eauto.
     + cbn in *. rewrite <- app_assoc in *. cbn in IHargs.
       eapply IHargs.
@@ -66,13 +69,61 @@ Proof.
       rewrite Mnapply_app. eauto.
 Qed.
 
+Lemma Mapply_eval `{H : Heap} globals locals (x : Malfunction.Ident.t)
+    (locals' : Malfunction.Ident.Map.t)
+    (e e2 : Malfunction.t) (v2 : SemanticsSpec.value)
+    (e1 : Malfunction.t) (v : SemanticsSpec.value) args h1 h2 h3 h4 :
+    SemanticsSpec.eval globals locals h1 (Mapply_ (e1, args)) h2 (Func (locals', x, e)) ->
+    SemanticsSpec.eval globals locals h2 e2 h3 v2 ->
+    SemanticsSpec.eval globals (Malfunction.Ident.Map.add x v2 locals') h3 e h4 v ->
+    SemanticsSpec.eval globals locals h1 (Malfunction.Mapply (e1, args ++ [e2]))%list h4 v.
+Proof.
+  replace e1 with (Mnapply e1 []) by reflexivity.
+  generalize (@nil Malfunction.t) at 1 2.
+  induction args in e1 |- *; intros l Hleft Hright Happ; cbn.
+  - econstructor; cbn in *; eauto.
+  - cbn. econstructor.
+    replace (Malfunction.Mapply (Mnapply e1 l, [a])) with
+    (Mnapply e1 (l ++ [a])) by now rewrite Mnapply_app. cbn.
+    eapply IHargs; eauto.
+    cbn in Hleft.
+    eapply eval_app_nested_inv with (args := a :: args) in Hleft.
+    eapply eval_app_nested_. now rewrite <- app_assoc.
+Qed.
+
+Lemma Mapply_eval_rec `{H : Heap} globals locals (x : Malfunction.Ident.t)
+    (locals' : Malfunction.Ident.Map.t)
+    (e2 : Malfunction.t) (v2 : SemanticsSpec.value)
+    (e1 : Malfunction.t) (v : SemanticsSpec.value) args h1 h2 h3 h4 
+    self mfix n e :
+    nth n mfix Bad_recursive_value = RFunc (x , e) -> 
+    SemanticsSpec.eval globals locals h1 (Mapply_ (e1, args)) h2 (RClos (locals', self, mfix, n)) ->
+    SemanticsSpec.eval globals locals h2 e2 h3 v2 ->
+    SemanticsSpec.eval globals (Malfunction.Ident.Map.add x v2 (add_self self mfix locals')) h3 e h4 v ->
+    SemanticsSpec.eval globals locals h1 (Malfunction.Mapply (e1, args ++ [e2]))%list h4 v.
+Proof.
+  replace e1 with (Mnapply e1 []) by reflexivity.
+  generalize (@nil Malfunction.t) at 1 2.
+  induction args in e1 |- *; intros l Hnth Hleft Hright Happ; cbn.
+  - eapply eval_app_sing_rec; eauto.
+  - cbn. econstructor.
+    replace (Malfunction.Mapply (Mnapply e1 l, [a])) with
+    (Mnapply e1 (l ++ [a])) by now rewrite Mnapply_app. cbn.
+    eapply IHargs; eauto.
+    cbn in Hleft.
+    eapply eval_app_nested_inv with (args := a :: args) in Hleft.
+    eapply eval_app_nested_. now rewrite <- app_assoc.
+Qed.
+
 Require Import FunctionalExtensionality.
 
-Lemma add_to_add_multiple nm y nms' values' locals :
+Definition add_multiple {H : Heap} nms values locals := fold_right (fun '(a,b) l => @Ident.Map.add value a b l) locals (map2 pair nms values).
+
+Lemma add_to_add_multiple {A} nm y nms' values' locals :
   NoDup (nm :: nms') ->
   #|nms'| = #|values'| ->
   Ident.Map.add nm y (add_multiple nms' values' locals) =
-  add_multiple (nms' ++ [nm]) (values' ++ [y]) locals.
+  @add_multiple A (nms' ++ [nm]) (values' ++ [y]) locals.
 Proof.
   intros H Hlen. induction nms' in values', H, Hlen, nm, y |- *.
   - destruct values'; cbn in Hlen; try lia. reflexivity.
@@ -81,13 +132,13 @@ Proof.
     fold (add_multiple (nms') (values') locals).
     fold (add_multiple (nms' ++ [nm]) (values' ++ [y]) locals).
     rewrite <- IHnms'.
-    3: lia. 2:{ inversion H; subst. econstructor; firstorder. inversion H3; eauto. }
+    3: lia. 2:{ inversion H; subst. econstructor. cbn in *. eauto. inversion H3; eauto. }
     inversion H; subst. inversion H3; subst.
-    assert (nm <> a) by (intros ->; firstorder).
+    assert (nm <> a). { intros ?. subst. cbn in *. eauto. }
     eapply functional_extensionality. intros x.
-    unfold Ident.Map.add, Ident.eqb. 
-    destruct (Strings.String.eqb_spec x nm), (Strings.String.eqb_spec x a); subst; congruence.
-Qed.
+    unfold Ident.Map.add, Ident.eqb.
+    destruct (eqb_spec x nm), (eqb_spec x a); subst; congruence.
+Qed. 
 
 Lemma NoDup_app {X} (l1 l2 : list X) :
   NoDup (l1 ++ l2) ->
@@ -97,14 +148,14 @@ Proof.
   rewrite in_app_iff in *; firstorder subst.
 Qed.
 
-Lemma eval_app_ globals locals args values values' nms' nms b v l :
+Lemma eval_app_ {Hp : Heap} globals locals args values values' nms' nms b v l h :
   #|args| = #|nms| -> 
   #|nms'| = #|values'| ->
   NoDup (nms' ++ nms) ->
-  Forall2 (eval globals locals) args values ->
-  eval globals (add_multiple (nms' ++ nms) (values' ++ values) locals) b v ->
-  eval globals locals l (Func_ nms (add_multiple nms' values' locals) b v) ->
-  eval globals locals (Mapply_ (l, args)) v.
+  Forall2 (fun e v => eval globals locals h e h v) args values ->
+  eval globals (add_multiple (nms' ++ nms) (values' ++ values) locals) h b h v ->
+  eval globals locals h l h (Func_ nms (add_multiple nms' values' locals) b v) ->
+  eval globals locals h (Mapply_ (l, args)) h v.
 Proof.
   intros Hlen Hlenv Hdup H Heval Hl.
   eapply (eval_app_nested_ globals locals args l []). cbn.
@@ -135,12 +186,12 @@ Proof.
       * lia.
 Qed.
 
-Lemma eval_apply_lambda globals locals args nms b values v : 
+Lemma eval_apply_lambda {Hp : Heap} globals locals args nms b values v h : 
   #|args| = #|nms| -> 
   NoDup nms ->
-  Forall2 (eval globals locals) args values ->
-  eval globals (add_multiple nms values locals) b v ->
-  eval globals locals (Mapply_ (Mlambda_ (nms, b), args)) v.
+  Forall2 (fun e v => eval globals locals h e h v) args values ->
+  eval globals (add_multiple nms values locals) h b h v ->
+  eval globals locals h (Mapply_ (Mlambda_ (nms, b), args)) h v.
 Proof.
   intros.
   eapply eval_app_ with (nms' := []) (values' := []); eauto.
@@ -154,13 +205,13 @@ Qed.
 Axiom todo : forall {A}, A.
 Ltac todo s := apply todo.
 
-Lemma eval_case globals locals discr i args brs nms br v :
-  eval globals locals discr (Block (int_of_nat i, args)) ->
+Lemma eval_case {Hp : Heap} globals locals discr i args brs nms br v h :
+  eval globals locals h discr h (Block (int_of_nat i, args)) ->
   nth_error brs i = Some (nms, br) -> 
   NoDup nms ->
   #|args| = #|nms| ->
-  eval globals (add_multiple nms args locals) br v ->
-  eval globals locals (Mcase (discr, brs)) v.
+  eval globals (add_multiple nms args locals) h br h v ->
+  eval globals locals h (Mcase (discr, brs)) h v.
 Proof.
   intros Hdiscr Hnth Hdup Hlen Hbr.
   eapply eval_switch with (e := Mapply_ (Mlambda_ (nms, br), mapi (fun i _ => Mfield (int_of_nat i, discr)) (nms))).

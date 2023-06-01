@@ -2,10 +2,11 @@ From Coq Require Import List String Arith Lia.
 Import ListNotations.
 From Equations Require Import Equations.
 
-From MetaCoq Require Import PCUICAstUtils MCList.
+From MetaCoq Require Import PCUICAstUtils MCList bytestring.
 From MetaCoq.Erasure Require Import EAst ESpineView EEtaExpanded EInduction ERemoveParams Erasure EGlobalEnv.
 
 From Malfunction Require Import Malfunction.
+Open Scope bs.
 
 Section MapiInP.
   Context {A B : Type}.
@@ -47,10 +48,8 @@ Section Compile.
   Definition Mlambda_ '(e, l) :=
       match e with [] => l | _ => Mlambda (e, l) end.
 
-  Open Scope string.
-
   Definition Mbox :=
-    Mlet ([Recursive [("reccall", Mlambda (["_"%string], Mvar "reccall") )]], Mvar "reccall").
+    Mlet ([Recursive [("reccall", Mlambda (["_"], Mvar "reccall") )]], Mvar "reccall").
 
   Definition lookup_record_projs (e : global_declarations) (ind : Kernames.inductive) : option (list Kernames.ident) :=
     match lookup_inductive e ind with
@@ -79,11 +78,11 @@ Section Compile.
     by wf t (fun x y : EAst.term => size x < size y) :=
       | tRel n => Mstring "tRel"
       | tBox => Mbox
-      | tLambda nm bod => Mlambda ([bytestring.String.to_string (BasicAst.string_of_name nm)], compile bod)
-      | tLetIn nm dfn bod => Mlet ([Named (bytestring.String.to_string (BasicAst.string_of_name nm), compile dfn)], compile bod)
+      | tLambda nm bod => Mlambda ([(BasicAst.string_of_name nm)], compile bod)
+      | tLetIn nm dfn bod => Mlet ([Named ((BasicAst.string_of_name nm), compile dfn)], compile bod)
       | tApp fn arg =>
           Mapply_u (compile fn) (compile arg)
-      | tConst nm => Mglobal nm
+      | tConst nm => Mglobal (Kernames.string_of_kername nm)
       | tConstruct i m [] =>
         match lookup_constructor_args Σ i with
         | Some num_args => let num_args_until_m := firstn m num_args in
@@ -101,19 +100,18 @@ Section Compile.
       | tCase i mch brs =>
           match lookup_constructor_args Σ (fst i) with
           | Some num_args =>
-              Mswitch (compile mch, mapi_InP brs 0 (fun i br H => (match fst br with
-                                                                | [] => let num_args_until_i := firstn i num_args in
-                                                                       let index := #| filter (fun x => match x with 0 => true | _ => false end) num_args_until_i| in
-                                                                       [Malfunction.Tag (int_of_nat index)]
-                                                                | args => let num_args_until_i := firstn i num_args in
-                                                                         let index := #| filter (fun x => match x with 0 => false | _ => true end) num_args_until_i| in
-                                                                         [Malfunction.Intrange (int_of_nat index, int_of_nat index)]
-                                                                end, Mapply_ (Mlambda_ (rev_map (fun nm => bytestring.String.to_string (BasicAst.string_of_name nm)) (fst br), compile (snd br)),
+              Mswitch (compile mch, mapi_InP brs 0 (fun i br H => let num_args_until_i := firstn i num_args in
+                                                                  let blocks_until_i := #| filter (fun x => match x with 0 => true | _ => false end) num_args_until_i| in
+                                                                  let nonblocks_until_i := #|num_args_until_i| - blocks_until_i in
+                                                                (match fst br with
+                                                                | [] => [Malfunction.Tag (int_of_nat blocks_until_i)]
+                                                                | args => [Malfunction.Intrange (int_of_nat nonblocks_until_i, int_of_nat nonblocks_until_i)]
+                                                                end, Mapply_ (Mlambda_ (rev_map (fun nm => (BasicAst.string_of_name nm)) (fst br), compile (snd br)),
                                                                                                           mapi (fun i _ => Mfield (int_of_nat i, compile mch)) (rev (fst br))))))
           | None => Mstring "inductive not found"
           end
       | tFix mfix idx =>
-          let bodies := map_InP mfix (fun d H => (bytestring.String.to_string (BasicAst.string_of_name (d.(dname))), compile d.(dbody))) in
+          let bodies := map_InP mfix (fun d H => ((BasicAst.string_of_name (d.(dname))), compile d.(dbody))) in
           Mlet ([Recursive bodies], Mvar (fst (nth (idx) bodies ("", Mstring ""))))
       | tProj (Kernames.mkProjection ind _ nargs) bod with lookup_record_projs Σ ind :=
         { | Some args =>
@@ -121,7 +119,7 @@ Section Compile.
               Mfield (int_of_nat (len - 1 - nargs), compile bod)
           | None => Mstring "Proj" }
       | tCoFix mfix idx => Mstring "TCofix"
-      | tVar na => Mvar (bytestring.String.to_string na)
+      | tVar na => Mvar na
       | tEvar _ _ => Mstring "Evar"
       | tPrim p => to_primitive p.
     Proof.
@@ -147,14 +145,14 @@ Definition compile_decl Σ d :=
 Definition compile_env Σ := flat_map
 (fun '(x, d) =>
  match compile_decl Σ d with
- | Some t => [(Compile.conv x, t)]
+ | Some t => [(Kernames.string_of_kername x, t)]
  | None => []
  end) Σ.
 
 Fixpoint compile_env' Σ : list (string * t) := 
   match Σ with
   | [] => []
-  | (x,d) :: Σ => match compile_decl Σ d with Some t => (conv x, t) :: compile_env' Σ 
+  | (x,d) :: Σ => match compile_decl Σ d with Some t => (Kernames.string_of_kername x, t) :: compile_env' Σ 
                                          | _ => compile_env' Σ
               end
   end.

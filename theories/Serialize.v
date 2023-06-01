@@ -13,7 +13,7 @@ Fixpoint _escape_ident (_end s : string) : string :=
   end.
 
 #[export] Instance Serialize_Ident : Serialize Ident.t :=
-  fun a => Atom (append "$" (_escape_ident "" a)).
+  fun a => Atom (append "$" (_escape_ident "" (bytestring.String.to_string a))).
 
 #[export] Instance Integral_int : Integral int :=
   fun n => (Int63.to_Z n).
@@ -127,7 +127,7 @@ Fixpoint to_sexp_t (a : t) : sexp :=
   | Mapply (x, args) => List (Atom "apply" :: to_sexp_t x :: List.map to_sexp_t args)
   | Mlet (binds, x) => List (Atom "let" :: List.map to_sexp_binding binds ++ (to_sexp_t x :: nil))
   | Mnum x => to_sexp x
-  | Mstring x => Atom (Str x)
+  | Mstring x => Atom (Str (bytestring.String.to_string x))
   | Mglobal x => (* [Atom "global" ; Atom ("$Top") ; *) to_sexp x  (* ] *)
   | Mswitch (x, sels) => Cons (Atom "switch") (Cons (to_sexp_t x) (@Serialize_list _ (@Serialize_product _ _ (@Serialize_singleton_list _ _) to_sexp_t) sels))
   | Mnumop1 (op, num, x) => [ rawapp (to_sexp op) (numtype_to_string num) ; to_sexp_t x ]
@@ -157,7 +157,7 @@ to_sexp_binding (a : binding) : sexp :=
 Definition Serialize_program : Serialize program :=
   fun '(m, x) =>
     match
-      Cons (Atom "module") (Serialize_list (m ++ (("_main", x)  :: nil))%list)
+      Cons (Atom "module") (Serialize_list (m ++ ((bytestring.String.of_string "_main", x)  :: nil))%list)
     with
       List l => List (l ++ ([Atom "export"] :: nil))
     | x => x
@@ -191,7 +191,7 @@ Definition encode_name (s : string) : string :=
   uncapitalize (dot_to_underscore s).
 
 Definition exports (m : list (Ident.t * t)) : list (Ident.t * t) :=
-  List.map (fun '(x, v) => (encode_name x, Mglobal x)) m.
+  List.map (fun '(x, v) => (bytestring.String.of_string (encode_name (bytestring.String.to_string x)), Mglobal x)) m.
 
 Definition Serialize_module : Serialize program :=
   fun '(m, x) =>
@@ -200,7 +200,7 @@ Definition Serialize_module : Serialize program :=
       Cons (Atom "module") (Serialize_list (m ++ exports)%list)
     with
       List l =>
-        let exports := List.map (fun x => Atom (Raw ("$" ++ (fst x)))) exports in
+        let exports := List.map (fun x => Atom (Raw ("$" ++ (bytestring.String.to_string (fst x))))) exports in
         List (l ++ (Cons (Atom "export") (List exports) :: nil))
     | x => x
     end.

@@ -8,14 +8,11 @@ Import ListNotations.
 Local Open Scope list.
 Local Open Scope string.
 
-Compute string_of_sexp (to_sexp (Mlambda (["x"], (Mvar "x")))).
-Compute string_of_sexp (to_sexp "x").
-
 #[export] Instance Deserialize_Ident : Deserialize Ident.t :=
   fun l e =>
     match e with
     | Atom_ (Raw (String sym s)) => if String.eqb (String sym EmptyString) "$" then
-                             inr s else inl (DeserError l "identifier needs to start with an $")
+                             inr (bytestring.String.of_string s) else inl (DeserError l "identifier needs to start with an $")
     | List _ => inl (DeserError l "could not read 'ident', got list")
     | _ => inl (DeserError l "could not read 'ident', got non-string atom")
     end.
@@ -58,7 +55,7 @@ Definition splitlast {A} (a : A) (l : list A) : (list A * A) :=
 Definition splitfirst (l : list binding) : (list binding * t) :=
   match rev l with
   | Unnamed b :: l => (rev l, b)
-  | _ => (nil, (Mvar "ERROR"))
+  | _ => (nil, (Mvar ((bytestring.String.of_string "ERROR"))))
   end.
 
 (* From ReductionEffect Require Import PrintingEffect. *)

@@ -4,6 +4,7 @@ From Malfunction Require Import Pipeline Serialize.
 
 From MetaCoq Require Import ETransform Common.Transform bytestring.
 From MetaCoq.Template Require All Loader TemplateMonad.
+Open Scope bs.
 
 Import Transform.
 
@@ -55,7 +56,7 @@ From Malfunction Require Import Interpreter.
 Definition interpret_mlf {A : Type} (a : A) :=
   t <- tmQuoteRec a ;;
   s <- tmEval lazy (eval_malfunction_sexp t) ;;
-  v <- tmEval lazy (interpret (fun x => fail "empty"%string) s) ;;
+  v <- tmEval lazy (interpret (fun x => fail "empty") s) ;;
   (* tmMsg "Extraction to Malfunction:"%bs ;; *)
   tmMsg (to_string v) ;; tmReturn tt.
 
