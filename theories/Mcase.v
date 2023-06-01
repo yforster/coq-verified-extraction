@@ -1,22 +1,12 @@
 Require Import List Lia.
 Export ListNotations.
 
-From MetaCoq Require Import MCList bytestring BasicAst EWcbvEvalNamed All_Forall ReflectEq.
+From MetaCoq Require Import  bytestring BasicAst EWcbvEvalNamed All_Forall ReflectEq.
+From Malfunction Require Import SemanticsSpec.
+From MetaCoq Require Import MCList.
 
-From Malfunction Require Import Malfunction SemanticsSpec.
-
-Definition Mapply_ '(e, l) :=
-    match l with [] => e | _ => Mapply (e, l) end.
-
-Definition Mlambda_ '(e, l) :=
-    match e with [] => l | _ => Mlambda (e, l) end.
-
-Definition int_of_nat n := Uint63.of_Z (Coq.ZArith.BinInt.Z.of_nat n).
-
-Definition Mcase : t * list (list Ident.t * t) -> t :=
- fun '(discr, brs) =>
-   Mswitch (discr, mapi (fun i '(nms, b) => ([Malfunction.Tag (int_of_nat i)], Mapply_ (Mlambda_ (nms, b),
-   mapi (fun i _ => Mfield (int_of_nat i, discr)) (nms)))) brs).
+From Malfunction Require Import Malfunction  Compile.
+Open Scope list_scope.
 
 Definition Func_ `{H : Heap} nms locals b v :=
   match nms with
@@ -37,7 +27,6 @@ Proof.
   - reflexivity.
   - now rewrite IHargs1.
 Qed. 
-
 
 Arguments SemanticsSpec.eval {_}.
 
@@ -205,32 +194,81 @@ Qed.
 Axiom todo : forall {A}, A.
 Ltac todo s := apply todo.
 
-Lemma eval_case {Hp : Heap} globals locals discr i args brs nms br v h :
-  eval globals locals h discr h (Block (int_of_nat i, args)) ->
+Require Import ZArith.
+
+Lemma int_of_to_nat i :
+  int_of_nat (int_to_nat i) = i.
+Proof.
+  unfold int_of_nat, int_to_nat.
+  rewrite Z2Nat.id.
+  2:eapply Int63.to_Z_bounded.
+  now rewrite Int63.of_to_Z.
+Qed.
+
+Lemma int_to_of_nat i :
+  (Z.of_nat i < Int63.wB)%Z ->
+  int_to_nat (int_of_nat i) = i.
+Proof.
+  unfold int_of_nat, int_to_nat.
+  intros ?.
+  rewrite Int63.of_Z_spec.
+  rewrite Z.mod_small. 2:lia.
+  now rewrite Nat2Z.id.
+Qed.
+
+Lemma eval_case_block {Hp : Heap} globals locals discr i args brs nms br v h  :
+  eval globals locals h discr h (Block (int_of_nat (blocks_until i brs), args)) ->
+  nms <> [] ->
   nth_error brs i = Some (nms, br) -> 
   NoDup nms ->
   #|args| = #|nms| ->
   eval globals (add_multiple nms args locals) h br h v ->
   eval globals locals h (Mcase (discr, brs)) h v.
 Proof.
-  intros Hdiscr Hnth Hdup Hlen Hbr.
+  intros Hdiscr Hnms Hnth Hdup Hlen Hbr.
   eapply eval_switch with (e := Mapply_ (Mlambda_ (nms, br), mapi (fun i _ => Mfield (int_of_nat i, discr)) (nms))).
   - eauto.
-  - clear - Hnth. unfold mapi at 1. change i with (0 + i). 
-    generalize 0 as n. intros n. induction brs as [ | [nms' br'] brs IH] in i, Hnth , nms, br, n |- *.
-    + destruct i; inversion Hnth.
+  - clear - Hnth Hnms.
+    revert Hnms Hnth.
+    unfold mapi at 1.
+    change brs with ([] ++ brs) at 2 3 4 5 6 7.
+    assert (length (@nil (list Ident.t * t)) = 0) by reflexivity. revert H.
+    generalize (@nil (list Ident.t * t)).
+    change i with (0 + i) at 2.
+    generalize 0 as n.
+    intros n brs0 Hbrs0 Hnms Hnth. induction brs as [ | [nms' br'] brs IH] in i, Hnth, Hnms, nms, br, n, brs0, Hbrs0 |- *.
+    + destruct i; cbn in *; congruence.      
     + destruct i; cbn in Hnth.
       * inversion Hnth as [ ]. subst; clear Hnth. cbn.
-        replace (n + 0) with n by lia.
-        now rewrite Bool.orb_false_r, Int63.eqb_refl.
-      * cbn [mapi mapi_rec]. unfold find_match.
+        rewrite nth_error_map. rewrite nth_error_app2; try lia. cbn.
+        rewrite minus_diag. cbn.
+        destruct nms; cbn in *; try congruence.
+        cbn. rewrite Bool.orb_false_r. now rewrite <- plus_n_O, Int63.eqb_refl.
+      * cbn [mapi_rec]. unfold find_match. cbn. fold find_match.
         destruct existsb eqn:E.
-        -- cbn in E. rewrite Bool.orb_false_r in E.
-           eapply Int63.eqb_correct in E.
-           eapply (f_equal int_to_nat) in E.
-           rewrite !int_to_of_nat in E.
-           lia. all: todo "int size"%bs.           
-        -- fold find_match. erewrite <- (IH i _ _ _ (S n)). do 4 f_equal. lia.
+        2:{ fold find_match. specialize IH with (i := i) (n := S n) (brs0 := brs0 ++ [(nms', br')]).
+            replace (n + S i) with (S n + i) by lia.
+            replace ((brs0 ++ (nms', br') :: brs)) with ((brs0 ++ [(nms', br')]) ++ brs).
+            etransitivity. eapply IH. 
+            -- rewrite app_length. cbn. lia.
+            -- eauto.
+            -- eauto.
+            -- destruct nms; cbn; reflexivity.
+            -- now rewrite <- !app_assoc.
+        } exfalso.
+        revert E. rewrite nth_error_map. subst. rewrite nth_error_app2; try lia. cbn.
+        rewrite minus_diag. cbn.
+        destruct nms'; cbn in *; try congruence.
+        cbn. rewrite Bool.orb_false_r. unfold blocks_until. cbn.
+        rewrite !map_app. cbn. rewrite firstn_app_left. 2: now rewrite map_length.
+        rewrite firstn_app. cbn. rewrite map_length.
+        rewrite firstn_ge. 2: rewrite map_length; lia.
+        replace (#|brs0| + S i - #|brs0|) with (S i) by lia.
+        cbn. rewrite !filter_app. cbn. rewrite app_length. 
+        intros E. eapply Uint63.eqb_correct in E.
+        eapply (f_equal int_to_nat) in E.
+        rewrite !int_to_of_nat in E. cbn in *. lia.
+        all: todo "int size"%bs.           
   - eapply eval_apply_lambda. 2: eassumption. 3: eassumption. 1: now rewrite mapi_length.
     unfold mapi. change 0 with (#|@nil value|).
     revert Hdiscr. change args with ([] ++ args) at 1. generalize (@nil value) as args'. 
@@ -245,11 +283,57 @@ Proof.
       * evar (v' : value).
         enough (a = v') as E. subst v'. rewrite E. econstructor.
         eapply Hdiscr. 1-2: todo "int size"%bs.
-        subst v'. rewrite int_to_of_nat. 2: todo "int size"%bs.
-        rewrite app_nth2, PeanoNat.Nat.sub_diag; [ reflexivity | lia].
+        subst. rewrite int_to_of_nat. 2: todo "int size"%bs.
+        rewrite app_length; cbn. lia.
+        subst v'. rewrite int_to_of_nat.     
+        rewrite app_nth2, PeanoNat.Nat.sub_diag; [ reflexivity | lia]. todo "int size"%bs.
       * now inversion Hdup.
       * assumption.
-      * rewrite <- app_assoc. eapply Hdiscr. 
-      Unshelve. eauto.
+      * rewrite <- app_assoc. eapply Hdiscr.
 Qed.
-Print Assumptions eval_case.
+
+Lemma eval_case_int {Hp : Heap} globals locals discr i brs br v h  :
+  eval globals locals h discr h (value_Int (Int, Z_of_nat (nonblocks_until i brs))) ->
+  nth_error brs i = Some ([], br) -> 
+  eval globals locals h br h v ->
+  eval globals locals h (Mcase (discr, brs)) h v.
+Proof.
+  intros Hdiscr Hnth Hbr.
+  eapply eval_switch with (e := br).
+  - eauto.
+  - clear - Hnth.
+    revert Hnth.
+    unfold mapi at 1.
+    change brs with ([] ++ brs) at 2 3 4 5 6 7.
+    assert (length (@nil (list Ident.t * t)) = 0) by reflexivity. revert H.
+    generalize (@nil (list Ident.t * t)).
+    change i with (0 + i) at 2.
+    generalize 0 as n.
+    intros n brs0 Hbrs0 Hnth. induction brs as [ | [nms' br'] brs IH] in i, Hnth, br, n, brs0, Hbrs0 |- *.
+    + destruct i; cbn in *; congruence.      
+    + destruct i; cbn in Hnth.
+      * inversion Hnth as [ ]. subst; clear Hnth. cbn.
+        rewrite nth_error_map. rewrite nth_error_app2; try lia. cbn.
+        rewrite minus_diag. cbn [existsb cond nth_error option_map fst].
+        rewrite Bool.orb_false_r. todo "ok".
+      * cbn [mapi_rec]. unfold find_match. cbn. fold find_match.
+        destruct existsb eqn:E.
+        2:{ fold find_match. specialize IH with (i := i) (n := S n) (brs0 := brs0 ++ [(nms', br')]).
+            replace (n + S i) with (S n + i) by lia.
+            replace ((brs0 ++ (nms', br') :: brs)) with ((brs0 ++ [(nms', br')]) ++ brs).
+            etransitivity. eapply IH. 
+            -- rewrite app_length. cbn. lia.
+            -- eauto.
+            -- eauto.
+            -- now rewrite <- !app_assoc.
+        } exfalso.
+        revert E. rewrite nth_error_map. subst. rewrite nth_error_app2; try lia. cbn.
+        rewrite minus_diag. cbn [existsb cond nth_error option_map fst].
+        destruct nms'; try now (cbn in *; try congruence).
+        cbn [existsb cond nth_error option_map fst].
+        rewrite Bool.orb_false_r. rewrite Bool.andb_true_iff. intros [].
+        eapply Zle_bool_imp_le in H.
+        todo "ok".
+        all: todo "int size"%bs.           
+  - eauto.
+Qed.

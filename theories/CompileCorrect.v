@@ -2,6 +2,7 @@ From MetaCoq Require Import utils.
 Require Import List String.
 Import ListNotations.
 Local Open Scope string_scope.
+From Malfunction Require Import Mcase.
 From MetaCoq Require Import ReflectEq EWcbvEvalNamed bytestring MCList.
 
 From Malfunction Require Import Compile SemanticsSpec.
@@ -417,7 +418,6 @@ Proof.
       * destruct (compile Σ a1); cbn in H0; try congruence. destruct p, l; cbn in *; congruence.
       * revert H0. destruct l; simp compile; destruct lookup_constructor_args; cbn.
         all: congruence.
-      * revert H0. destruct p. simp compile. destruct lookup_constructor_args; cbn.  congruence. congruence.
       * revert H0. destruct p. simp compile. unfold compile_unfold_clause_11.
         destruct lookup_record_projs; congruence.
       * revert H0. destruct p; cbn. unfold to_primitive. cbn. destruct p; cbn; congruence.
@@ -438,7 +438,6 @@ Proof.
       * destruct (compile Σ f1_1); cbn in H0; try congruence. destruct p, l; cbn in *; congruence.
       * revert H0. destruct l; simp compile; destruct lookup_constructor_args; cbn.
         all: congruence.
-      * revert H0. destruct p. simp compile. destruct lookup_constructor_args; cbn.  congruence. congruence.
       * revert H0. destruct p. simp compile. unfold compile_unfold_clause_11.
         destruct lookup_record_projs; congruence.
       * revert H0. destruct p; cbn. unfold to_primitive. cbn. destruct p; cbn; congruence.
@@ -514,14 +513,28 @@ Proof.
         -- congruence.
         -- rewrite <- HΓ. reflexivity.
   - (* case *)
-    todo "case"%bs.
+    destruct br as [nms' b].
+    destruct nms'.
+    + Arguments Mcase : simpl never. cbn in *. inversion f4; cbn -[Mcase] in *; try congruence. subst.
+      destruct args; cbn in *; try congruence. 
+      eapply eval_case_int.
+      2:{ rewrite map_InP_spec, nth_error_map, e1. reflexivity. }
+      2:{ eapply IHHeval2; eauto. }
+      unfold EGlobalEnv.constructor_isprop_pars_decl, lookup_constructor_args, EGlobalEnv.lookup_constructor in *;
+      destruct (EGlobalEnv.lookup_inductive) as [ [] | ]; cbn in *; try congruence.
+      rewrite map_InP_spec.
+      evar (f : nat).
+      replace ((nonblocks_until c (map (fun x : list BasicAst.name × EAst.term => (rev_map (fun nm : BasicAst.name => BasicAst.string_of_name nm) x.1, compile Σ x.2)) brs))) with f.
+      subst f. eapply IHHeval1; eauto.
+      subst f. unfold nonblocks_until.
+      rewrite map_map. cbn. admit.
+    + 
    - (* recursion *)
     cbn.
     cbn - [compile_value] in *. subst.
     destruct (Mapply_u_spec (compile Σ f5) (compile Σ a)) as [(fn_ & arg & E & ->) | (E & ->) ].
     + destruct f5; simp compile; intros [? [=]].
       * destruct (compile Σ f5_1); cbn in H0; try congruence. destruct p, l; cbn in *; congruence.
-      * revert H0. destruct l; simp compile; destruct lookup_constructor_args; cbn.  all: congruence.
       * revert H0. destruct l; simp compile; destruct lookup_constructor_args; cbn.  all: congruence.
       * revert H0. destruct p; simp compile. unfold compile_unfold_clause_11.
         destruct lookup_record_projs; cbn; congruence.
