@@ -338,8 +338,9 @@ Admitted.   *)
 
 Lemma nth_error_fix_env idx mfix Γ : 
   idx < #|mfix| ->
-  nth_error (fix_env mfix Γ) idx = Some (vRecClos mfix idx Γ).
+  nth_error (fix_env mfix Γ) idx = Some (vRecClos mfix (#|mfix| - idx) Γ).
 Proof.
+  
 Admitted.
 
 Lemma add_self_lookup {Hp : Heap} Σ recs na locals locals' mfix nms bodies : 
