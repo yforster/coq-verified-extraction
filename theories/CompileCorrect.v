@@ -309,7 +309,7 @@ Proof.
   - destruct idx; cbn in *; congruence.
   - cbn. destruct a as [na' e]. 
     destruct idx; cbn in Hnth; inversion Hnth.
-    + subst. unfold Malfunction.Ident.Map.add, Malfunction.Ident.eqb.
+    + subst. unfold Malfunction.Ident.Map.add, Malfunction.Ident.eqb. 
       rewrite String.eqb_refl. repeat f_equal. lia.
     + unfold Malfunction.Ident.Map.add, Malfunction.Ident.eqb.
       cbn. destruct (String.eqb_spec na na').
@@ -317,31 +317,17 @@ Proof.
         eapply nth_error_In. rewrite nth_error_map, H0. reflexivity.
       * eapply IHrecs0 in Hnth. cbn. rewrite Hnth. f_equal. f_equal. lia. now inversion Hdup.
 Qed.
-(* 
-Lemma mapi_app {A B} (f : nat -> A -> B) i l1 l2 : 
-  (mapi_ f (l1 ++ l2) i = mapi_ f l1 i ++ mapi_ f l2 (List.length l1 + i)) % list.
-Proof.
-  induction l1 in i |- *; cbn; f_equal.
-  rewrite IHl1. repeat f_equal. lia.
-Qed.
-
-Lemma rev_mapi {A B} (f : nat -> A -> B) l :
-  List.rev (mapi f l) = mapi (fun n => f (List.length l - S n)) (List.rev l).
-Proof.
-  unfold mapi. change (List.length l) with (0 + List.length l).
-  replace (List.length l) with (List.length l + 0) by lia.
-  generalize 0. induction l; intros.
-  - reflexivity.
-  - cbn [mapi_]. cbn. rewrite mapi_app.
-    f_equal. rewrite IHl. 2:{ cbn. f_equal. f_equal. rewrite List.rev_length. lia. }
-Admitted.   *)
 
 Lemma nth_error_fix_env idx mfix Γ : 
   idx < #|mfix| ->
-  nth_error (fix_env mfix Γ) idx = Some (vRecClos mfix (#|mfix| - idx) Γ).
+  nth_error (fix_env mfix Γ) idx = Some (vRecClos mfix (#|mfix| - S idx) Γ).
 Proof.
-  
-Admitted.
+  unfold fix_env. induction #|mfix| in idx |- *; cbn.
+  - lia.
+  - intros. destruct idx.
+    + cbn. now rewrite <- minus_n_O.
+    + cbn. eapply IHn. lia.
+Qed.
 
 Lemma add_self_lookup {Hp : Heap} Σ recs na locals locals' mfix nms bodies : 
   Forall2 (fun '(na1, e1) '(na2, e2) => String.to_string na2 = na1 /\ e1 = compile Σ e2) recs mfix ->
@@ -351,11 +337,11 @@ Lemma add_self_lookup {Hp : Heap} Σ recs na locals locals' mfix nms bodies :
   NoDup nms ->
   forallb (fun b => EAst.isLambda b.2) mfix ->
   Malfunction.Ident.Map.find (String.to_string na) (add_self nms bodies locals) =
-    match lookup (add_multiple (map fst mfix) (fix_env mfix locals') locals') na with
+    match lookup (add_multiple (List.rev (map fst mfix)) (fix_env mfix locals') locals') na with
     | Some v => compile_value Σ v
     | None => fail "notfound"
     end.
-Proof.
+Proof. 
   intros Hall Hlocals -> -> Hdup Hlam.
   rewrite lookup_multiple.
   destruct find eqn:E.
@@ -366,6 +352,8 @@ Proof.
     assert (idx < #|mfix|). { erewrite <- fix_env_length. eapply nth_error_Some. rewrite H2. congruence. }
     rewrite nth_error_fix_env in H2. 2: eauto.
     inversion H2; subst; clear H2.
+    rewrite nth_error_rev_inv in H1. 2: now rewrite map_length.
+    rewrite map_length in H1.
     rewrite nth_error_map in H1. destruct (nth_error) eqn:E; cbn in *; inversion H1; subst; clear H1.
     eapply Forall2_nth_error_Some_r in Hall as Hs. destruct Hs as (? & ? & ?). 2: eauto.
     destruct x. destruct p. destruct H1. subst.
@@ -386,13 +374,17 @@ Proof.
     generalize (RFunc_build (map snd recs)).
     generalize (map fst recs) at 1.
     assert (forall x, In x (map fst mfix) -> na <> x). {
-      intros ? ? ->. revert H.
-      unfold fix_env. generalize mfix at 2. clear - H0. induction mfix; cbn in *; eauto; intros.
-      destruct H0.
-      - subst. destruct a. cbn in *.
-        unshelve epose proof (H _ _). 2: now left. 
-        cbn in *. destruct (eqb_spec t t); congruence.
-      - eapply IHmfix; eauto.
+      intros ? ? ->.
+      enough (exists y, In (x, y) (map2 pair (List.rev (map fst mfix)) (fix_env mfix locals'))) as [].
+      eapply H in H1. cbn in *.
+      destruct (eqb_spec x x); congruence. clear - H0.
+      unfold fix_env. generalize mfix at 2. induction mfix using rev_ind; cbn in *; eauto; intros.
+      rewrite map_app, in_app_iff in H0. cbn in H0.
+      rewrite app_length. cbn. rewrite plus_comm. cbn. rewrite map_app. cbn.
+      rewrite rev_app_distr. cbn.
+      destruct H0 as [ | [ | []]].
+      - edestruct IHmfix; eauto.
+      - subst. cbn. eauto.
     } clear H.
     induction Hall; intros.
     * cbn. reflexivity.
@@ -402,8 +394,8 @@ Proof.
             destruct y; cbn in *. destruct H.
             rewrite <- (of_string_to_string na), <- (of_string_to_string t0). congruence.
          ++ eapply IHHall. now inversion Hdup. cbn in *; rtoProp. tauto. intros. eapply H0. cbn. eauto.
-  + now rewrite map_length, fix_env_length.
-Qed.
+  + now rewrite List.rev_length, map_length, fix_env_length.
+Qed. 
 
 Lemma compile_correct `{Hp : Heap} Σ Σ' s t Γ Γ' h :
   (forall na, Malfunction.Ident.Map.find (bytestring.String.to_string na) Γ' =  match lookup Γ na with Some v => compile_value Σ v | _ => fail "notfound" end) ->
