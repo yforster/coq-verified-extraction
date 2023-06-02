@@ -524,7 +524,7 @@ Proof.
       destruct (EGlobalEnv.lookup_inductive) as [ [] | ]; cbn in *; try congruence.      
       destruct nth_error eqn:Econ; try congruence.
       eapply eval_case_int.
-      2:{ todo "as many branches as constructors". }
+      2: { rewrite map_length. todo "less constructors than max int". }
       4:{ eapply IHHeval2; eauto. }
       2:{ rewrite nth_error_map, Econ. cbn. destruct c0; cbn in *; subst. inversion e0; subst. destruct m; cbn in *; subst. reflexivity. }
       eapply IHHeval1. eauto.
@@ -536,9 +536,10 @@ Proof.
        eapply Forall2_length in H3 as Hll.
        destruct nth_error eqn:Econ; try congruence.
        eapply eval_case_block.
-       3:{ todo "as many branches as constructors". }
-       5: eapply NoDup_rev; eauto. 2:{ cbn.  destruct (@List.rev Malfunction.Ident.t (l')); cbn; try congruence. }
+       7: eapply NoDup_rev; eauto. 2:{ cbn.  destruct (@List.rev Malfunction.Ident.t (l')); cbn; try congruence. }
        eapply IHHeval1. eauto.
+       1:{ rewrite map_length. todo "less constructors than max int". } 
+       1:{ cbn. rewrite map_length. rewrite e2. todo "less constructors arguments than array length". }
        rewrite nth_error_map, Econ. cbn. destruct c0; cbn in *; subst. inversion e0; subst. destruct m; cbn in *; subst. repeat f_equal.
        rewrite app_length. rewrite List.rev_length.
        setoid_rewrite <- Hll. cbn. lia.
@@ -693,20 +694,37 @@ Proof.
       destruct (EGlobalEnv.lookup_inductive) as [ [] | ]; cbn in *; try congruence.
     + depelim a.
       eapply eval_num. lia. 2: reflexivity.
-      todo "less constructors than Malfunction.Int63.wB"%bs.
+      assert (Z.of_nat #|EAst.ind_ctors o| < Malfunction.Int63.wB)%Z by
+        todo "less constructors than Malfunction.Int63.wB"%bs.
+      pose proof (filter_length (firstn c (map EAst.cstr_nargs (EAst.ind_ctors o))) (fun x : nat => match x with
+        | 0%nat => true
+        | S _ => false
+        end)).
+      rewrite firstn_length in H0.
+      destruct nth_error eqn:E; try congruence.
+      eapply nth_error_Some_length in E. lia.
     + depelim a. cbn.
       rewrite MCList.map_InP_spec.
-      clear l.
       depelim IHa.
       cbn. econstructor. econstructor. eapply e1; eauto. clear e1.
       induction a.
       * econstructor.
       * cbn. econstructor.
         -- eapply a0; eauto.
-        -- eapply IHa; eauto. eapply a0.
-      * todo "less constructors than Malfunction.Int63.wB"%bs.
+        -- eapply IHa; eauto. cbn in l. lia. eapply a0.
+      * cbn. rewrite map_length. clear a0. eapply Prelim.Ee.All2_Set_All2 in a. eapply All2_length in a. rewrite <- a.
+        assert (EAst.cstr_arity mdecl cdecl < int_to_nat PArray.max_length) by 
+       todo "less contructor arguments than PArray.max_length"%bs. cbn in *. lia.
   - cbn. unfold lookup_constructor_args, EGlobalEnv.lookup_constructor in *;
       destruct (EGlobalEnv.lookup_inductive) as [ [] | ]; cbn in *; try congruence.
     eapply eval_num. lia. 2:reflexivity.
+    assert (Z.of_nat #|EAst.ind_ctors o| < Malfunction.Int63.wB)%Z by
     todo "less constructors than Malfunction.Int63.wB"%bs.
+    pose proof (filter_length (firstn c (map EAst.cstr_nargs (EAst.ind_ctors o))) (fun x : nat => match x with
+      | 0%nat => true
+      | S _ => false
+      end)).
+    rewrite firstn_length in H0.
+    destruct nth_error eqn:E; try congruence.
+    eapply nth_error_Some_length in E. lia.
 Qed.
