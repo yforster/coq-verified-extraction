@@ -343,7 +343,12 @@ Lemma Z_and_int n :
   (Z.of_nat n < Int63.wB)%Z ->
   Int63.to_Z (int_of_nat n) = Z.of_nat n.
 Proof.
-Admitted.
+  intros H.
+  unfold int_of_nat.
+  rewrite Int63.of_Z_spec.
+  rewrite Z.mod_small. 2:lia.
+  reflexivity.
+Qed.
 
 Lemma eval_case_int {Hp : Heap} globals locals discr i brs br v h  num_args :
   eval globals locals h discr h (value_Int (Int, Z_of_nat (nonblocks_until i num_args))) ->

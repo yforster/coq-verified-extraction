@@ -292,9 +292,11 @@ Proof.
   intros. subst.
   pose proof (Malfunction.Int63.of_Z_spec z) as Heq.
   rewrite Zdiv.Zmod_small in Heq. rewrite <- Heq at 2.
-  todo "missing eval_num"%bs. eauto.
+Admitted.
+(*   todo "missing eval_num"%bs. eauto.
 Qed.
-    
+ *)    
+ 
 Lemma find_add_self {Hp : Heap} idx d na recs locals :
   NoDup (map fst recs) ->
   nth_error recs idx = Some (na, d) ->
@@ -395,15 +397,18 @@ Proof.
             destruct y; cbn in *. destruct H. congruence.
          ++ eapply IHHall. now inversion Hdup. cbn in *; rtoProp. tauto. intros. eapply H0. cbn. eauto.
   + now rewrite List.rev_length, map_length, fix_env_length.
-Qed. 
+Qed.
+
+Opaque Malfunction.Int63.wB PArray.max_length.
 
 Lemma compile_correct `{Hp : Heap} Σ Σ' s t Γ Γ' h :
+  (forall i mb ob, EGlobalEnv.lookup_inductive Σ i = Some (mb, ob) -> #|ob.(EAst.ind_ctors)| < Z.to_nat Malfunction.Int63.wB /\ forall n b, nth_error ob.(EAst.ind_ctors) n = Some b -> b.(EAst.cstr_nargs) < int_to_nat PArray.max_length) ->
   (forall na, Malfunction.Ident.Map.find na Γ' =  match lookup Γ na with Some v => compile_value Σ v | _ => fail "notfound" end) ->
   (forall c decl body v, EGlobalEnv.declared_constant Σ c decl -> EAst.cst_body decl = Some body -> EWcbvEvalNamed.eval Σ [] body v -> In ((Kernames.string_of_kername c), compile_value Σ v) Σ') ->
    EWcbvEvalNamed.eval Σ Γ s t ->
    SemanticsSpec.eval Σ' Γ' h (compile Σ s) h (compile_value Σ t).
 Proof.
-  intros HΓ HΣ Heval.
+  intros Hextr HΓ HΣ Heval.
   revert Γ' HΓ.
   induction Heval; intros Γ_ HΓ; simp compile; try rewrite <- !compile_equation_1.
   - (* variables *)
@@ -518,28 +523,32 @@ Proof.
     destruct br as [nms' b].
     destruct nms'.
     + Arguments Mcase : simpl never.
-      cbn in *. inversion f4; cbn -[Mcase] in *; try congruence. subst.
-      destruct args; cbn in *; try congruence.
+      cbn -[EGlobalEnv.lookup_inductive] in *. inversion f4; cbn -[Mcase EGlobalEnv.lookup_inductive] in *; try congruence. subst.
+      destruct args; cbn -[EGlobalEnv.lookup_inductive] in *; try congruence.
       unfold EGlobalEnv.constructor_isprop_pars_decl, lookup_constructor_args, EGlobalEnv.lookup_constructor in *;
-      destruct (EGlobalEnv.lookup_inductive) as [ [] | ]; cbn in *; try congruence.      
+      destruct (EGlobalEnv.lookup_inductive) as [ [] | ] eqn:Elo; cbn -[EGlobalEnv.lookup_inductive] in *; try congruence.
+      specialize (Hextr _ _ _ Elo) as [He1 He2].
       destruct nth_error eqn:Econ; try congruence.
+      specialize (He2 _ _ Econ).
       eapply eval_case_int.
-      2: { rewrite map_length. todo "less constructors than max int". }
+      2: { rewrite map_length. cbn. lia. }
       4:{ eapply IHHeval2; eauto. }
       2:{ rewrite nth_error_map, Econ. cbn. destruct c0; cbn in *; subst. inversion e0; subst. destruct m; cbn in *; subst. reflexivity. }
       eapply IHHeval1. eauto.
       rewrite map_InP_spec. rewrite nth_error_map, e1. cbn. reflexivity.
-    +  cbn -[lookup] in *. inversion f4; cbn -[Mcase lookup] in *; try congruence. subst. clear f4.
-       destruct args; cbn -[lookup add_multiple] in *; try congruence.
+    +  cbn -[lookup EGlobalEnv.lookup_inductive] in *. inversion f4; cbn -[Mcase lookup EGlobalEnv.lookup_inductive] in *; try congruence. subst. clear f4.
+       destruct args; cbn -[lookup add_multiple EGlobalEnv.lookup_inductive] in *; try congruence.
        unfold EGlobalEnv.constructor_isprop_pars_decl, lookup_constructor_args, EGlobalEnv.lookup_constructor in *;
-       destruct (EGlobalEnv.lookup_inductive) as [ [] | ]; cbn -[add_multiple] in *; try congruence.
+       destruct (EGlobalEnv.lookup_inductive) as [ [] | ] eqn:Elo; cbn -[add_multiple EGlobalEnv.lookup_inductive] in *; try congruence.
+       specialize (Hextr _ _ _ Elo) as [He1 He2].
        eapply Forall2_length in H3 as Hll.
        destruct nth_error eqn:Econ; try congruence.
+       specialize (He2 _ _ Econ).
        eapply eval_case_block.
        7: eapply NoDup_rev; eauto. 2:{ cbn.  destruct (@List.rev Malfunction.Ident.t (l')); cbn; try congruence. }
        eapply IHHeval1. eauto.
-       1:{ rewrite map_length. todo "less constructors than max int". } 
-       1:{ cbn. rewrite map_length. rewrite e2. todo "less constructors arguments than array length". }
+       1:{ rewrite map_length. cbn. lia. }
+       1:{ cbn. rewrite map_length. rewrite e2. cbn. invs e0. lia. }
        rewrite nth_error_map, Econ. cbn. destruct c0; cbn in *; subst. inversion e0; subst. destruct m; cbn in *; subst. repeat f_equal.
        rewrite app_length. rewrite List.rev_length.
        setoid_rewrite <- Hll. cbn. lia.
@@ -691,35 +700,36 @@ Proof.
   - (* constructor application *)
     cbn. destruct args; simp compile;
     unfold lookup_constructor_args, EGlobalEnv.lookup_constructor in *;
-      destruct (EGlobalEnv.lookup_inductive) as [ [] | ]; cbn in *; try congruence.
-    + depelim a.
+      destruct (EGlobalEnv.lookup_inductive) as [ [] | ] eqn:Elo; cbn -[EGlobalEnv.lookup_inductive] in *; try congruence;
+     specialize (Hextr _ _ _ Elo) as [He1 He2].
+     + depelim a.
       eapply eval_num. lia. 2: reflexivity.
-      assert (Z.of_nat #|EAst.ind_ctors o| < Malfunction.Int63.wB)%Z by
-        todo "less constructors than Malfunction.Int63.wB"%bs.
+      assert (Z.of_nat #|EAst.ind_ctors o| < Malfunction.Int63.wB)%Z by (cbn; lia). 
       pose proof (filter_length (firstn c (map EAst.cstr_nargs (EAst.ind_ctors o))) (fun x : nat => match x with
         | 0%nat => true
         | S _ => false
         end)).
       rewrite firstn_length in H0.
       destruct nth_error eqn:E; try congruence.
-      eapply nth_error_Some_length in E. lia.
+      specialize (He2 _ _ E).
+      eapply nth_error_Some_length in E. lia. 
     + depelim a. cbn.
       rewrite MCList.map_InP_spec.
       depelim IHa.
       cbn. econstructor. econstructor. eapply e1; eauto. clear e1.
+      2:{ cbn. rewrite map_length. clear a0. eapply Prelim.Ee.All2_Set_All2 in a. eapply All2_length in a. rewrite <- a.
+          assert (EAst.cstr_nargs cdecl < int_to_nat PArray.max_length). {  destruct nth_error eqn:E; try congruence.
+          invs e. specialize (He2 _ _ E). cbn. lia. }
+          cbn in *. lia. }      
       induction a.
       * econstructor.
       * cbn. econstructor.
         -- eapply a0; eauto.
-        -- eapply IHa; eauto. cbn in l. lia. eapply a0.
-      * cbn. rewrite map_length. clear a0. eapply Prelim.Ee.All2_Set_All2 in a. eapply All2_length in a. rewrite <- a.
-        assert (EAst.cstr_arity mdecl cdecl < int_to_nat PArray.max_length) by 
-       todo "less contructor arguments than PArray.max_length"%bs. cbn in *. lia.
+        -- eapply IHa; eauto. cbn in l. lia. eapply a0.      
   - cbn. unfold lookup_constructor_args, EGlobalEnv.lookup_constructor in *;
-      destruct (EGlobalEnv.lookup_inductive) as [ [] | ]; cbn in *; try congruence.
+      destruct (EGlobalEnv.lookup_inductive) as [ [] | ] eqn:Elo; cbn -[EGlobalEnv.lookup_inductive] in *; try congruence.
     eapply eval_num. lia. 2:reflexivity.
-    assert (Z.of_nat #|EAst.ind_ctors o| < Malfunction.Int63.wB)%Z by
-    todo "less constructors than Malfunction.Int63.wB"%bs.
+    assert (Z.of_nat #|EAst.ind_ctors o| < Malfunction.Int63.wB)%Z. { specialize (Hextr _ _ _ Elo) as [He1 He2]. cbn. lia. }
     pose proof (filter_length (firstn c (map EAst.cstr_nargs (EAst.ind_ctors o))) (fun x : nat => match x with
       | 0%nat => true
       | S _ => false
@@ -728,3 +738,4 @@ Proof.
     destruct nth_error eqn:E; try congruence.
     eapply nth_error_Some_length in E. lia.
 Qed.
+Print Assumptions compile_correct.
