@@ -10,7 +10,7 @@ html: Makefile.coq
 install: install-coq install-plugin
 
 install-plugin: plugin
-	+make -C plugin
+	+make -C plugin install
 
 install-coq: Makefile.coq
 	+make -f Makefile.coq install

@@ -1,7 +1,7 @@
-# Verified Extraction from Coq to Malfunctional
+# Verified Extraction from Coq to OCaml
 
 This repository contains the current development state of a new verified extraction from Coq to OCaml, based on MetaCoq.
-Technically, the extraction targets Malfunction, which is a specification of Lambda, the internal language of the OCaml compiler.
+Technically, the extraction targets [Malfunction](https://github.com/stedolan/malfunction), which is a specification of Lambda, the internal language of the OCaml compiler.
 We use Malfunction as target for extraction from Coq, and rely on the Malfunction and OCaml compilers to obtain `.cmx` files that will behave like `.cmx` files created by Coq's current extraction process and the Ocaml compiler.
 In particular, Coq programs extracted like this can interact with other OCaml programs and with Coq programs extracted using the existing extraction.
 
@@ -14,8 +14,9 @@ Verification is work in progress.
 opam switch create coq-malfunction --packages="ocaml-variants.4.13.1+options,ocaml-option-flambda"
 eval $(opam env --switch=coq-malfunction)
 opam repo add coq-released https://coq.inria.fr/opam/released
-opam pin add coq-metacoq-erasure "https://github.com/MetaCoq/metacoq.git#coq-8.17"
-opam pin add coq-ceres "https://github.com/lysxia/coq-ceres.git#master"
+opam pin -n -y "https://github.com/MetaCoq/metacoq.git#coq-8.17"
+opam pin -n -y "https://github.com/lysxia/coq-ceres.git#master"
+opam install . --deps-only
 make
 ```
 
