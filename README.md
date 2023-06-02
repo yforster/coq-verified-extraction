@@ -14,7 +14,7 @@ Verification is work in progress.
 opam switch create coq-malfunction --packages="ocaml-variants.4.13.1+options,ocaml-option-flambda"
 eval $(opam env --switch=coq-malfunction)
 opam repo add coq-released https://coq.inria.fr/opam/released
-opam pin add coq-metacoq-erasure "https://github.com/yforster/template-coq.git#unshadowing"
+opam pin add coq-metacoq-erasure "https://github.com/MetaCoq/metacoq.git#coq-8.17"
 opam pin add coq-ceres "https://github.com/yforster/coq-ceres.git#master"
 make
 ```
@@ -28,5 +28,5 @@ The commands `MetaCoq Extract <definition>`, `MetaCoq Extract Module <module>`, 
 The project is developed by Yannick Forster, Matthieu Sozeau, Pierre-Marie Pédrot, and Nicolas Tabareau.
 
 ```
-Copyright (c) 2022 Yannick Forster, Matthieu Sozeau
+Copyright (c) 2022--2023 Yannick Forster, Matthieu Sozeau, Nicolas Tabareau
 ```
