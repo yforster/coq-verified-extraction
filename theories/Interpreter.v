@@ -1,12 +1,10 @@
 Require Import ssreflect.
 
-Require Import ZArith Array.PArray List String Floats Lia.
-Require Ascii.
+Require Import ZArith Array.PArray List Floats Lia.
 Require Uint63.
 Import ListNotations.
-Open Scope string_scope.
 
-Require Import Malfunction.Malfunction Malfunction.Deserialize Malfunction.SemanticsSpec Malfunction.Serialize Malfunction.Serialize Ceres.Ceres Malfunction.Ceres.CeresSerialize Malfunction.Ceres.CeresFormat.
+Require Import Malfunction.Malfunction Malfunction.SemanticsSpec.
 
 From MetaCoq Require Import bytestring.
 Open Scope bs.
@@ -93,7 +91,7 @@ Definition add_recs `{Heap} locals (self : list Ident.t) rfunc :=
     mapi (fun n x => (x , RClos (locals, self, rfunc, n))) self.
 
 Definition add_self `{Heap} self rfunc locals := 
-    List.fold_left (fun l '(x,t) => Ident.Map.add x t l) (add_recs locals self rfunc) locals.
+    List.fold_right (fun '(x,t) l => Ident.Map.add x t l) locals (add_recs locals self rfunc).
 
 Fixpoint map_acc {A B S: Type} (f : S -> A -> S * B) (s:S) (l : list A) : S * list B :=
   match l with
@@ -102,7 +100,7 @@ Fixpoint map_acc {A B S: Type} (f : S -> A -> S * B) (s:S) (l : list A) : S * li
               let (s'',bs) := map_acc f s' t in (s'', b :: bs)
   end.
 
- Definition cond `{Heap} scr case : bool := 
+Definition cond `{Heap} scr case : bool := 
     (match case, scr with
       | Tag n, Block (n', _) => Int63.eqb n n'
       | Deftag, Block _ => true
@@ -129,84 +127,6 @@ Definition truncate `{Heap} ty n :=
                      if Z.ltb masked min_int then masked else
                        Z.sub masked range
                  end).
-
-<<<<<<< HEAD
-Definition as_ty ty := fun ty2 =>
-  match ty2 with
-  | value_Int (ty', n) => if inttype_eqb ty ty' then n else fail_Z "integer type missmatch"
-  | _ => fail_Z "expected integer"
-  end.
-
-
-Definition as_float x := match x with
-  | Float f => f
-                         | _ => fail_float "expected float64"
-                         end.
-
-Definition comparison_eqb x1 x2 :=
-  match x1, x2 with
-  | Datatypes.Lt, Datatypes.Lt | Datatypes.Gt, Datatypes.Gt | Datatypes.Eq, Datatypes.Eq => true
-  | _, _ => false
-  end.
-
-#[bypass_check(guard)]
-Fixpoint newlocals (interpret : @Ident.Map.t value -> t -> value) (recs : list (Ident.t * t)) locals (x : Ident.t) {struct x}:=
-  List.fold_right
-  (fun '(x,e) locals => Ident.Map.add x e locals)
-  (locals)
-  (List.map (fun '(x,e) =>
-    let v := match e with
-      | Mlambda _ => Func (fun arg => 
-         match interpret (fun x => newlocals interpret recs locals x) e with
-         | Func f => f arg
-         | _ => fail "bad recursive function binding"
-         end)
-      | _ => fail "recursive values must be functions"
-      end in
-    (x, v)) recs) x.
-
-Lemma newlocals_eqn (interpret : @Ident.Map.t value -> t -> value) recs locals (x : Ident.t) :
-  newlocals interpret recs locals x = 
-  List.fold_right
-  (fun '(x,e) locals => Ident.Map.add x e locals)
-  (locals)
-  (List.map (fun '(x,e) =>
-    let v := match e with
-      | Mlambda _ => Func (fun arg => 
-         match interpret (fun x => newlocals interpret recs locals x) e with
-         | Func f => f arg
-         | _ => fail "bad recursive function binding"
-         end)
-      | _ => fail "recursive values must be functions"
-      end in
-    (x, v)) recs) x.
-Proof.
-  destruct x; reflexivity.
-Qed.
-
-Definition int_to_nat (i : int) : nat :=
-  Z.to_nat (Int63.to_Z i).
-
-Definition int_of_nat n := Uint63.of_Z (Coq.ZArith.BinInt.Z.of_nat n).
-
-#[export] Instance Serialize_int : Serialize int := 
-   fun i => to_sexp (Int63.to_Z i).
-
-=======
->>>>>>> 30435f2 (add caml types)
-#[bypass_check(guard)]
-Fixpoint to_sexp_value (a : value) : sexp :=
-  match a with
-  | Block (i, a) => @Serialize_product _ _ _ (@Serialize_list _ to_sexp_value) (i, List.map (fun j => a.[int_of_nat j]) (seq 0 (int_to_nat (PArray.length a))))
-  | Vec x => Atom "TODO VEC"
-  | Func x => Atom "FUNC"
-  | value_Int x => Atom "TODO INT"
-  | Float x => Atom "TODO FLOAT"
-  | Thunk x => Atom "THUNK"
-  | fail x => Atom ("fail" ++ String.to_string x)
-  end%string.
-
-#[export] Instance Serialize_value : Serialize value := to_sexp_value.
 
 #[bypass_check(guard)]
 Fixpoint interpret `{Heap} (h : heap)
@@ -261,7 +181,7 @@ Fixpoint interpret `{Heap} (h : heap)
   | Mstring s =>
     let (ptr,h') := fresh h in
     let str := Array_init (Int63.of_Z (Z.of_nat (String.length s))) 
-                      (fun i => value_Int (Int, (Z.of_nat (Ascii.nat_of_ascii (option_def Ascii.Space (String.get (Z.to_nat (Int63.to_Z i)) s)))))) in
+                      (fun i => value_Int (Int, (Z.of_nat (Byte.to_nat (option_def (Ascii.byte_of_ascii Ascii.Space) (get (Z.to_nat (Int63.to_Z i)) s)))))) in
      (update h' ptr str , Vec (Bytevec, ptr))
      
   | Mglobal v => (h , Ident.Map.find v globals)
@@ -593,13 +513,21 @@ Proof.
               cbn in Hl. lia.
 Qed.
 
+Lemma wb_max_length :
+  int_to_nat max_length < Z.to_nat Int63.wB.
+Proof.
+  cbn. lia.
+Qed.
+
+Arguments Int63.wB : simpl never.
+Arguments max_length : simpl never.
+
 Lemma Array_of_list_get {A} (a : A) l i :
   (i < Z.to_nat Int63.wB) ->
   (List.length l < Z.to_nat Int63.wB) ->
   List.length l <= int_to_nat max_length ->
   i < List.length l ->
   (Array_of_list a l).[int_of_nat i] = nth i l a.
-
 Proof.
   unfold Array_of_list. intros Hs Hl1 Hl Hi.
   rewrite Array_of_list'_get.
@@ -664,8 +592,9 @@ Lemma Array_of_list_S A default n a (l:list A) :
   (Array_of_list default (a :: l)).[int_of_nat (S n)] = 
   (Array_of_list default l).[int_of_nat n].
 Proof.
-  intros. 
-  repeat rewrite Array_of_list_get; cbn in *; try lia; eauto.
+  intros.
+  pose proof wb_max_length.
+  now repeat rewrite Array_of_list_get; cbn in *; try lia.
 Qed. 
 
 Lemma Array_of_list'_length A k (l:list A) a :
@@ -682,21 +611,25 @@ Lemma Array_of_list_length A default (l:list A) :
   List.length l.
 Proof.
   unfold Array_of_list. rewrite Array_of_list'_length.
-  rewrite PArray.length_make. intro H. 
+  rewrite PArray.length_make. intro H.
+  pose proof wb_max_length.
   assert (Hl: (int_of_nat (Datatypes.length l) ≤? max_length)%uint63 = true).
-  { apply leb_spec. rewrite Int63.of_Z_spec. rewrite Z.mod_small; [cbn in *; lia |].
+  { apply leb_spec. rewrite !Int63.of_Z_spec.
+    rewrite Z.mod_small; [cbn in *; lia |].
+    unfold max_length in *.
+    cbn in * |- . 
     cbn in *; lia. }
   rewrite Hl. apply int_to_of_nat. cbn in *; lia. 
-Qed.    
+Qed.
   
 Lemma Forall2_acc_length {X A B R x l y l'} : @Forall2_acc X A B R x l y l' -> List.length l = List.length l'.
 Proof. 
-  induction 1; cbn; eauto.
+  induction 1; now cbn.
 Qed.   
 
 Lemma Forall2_length {A B P l l'} : @Forall2 A B P l l' -> List.length l = List.length l'.
 Proof. 
-  induction 1; cbn; eauto.
+  induction 1; now cbn.
 Qed.
 
 Lemma isNotEvaluated_vrel `{CompatiblePtr} v v' b : 
@@ -705,6 +638,7 @@ Proof.
   now destruct 1.
 Qed.    
 
+(*
 Axiom funext : forall A B, forall f g : A -> B, (forall x, f x = g x) -> f = g.
 
 Lemma interpret_ilocals_proper `{CompatiblePtr} ih iglobals ilocals ilocals' e :
@@ -713,12 +647,13 @@ Lemma interpret_ilocals_proper `{CompatiblePtr} ih iglobals ilocals ilocals' e :
 Proof.
   intros Hlocal; apply funext in Hlocal. now subst.
 Qed.  
-  
+ *)
+
 Ltac fail_case IHeval Hloc Hheap Heq := 
   let Hv := fresh "iv1" in cbn; specialize (IHeval _ _ Hloc Hheap); destruct interpret as [? ?];
   destruct IHeval as [? Hv]; destruct Hv; inversion Heq; split;eauto; econstructor.
 
-Lemma vrel_loacs_add_self `{CompatiblePtr}  locals' locals'0 mfix mfix' self :
+Lemma vrel_locals_add_self `{CompatiblePtr}  locals' locals'0 mfix mfix' self :
   (forall x : Ident.t, vrel (locals' x) (locals'0 x)) ->
   (forall (n : nat) (y : Ident.t) (e : t),
      nth n mfix SemanticsSpec.Bad_recursive_value = SemanticsSpec.RFunc (y, e) <->
@@ -732,11 +667,11 @@ Proof.
   pose proof (Hcopy := Hloc). revert Hcopy.  
   generalize locals' at 1 3. generalize locals'0 at 1 3.
   revert locals' locals'0 Hloc.     
-  induction self; cbn; eauto; intros. apply IHself; eauto. 
+  induction self; eauto; cbn; intros. 
   intro. unfold Ident.Map.add. case_eq (Ident.eqb x a); intro; eauto. 
-  now econstructor.
+  - now econstructor.
+  - apply IHself; eauto.  
 Qed. 
-
 
 Lemma eval_correct `{CompatibleHeap} 
   globals locals ilocals iglobals e h h' ih v :
@@ -782,7 +717,7 @@ Proof.
     specialize (IHeval3 (Ident.Map.add y iv2 (add_self self mfix' locals'0)) ih2). 
     destruct interpret as [ih3 iv3]; cbn in *.
     apply IHeval3; eauto. apply vrel_add; eauto.
-    now apply vrel_loacs_add_self. 
+    now apply vrel_locals_add_self. 
   (* eval_app_fail *)
   - fail_case IHeval Hloc Hheap Heq.
   (* eval_app *)
@@ -799,7 +734,7 @@ Proof.
     eapply IHeval2; eauto. now apply vrel_add. 
   (* eval_let_rec *)
   - cbn; eapply IHeval; eauto. intros x. clear IHeval. subst.
-    apply vrel_loacs_add_self; eauto.
+    apply vrel_locals_add_self; eauto.
     intros. unfold rfunc. set (l := map snd recs). clearbody self l. split. 
     + revert n. induction l; cbn.
       * intros n H; destruct n; eauto; cbn in *; inversion H.
@@ -830,10 +765,12 @@ Proof.
       destruct IHForall2_acc as [? IHForall2_acc]. 
       assert (Hl: (int_of_nat (Datatypes.length l) ≤? max_length)%uint63 = true).
       { apply leb_spec. rewrite Int63.of_Z_spec.
-        rewrite (Forall2_acc_length H1). rewrite Z.mod_small; [cbn in *; lia |]. cbn in *; lia. } 
+        rewrite (Forall2_acc_length H1).  pose proof wb_max_length as Hwb.
+        rewrite Z.mod_small; [cbn in *; lia |].
+        unfold max_length in *. cbn in *. lia. }
       assert (Hl': (int_of_nat (S (Datatypes.length l)) ≤? max_length)%uint63 = true).
-      { apply leb_spec. rewrite Int63.of_Z_spec. rewrite (Forall2_acc_length H1). rewrite Z.mod_small; [cbn in *; lia |].
-        cbn in *; lia. } 
+      { pose proof wb_max_length as Hwb. apply leb_spec. rewrite Int63.of_Z_spec. rewrite (Forall2_acc_length H1). rewrite Z.mod_small; [cbn in *; lia |].
+        unfold max_length in *. cbn in *. lia. }
       rewrite Hl in IHForall2_acc. rewrite Hl'. inversion IHForall2_acc; subst. clear IHForall2_acc.  
       econstructor. destruct H3. split.
       * simpl. rewrite Array_of_list_length.
@@ -843,15 +780,15 @@ Proof.
         pose proof (Hbounded := to_Z_bounded idx).
         destruct (int_to_nat idx).
         ** simpl. pose Int63.wB_pos. rewrite Array_of_list_get; try (cbn; lia).
-          ++ cbn in H0. rewrite (Forall2_length Hl0) in H0. clear - H0; cbn in *; lia. 
-          ++ cbn in H0. rewrite (Forall2_length Hl0) in H0. clear - H0; cbn in *; lia. 
+          ++ cbn in H0. rewrite (Forall2_length Hl0) in H0. pose proof wb_max_length as Hwb. clear - H0 Hwb; cbn in *; lia. 
+          ++ cbn in H0. rewrite (Forall2_length Hl0) in H0. pose proof wb_max_length as Hwb. clear - H0 Hwb; cbn in *; lia. 
           ++ eauto.
         ** simpl. rewrite Array_of_list_S. 
            ++ cbn; cbn in Hidx. rewrite <- (Forall2_length Hl0). lia.
            ++ cbn; cbn in H0. rewrite <- (Forall2_length Hl0). lia.
            ++ specialize (H3 (int_of_nat n)). 
               rewrite int_to_of_nat in H3.
-              { cbn; cbn in Hidx; cbn in H0. lia. }
+              { cbn; cbn in Hidx; cbn in H0. pose proof wb_max_length as Hwb. lia. }
               eapply H3. cbn in Hidx; lia.  
   (* eval_field *)    
   - cbn. specialize (IHeval _ _ Hloc Hheap). destruct interpret as [ih1 iv1]; destruct IHeval as [Hheap1  Hiv1].
@@ -904,8 +841,26 @@ Proof.
   (* eval_force_fail *)  
   - fail_case IHeval Hloc Hheap H0.
   (* eval_global *)  
-  - cbn. split; eauto. 
-  - 
+  - cbn. split; eauto.
+  - apply todo.
+  - apply todo.
+  - apply todo.
+  - apply todo.
+  - apply todo.
+  - apply todo.
+  - apply todo.
+  - apply todo.
+  - apply todo.
+  - apply todo.
+  - apply todo.
+  - apply todo.
+  - apply todo.
+  - apply todo.
+  - apply todo.
+  - apply todo.
+  - apply todo.
+  - apply todo.
+  - apply todo.
   Qed.
 Set Guard Checking.
 
@@ -914,7 +869,7 @@ Set Guard Checking.
   Admitted. 
   Lemma apD {A B} {f g : forall a:A, B a} : f = g -> forall x, f x = g x. 
   now destruct 1.
-  Defined.  *)
+  Defined.  
 
   Lemma interp_correct iglobals globals locals e v ilocals :
     (forall x, vrel iglobals (ilocals x) (locals x)) ->
@@ -935,5 +890,5 @@ Set Guard Checking.
         eapply eval_lambda_sing. 
            
 
-  destruct v. inversion Hvar.  eapply eval_var. 
+  destruct v. inversion Hvar.  eapply eval_var. *)
 

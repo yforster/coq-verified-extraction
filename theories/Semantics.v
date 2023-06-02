@@ -1,8 +1,9 @@
 Require Import ssreflect.
 
-Require Import ZArith Array.PArray List String Floats Lia.
+Require Import ZArith Array.PArray List Floats Lia.
 Import ListNotations.
 
+From MetaCoq Require Import bytestring.
 Require Malfunction.Malfunction Malfunction.SemanticsSpec.
 Module N := Malfunction.Malfunction.
 Module Spec := Malfunction.SemanticsSpec.

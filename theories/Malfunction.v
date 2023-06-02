@@ -1,5 +1,5 @@
 From Coq Require Import ssreflect.
-From Coq Require Import ZArith Floats String.
+From Coq Require Import ZArith Floats.
 From MetaCoq Require Import bytestring ReflectEq.
 Module Int63 := Numbers.Cyclic.Int63.Uint63.
 Notation int := Int63.int.

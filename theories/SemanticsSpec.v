@@ -3,9 +3,11 @@ Require Import ssreflect.
 From Malfunction Require Import Malfunction.
 From MetaCoq.PCUIC Require Import PCUICAst PCUICFirstorder.
 
-Require Import ZArith Array.PArray List String Floats Lia.
+Require Import ZArith Array.PArray List Floats Lia.
 From MetaCoq Require Import bytestring.
 Import ListNotations.
+
+Open Scope bs. 
 
 Definition int_to_nat (i : int) : nat :=
   Z.to_nat (Int63.to_Z i).
@@ -200,11 +202,9 @@ Definition RFunc_build `{Heap} recs :=
 
 Definition add_recs `{Heap} locals (self : list Ident.t) rfunc := 
   mapi (fun n x => (x , RClos (locals, self, rfunc, n))) self.
-  (* mapi (fun n x => (x , RClos (locals, self, rfunc, List.length self - S n))) self. *)
 
 Definition add_self `{Heap} self rfunc locals := 
   List.fold_right (fun '(x,t) l => Ident.Map.add x t l) locals (add_recs locals self rfunc) .
-  (*   List.fold_right (fun '(x,t) l => Ident.Map.add x t l) locals (add_recs locals self rfunc). *)
 
 Inductive
   Forall2_acc {X A B : Type} (R : X -> A -> X -> B -> Prop) : X -> list A -> X -> list B -> Prop :=
@@ -257,6 +257,16 @@ Definition vector_type_eqb (t1 t2 : vector_type) :=
   | Array, Array
   | Bytevec, Bytevec => true
   | _, _ => false
+  end.
+
+Fixpoint get (n : nat) (s : string) {struct s} : option Byte.byte :=
+  match s with
+  | MetaCoq.Utils.bytestring.String.EmptyString => None
+  | MetaCoq.Utils.bytestring.String.String c s' =>
+	  match n with
+      | 0 => Some c
+      | S n' => get n' s'
+      end
   end.
 
 Section eval.
@@ -356,9 +366,9 @@ Inductive eval (locals : @Ident.Map.t value) : heap -> t -> heap -> value -> Pro
 | eval_num_int n h : eval locals h (Mnum (numconst_Int n)) h (value_Int (Int, Int63.to_Z n))
 | eval_num_bigint n h : eval locals h (Mnum (numconst_Bigint n)) h  (value_Int (Bigint, n))
 | eval_num_float f h : eval locals h (Mnum (numconst_Float64 f)) h  (Float f)
-| eval_string s h h' h'' ptr : 
-  let str := init (length s)
-    (fun i => value_Int (Int, Z.of_nat (Ascii.nat_of_ascii (option_def Ascii.Space (String.get i s))))) in
+| eval_string (s:string) h h' h'' ptr : 
+  let str := init (String.length s)
+    (fun i => value_Int (Int, Z.of_nat (Byte.to_nat (option_def (Ascii.byte_of_ascii Ascii.Space) (get i s))))) in
   fresh h ptr h' -> 
   update h' ptr str h'' ->
   eval locals h (Mstring s) h'' (Vec (Bytevec, ptr))
@@ -640,12 +650,12 @@ forall P : Ident.Map.t -> heap -> t -> heap -> value -> Prop,
        (forall (locals : Ident.Map.t) (s : string) 
           (h h' h'' : heapGen value) (ptr : pointer),
         let str :=
-          init (length s)
+          init (String.length s)
             (fun i : nat =>
              value_Int
                (Int,
                 Z.of_nat
-                  (Ascii.nat_of_ascii (option_def Ascii.Space (get i s)))))
+                  (Byte.to_nat (option_def (Ascii.byte_of_ascii Ascii.Space) (get i s)))))
           in
         fresh h ptr h' ->
         update h' ptr str h'' ->

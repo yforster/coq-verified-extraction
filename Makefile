@@ -6,7 +6,13 @@ coq: Makefile.coq
 html: Makefile.coq
 	+make -f Makefile.coq html
 
-install: Makefile.coq
+.PHONY: install 
+install: install-coq install-plugin
+
+install-plugin: plugin
+	+make -C plugin
+
+install-coq: Makefile.coq
 	+make -f Makefile.coq install
 
 clean: Makefile.coq
@@ -17,7 +23,7 @@ clean: Makefile.coq
 plugin/Makefile: plugin/_CoqProject
 	cd plugin && coq_makefile -f _CoqProject -o Makefile
 
-plugin: coq plugin/Makefile
+plugin: coq install-coq plugin/Makefile
 	+make -C plugin
 
 Makefile.coq: _CoqProject

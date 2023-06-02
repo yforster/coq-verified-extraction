@@ -9,7 +9,7 @@ Import ListNotations.
 Inductive camlType : Set :=
     Arrow : camlType -> camlType -> camlType
   | Rel : nat -> camlType 
-  | Const : kername -> 
+  | Adt : kername -> 
             (* number of ADT in the mutual definition *) nat -> 
             (* list of parameters *) list camlType -> 
             camlType.
@@ -32,10 +32,9 @@ Section firstorder.
     unfold firstorder_type. intro H.
     destruct (fst _); inversion H.
     (* case of tRel with a valid index *)
-
     - exact (Rel n0).
     (* case of tInd where Σb is saying that inductive_mind is first order *)
-    - destruct ind. exact (Const inductive_mind inductive_ind []).
+    - destruct ind. exact (Adt inductive_mind inductive_ind []).
   Defined.  
 
   Definition CoqType_to_camlType_oneind mind ind : 

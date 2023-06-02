@@ -53,12 +53,12 @@ From Malfunction Require Import Interpreter.
 
 (* Compute (interpret (fun x => fail "empty"%string) def). *)
 
-Definition interpret_mlf {A : Type} (a : A) :=
-  t <- tmQuoteRec a ;;
-  s <- tmEval lazy (eval_malfunction_sexp t) ;;
-  v <- tmEval lazy (interpret (fun x => fail "empty") s) ;;
-  (* tmMsg "Extraction to Malfunction:"%bs ;; *)
-  tmMsg (to_string v) ;; tmReturn tt.
+(* Definition interpret_mlf {A : Type} (a : A) := *)
+(*   t <- tmQuoteRec a ;; *)
+(*   s <- tmEval lazy (eval_malfunction_sexp t) ;; *)
+(*   v <- tmEval lazy (interpret (fun x => fail "empty") s) ;; *)
+(*   (* tmMsg "Extraction to Malfunction:"%bs ;; *) *)
+(*   tmMsg (to_string v) ;; tmReturn tt. *)
 
 End something.
 

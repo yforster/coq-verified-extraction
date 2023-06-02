@@ -4,7 +4,9 @@ maintainer: "yannick.forster@inria.fr"
 homepage: "https://github.com/yforster/coq-malfunction/"
 dev-repo: "git+https://github.com/yforster/coq-malfunction/"
 bug-reports: "https://github.com/yforster/coq-malfunction/issues"
-authors: ["Yannick Forster", "Matthieu Sozeau", "Nicolas Tabareau"]
+authors: ["Yannick Forster"
+          "Matthieu Sozeau"
+          "Nicolas Tabareau"]
 license: "MIT"
 build: [
   [make "-j%{jobs}%"]
