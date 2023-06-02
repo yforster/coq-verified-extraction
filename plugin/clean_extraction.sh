@@ -9,6 +9,8 @@ fi
 
 shopt -s nullglob # make the for loop do nothnig when there is no *.ml* files
 
+echo "Done cleaning"
+
 files=`cat template.files`
 
 if [[ ! -f "metacoq_malfunction_plugin.cmxs" ||

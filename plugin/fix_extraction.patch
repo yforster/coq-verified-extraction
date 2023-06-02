@@ -1,5 +1,5 @@
-** extraction/compile.mli.orig	2022-11-25 16:05:15.794805523 +0100
---- extraction/compile.mli	2022-11-25 16:05:35.902601278 +0100
+*** extraction/compile.mli.orig	2023-06-02 15:44:54.576915233 +0200
+--- extraction/compile.mli	2023-06-02 15:45:19.446502642 +0200
 *************** open EProgram
 *** 8,15 ****
   open Kernames
@@ -9,7 +9,7 @@
   open Nat0
   open PCUICPrimitive
   open Specif
-  open String0
+  open Uint0
 --- 8,15 ----
   open Kernames
   open List0
@@ -18,4 +18,4 @@
 + open Malfunction
   open PCUICPrimitive
   open Specif
-  open String0
+  open Uint0

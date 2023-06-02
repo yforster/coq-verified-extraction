@@ -6,7 +6,7 @@ coq: Makefile.coq
 html: Makefile.coq
 	+make -f Makefile.coq html
 
-.PHONY: install 
+.PHONY: install plugin
 install: install-coq install-plugin
 
 install-plugin: plugin
