@@ -67,3 +67,4 @@ plugin/extraction
 plugin/Makefile.conf
 plugin/Makefile
 plugin/g_metacoq_malfunction.ml
+plugin/*.mlf
