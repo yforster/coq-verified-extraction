@@ -2,6 +2,9 @@
 -Q plugin Malfunction.Plugin
 -I plugin
 
+theories/Ceres/CeresFormat.v
+theories/Ceres/CeresSerialize.v
+
 theories/Malfunction.v
 theories/Interpreter.v
 

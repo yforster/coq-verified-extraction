@@ -2,6 +2,7 @@ Require Import String Ascii Bool Arith.
 Require Import Malfunction.Malfunction.
 
 Require Import Ceres.Ceres Ceres.CeresString.
+Require Import Malfunction.Ceres.CeresFormat Malfunction.Ceres.CeresSerialize.
 
 Local Open Scope sexp.
 Local Open Scope string.
@@ -18,8 +19,8 @@ Fixpoint _escape_ident (_end s : string) : string :=
 #[export] Instance Integral_int : Integral int :=
   fun n => (Int63.to_Z n).
 
-(* #[export] Instance Serialize_int : Serialize int := *)
-(*   fun i => to_sexp (Int63.to_Z i). *)
+#[export] Instance Serialize_int : Serialize int := 
+   fun i => to_sexp (Int63.to_Z i).
 
 #[export] Instance Serialize_numconst : Serialize numconst :=
   fun a => match a with

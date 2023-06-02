@@ -65,6 +65,7 @@ DecimalString
 CeresString
 CeresFormat
 CeresSerialize
+CeresSerialize0
 Malfunction
 Compile
 Serialize

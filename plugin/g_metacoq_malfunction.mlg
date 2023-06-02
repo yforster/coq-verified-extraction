@@ -27,7 +27,7 @@ let pr_char_list l =
 
 let extract ~bypass ?(emodule=false) env evm c dest =
   debug (fun () -> str"Quoting");
-  let prog = time (str"Quoting") (Ast_quoter.quote_term_rec ~bypass env) (EConstr.to_constr evm c) in
+  let prog = time (str"Quoting") (Ast_quoter.quote_term_rec ~bypass env) evm (EConstr.to_constr evm c) in
   let eprog = time (str"Extraction") 
     (if emodule then Pipeline.compile_module_malfunction
     else Pipeline.compile_malfunction) prog

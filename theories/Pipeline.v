@@ -7,7 +7,7 @@ From MetaCoq.Erasure Require EAstUtils ErasureFunction ErasureCorrectness EPrett
 From MetaCoq Require Import ETransform EConstructorsAsBlocks.
 From MetaCoq.Erasure Require Import EWcbvEvalNamed.
 From MetaCoq.ErasurePlugin Require Import Erasure.
-From Ceres Require Import Ceres.
+From Malfunction Require Import CeresSerialize.
 Import PCUICProgram.
 (* Import TemplateProgram (template_eta_expand).
  *)

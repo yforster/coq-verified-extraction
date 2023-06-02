@@ -6,7 +6,7 @@ Require Uint63.
 Import ListNotations.
 Open Scope string_scope.
 
-Require Import Malfunction.Malfunction Malfunction.Deserialize Malfunction.Serialize Ceres.Ceres.
+Require Import Malfunction.Malfunction Malfunction.Deserialize Malfunction.Serialize Ceres.Ceres Malfunction.Ceres.CeresSerialize Malfunction.Ceres.CeresFormat.
 From MetaCoq Require Import bytestring.
 Open Scope bs.
 
@@ -189,6 +189,9 @@ Definition int_to_nat (i : int) : nat :=
   Z.to_nat (Int63.to_Z i).
 
 Definition int_of_nat n := Uint63.of_Z (Coq.ZArith.BinInt.Z.of_nat n).
+
+#[export] Instance Serialize_int : Serialize int := 
+   fun i => to_sexp (Int63.to_Z i).
 
 #[bypass_check(guard)]
 Fixpoint to_sexp_value (a : value) : sexp :=
