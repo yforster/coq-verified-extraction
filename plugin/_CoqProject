@@ -39,16 +39,16 @@ extraction/pCUICAstUtils.mli
 # extraction/eqDecInstances.mli
 # extraction/pCUICReduction.ml
 # extraction/pCUICReduction.mli
-extraction/pCUICEquality.mli
-extraction/pCUICEquality.ml
+# extraction/pCUICEquality.mli
+# extraction/pCUICEquality.ml
 extraction/pCUICTyping.ml
 extraction/pCUICTyping.mli
 extraction/pCUICPosition.mli
 extraction/pCUICPosition.ml
 extraction/pCUICNormal.mli
 extraction/pCUICNormal.ml
-extraction/pCUICWfUniverses.mli
-extraction/pCUICWfUniverses.ml
+# extraction/pCUICWfUniverses.mli
+# extraction/pCUICWfUniverses.ml
 # extraction/pCUICChecker.ml
 # extraction/pCUICChecker.mli
 # extraction/pCUICRetyping.ml
