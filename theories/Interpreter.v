@@ -1,11 +1,12 @@
 Require Import ssreflect.
 
-Require Import ZArith Array.PArray List String Floats Lia.
-Require Ascii.
+Require Import ZArith Array.PArray List Floats Lia.
 Require Uint63.
 Import ListNotations.
 
-Require Import Malfunction.Malfunction Malfunction.Deserialize Malfunction.SemanticsSpec Malfunction.Serialize Ceres.Ceres.
+(*Require Import Malfunction.Malfunction Malfunction.Deserialize Malfunction.SemanticsSpec Malfunction.Serialize Ceres.Ceres.*)
+
+Require Import Malfunction.Malfunction Malfunction.SemanticsSpec.
 From MetaCoq Require Import bytestring.
 Open Scope bs.
 
@@ -128,6 +129,7 @@ Definition truncate `{Heap} ty n :=
                        Z.sub masked range
                  end).
 
+(*                 
 #[bypass_check(guard)]
 Fixpoint to_sexp_value (a : value) : sexp :=
   match a with
@@ -141,6 +143,7 @@ Fixpoint to_sexp_value (a : value) : sexp :=
   end%string.
 
 #[export] Instance Serialize_value : Serialize value := to_sexp_value.
+*)
 
 #[bypass_check(guard)]
 Fixpoint interpret `{Heap} (h : heap)
