@@ -16,7 +16,7 @@ jobs:
     strategy:
       matrix:
         opam_file:
-          - 'opam'
+          - 'coq-malfunction.opam'
         image:
           - 'mattam82/coq:8.17--ocaml-4.13.1--clang-11--compcert-3.12--extlib-0.11.8--equations-1.3'
       fail-fast: false  # don't stop jobs if one fails
