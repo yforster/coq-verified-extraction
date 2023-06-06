@@ -1,12 +1,11 @@
 Require Import ssreflect.
 
 Require Import ZArith Array.PArray List Floats Lia.
-Require Uint63.
 Import ListNotations.
 
 (*Require Import Malfunction.Malfunction Malfunction.Deserialize Malfunction.SemanticsSpec Malfunction.Serialize Ceres.Ceres.*)
 
-Require Import Malfunction.Malfunction Malfunction.SemanticsSpec.
+Require Import Malfunction.Malfunction Malfunction.SemanticsSpec Malfunction.utils_array.
 From MetaCoq Require Import bytestring.
 Open Scope bs.
 
@@ -54,19 +53,6 @@ Definition is_not_evaluated `{Heap} : value -> bool :=
 Definition add `{Heap} (x : string) (v : value) (locals : string -> value)  :=
   fun y =>
     if String.eqb y x then v else locals y.
-
-Fixpoint Array_of_List' {A} count (l : list A) (a : array A) :=
-  match l with
-  | [] => a
-  | x :: l => Array_of_List' (S count) l (PArray.set a (int_of_nat count) x)
-  end.
-
-Definition Array_of_list {A} (def : A) (l : list A) :=
-  Array_of_List' 0 l (PArray.make (int_of_nat (List.length l)) def).
-
-Definition Array_init {A} (size : int) f :=
-  let g := fun x => (f (int_of_nat x)) in
-  @Array_of_list A (g 0) (map g (seq 0 (Z.to_nat (Int63.to_Z size)))).
 
 Definition as_ty `{Heap} ty := fun ty2 =>
   match ty2 with
@@ -128,6 +114,7 @@ Definition truncate `{Heap} ty n :=
                      if Z.ltb masked min_int then masked else
                        Z.sub masked range
                  end).
+
 
 (*                 
 #[bypass_check(guard)]
@@ -319,18 +306,18 @@ Fixpoint interpret `{Heap} (h : heap)
   | Mvecset (ty, vec, idx, e) => 
       let (h1,vec') := interpret h globals locals vec in
       let (h2,idx') := interpret h1 globals locals idx in
-      let (h3,v) := interpret h1 globals locals e in
+      let (h3,v) := interpret h2 globals locals e in
       match vec', idx', v with 
         | Vec (ty', ptr), value_Int (Int, i), v => 
           if vector_type_eqb ty ty' then 
-              let i := Int63.of_Z i in 
-              if Int63.leb (int_of_nat 0) i && Int63.leb i (PArray.length (deref h ptr)) then 
+              let i' := Int63.of_Z i in 
+              if Z.leb 0 i && Z.ltb i (Int63.to_Z (PArray.length (deref h ptr))) then 
                 match ty, v with 
-                | Array, _ => (update h3 ptr (PArray.set (deref h ptr) i v), value_Int (Int, 0%Z))
+                | Array, _ => (update h3 ptr (PArray.set (deref h ptr) i' v), value_Int (Int, 0%Z))
                 | Bytevec, value_Int (Int, val) => 
                   if (Z.leb 0 val) && (Z.ltb val 256)
                   then 
-                    (update h3 ptr (PArray.set (deref h ptr) i v), value_Int (Int, 0%Z))
+                    (update h3 ptr (PArray.set (deref h ptr) i' v), value_Int (Int, 0%Z))
                   else (h3, fail "not a byte")
                 | Bytevec, _ => (h3, fail "not a byte")
                 end 
@@ -655,6 +642,54 @@ Proof.
   now destruct 1.
 Qed.    
 
+Lemma Forall2Array_init {A B:Type} (R : A -> B -> Prop) n f g
+   default :
+   n < int_to_nat max_length ->
+   (forall k, k < n ->  R (f k) (g (int_of_nat k))) ->
+   Forall2Array R (init n f) (Array_init (int_of_nat n) g) default.
+Proof.
+  intros Hmax HR. unfold Forall2Array.
+  assert (HwB : (Z.of_nat n < Int63.wB)%Z).
+  { clear -Hmax; cbn in *; lia. }
+  rewrite Array_of_list_length. 
+  { rewrite map_length seq_length. epose (int_to_of_nat n). 
+    unfold int_to_nat in e. now rewrite e. }
+  repeat rewrite map_length seq_length. split; [symmetry; apply int_to_of_nat|]; eauto.
+  intros i Hi. pose (HR (int_to_nat i) Hi). 
+  unfold Array_init. rewrite <- (int_of_to_nat i). 
+  rewrite Array_of_list_get; try lia.
+  1-3: rewrite map_length seq_length; pose (e := int_to_of_nat n HwB);
+       unfold int_to_nat in e; rewrite e; lia.
+  rewrite int_of_to_nat. unfold init.  
+  set (k := int_to_nat i) in *. clearbody k; clear i.
+  rewrite map_nth. erewrite nth_indep. erewrite map_nth.
+  pose (int_to_of_nat n HwB). 
+  unfold int_to_nat in e. rewrite e. apply HR. rewrite seq_nth; lia.
+  rewrite map_length seq_length; lia.
+Qed. 
+
+Lemma Forall2Array_cst {A B:Type} (R : A -> B -> Prop) n v v'
+   default :
+   n <= int_to_nat max_length ->
+   R v v' ->
+   Forall2Array R (init n (fun _ => v)) (make (int_of_nat n) v') default.
+Proof. 
+  intros Hmax HR. unfold Forall2Array.    
+  repeat rewrite map_length seq_length PArray.length_make.
+  case_eq (int_of_nat n ≤? max_length)%uint63.
+  - split; [symmetry; apply int_to_of_nat|]; eauto.
+    cbn in *. lia. 
+    intros i Hi. rewrite get_make.
+    set (k := int_to_nat i) in *. unfold init.
+    clearbody k; clear i. erewrite nth_indep.
+    erewrite map_nth. Unshelve. 3: exact 0.   exact HR.
+    now rewrite map_length seq_length.
+  - intro abs. pose (leb_spec (int_of_nat n) (max_length)). destruct i. 
+    rewrite H0 in abs.
+    rewrite Int63.of_Z_spec. rewrite Z.mod_small; clear H H0; cbn in *; lia.
+    inversion abs.
+Qed.     
+
 (*
 Axiom funext : forall A B, forall f g : A -> B, (forall x, f x = g x) -> f = g.
 
@@ -688,6 +723,47 @@ Proof.
   intro. unfold Ident.Map.add. case_eq (Ident.eqb x a); intro; eauto. 
   - now econstructor.
   - apply IHself; eauto.  
+Qed. 
+
+
+Lemma as_ty_vrel `{CompatibleHeap} ty v v' : 
+  vrel v v' -> 
+  SemanticsSpec.as_ty ty v = as_ty ty v'.
+Proof. 
+  inversion 1; destruct ty; cbn; try reflexivity.
+Defined.
+
+Lemma as_float_vrel `{CompatibleHeap} v v' : 
+  vrel v v' -> 
+  SemanticsSpec.as_float v = as_float v'.
+Proof. 
+  inversion 1; cbn; try reflexivity.
+Defined.
+
+Lemma truncate_vrel `{CompatibleHeap} ty z : 
+  vrel (SemanticsSpec.truncate ty z) (truncate ty z).
+  destruct ty; econstructor.
+Qed. 
+
+Lemma length_set A (l : list  A) n a : 
+  List.length (set l n a) = List.length l.
+Proof. 
+  revert n. induction l; destruct n; cbn; eauto. now f_equal.
+Qed.
+
+Lemma nth_set_same A (l : list A) n a d :
+  (n < List.length l) -> nth n (set l n a) d = a.
+Proof. 
+  revert n. induction l; destruct n; cbn ; intros; try solve [inversion H]; eauto. 
+  apply IHl. now apply Nat.succ_lt_mono in H.
+Qed. 
+
+Lemma nth_set_other A (l : list A) n m a d : 
+  n <> m -> nth m (set l n a) d = nth m l d.
+Proof. 
+  revert n m; induction l; intros; cbn; eauto.
+  destruct n; destruct m; cbn; try congruence.
+  eapply IHl; eauto. congruence. 
 Qed. 
 
 Lemma eval_correct `{CompatibleHeap} 
@@ -809,7 +885,7 @@ Proof.
               eapply H3. cbn in Hidx; lia.  
   (* eval_field *)    
   - cbn. specialize (IHeval _ _ Hloc Hheap). destruct interpret as [ih1 iv1]; destruct IHeval as [Hheap1  Hiv1].
-    split; eauto. inversion Hiv1; subst. clear Hiv1. destruct H6 as [? H5]. 
+    split; eauto. inversion Hiv1; subst. clear Hiv1. destruct H5 as [? H5]. 
     now eapply (H5 idx).  
   (* eval_field_fail *)    
   - fail_case IHeval Hloc Hheap H0.
@@ -859,25 +935,192 @@ Proof.
   - fail_case IHeval Hloc Hheap H0.
   (* eval_global *)  
   - cbn. split; eauto.
-  - apply todo.
-  - apply todo.
-  - apply todo.
-  - apply todo.
-  - apply todo.
-  - apply todo.
-  - apply todo.
-  - apply todo.
-  - apply todo.
-  - apply todo.
-  - apply todo.
-  - apply todo.
-  - apply todo.
-  - apply todo.
-  - apply todo.
-  - apply todo.
-  - apply todo.
-  - apply todo.
-  - apply todo.
+  (* eval_num_int *)
+  - cbn [interpret]; split; eauto; econstructor. 
+  (* eval_num_bigint *)
+  - cbn [interpret]; split; eauto; econstructor.
+  (* eval_num_float *)
+  - cbn [interpret]; split; eauto; econstructor.
+  (* eval_string *)
+  - cbn [interpret]. pose proof (fresh_compat _ _ _ _ Hheap H0).
+    set (Interpreter.fresh ih) in *. destruct p.
+    destruct H2; split; [| now econstructor].
+    eapply update_compat with (default := SemanticsSpec.fail ""); eauto.
+    apply Forall2Array_init; eauto.
+    intros k Hk. pose (int_to_of_nat k). 
+    unfold int_to_nat in e. rewrite e; [cbn in *; lia| econstructor].
+  (* eval_numop1 *)
+  - cbn [interpret]; destruct op; cbn [interpret];
+    specialize (IHeval _ _ Hloc Hheap); destruct interpret as [ih1 iv1]; destruct IHeval as [Hheap1  Hiv1];
+    split; eauto; erewrite <- as_ty_vrel; eauto; eapply truncate_vrel.
+  (* eval_numop2 *)
+  - cbn [interpret]; destruct op; cbn [interpret];
+    specialize (IHeval1 _ _ Hloc Hheap); destruct interpret as [ih1 iv1]; destruct IHeval1 as [Hheap1  Hiv1];
+    specialize (IHeval2 _ _ Hloc Hheap1); destruct interpret as [ih2 iv2]; destruct IHeval2 as [Hheap2  Hiv2];
+    split; eauto.
+    1-2: destruct b; repeat erewrite <- as_ty_vrel; eauto; eapply truncate_vrel.
+    destruct b; repeat erewrite <- as_ty_vrel; eauto; econstructor. 
+  (* eval_numop1_neg *)
+  - cbn [interpret].
+    specialize (IHeval _ _ Hloc Hheap); destruct interpret as [ih1 iv1]; destruct IHeval as [Hheap1  Hiv1].
+    split; eauto; erewrite as_float_vrel; eauto; econstructor.
+  (* eval_numop1_float_fail *)
+  - cbn [interpret]; split; eauto; econstructor. 
+  (* eval_numop2_float_fail *)
+  - cbn [interpret]; split; eauto; econstructor. 
+  (* eval_numop2_float *)
+  - cbn [interpret]; destruct op; cbn [interpret];
+    specialize (IHeval1 _ _ Hloc Hheap); destruct interpret as [ih1 iv1]; destruct IHeval1 as [Hheap1  Hiv1];
+    specialize (IHeval2 _ _ Hloc Hheap1); destruct interpret as [ih2 iv2]; destruct IHeval2 as [Hheap2  Hiv2];
+    split; eauto;cbn; repeat erewrite <- as_float_vrel; eauto; econstructor.
+  (* eval_numop2_embed_float *)  
+  - cbn [interpret]; destruct op; cbn [interpret];
+    specialize (IHeval1 _ _ Hloc Hheap); destruct interpret as [ih1 iv1]; destruct IHeval1 as [Hheap1  Hiv1];
+    specialize (IHeval2 _ _ Hloc Hheap1); destruct interpret as [ih2 iv2]; destruct IHeval2 as [Hheap2  Hiv2];
+    split; eauto;cbn; repeat erewrite <- as_float_vrel; eauto; econstructor.
+  (* eval_convert_int *)
+  - cbn [interpret].
+    specialize (IHeval _ _ Hloc Hheap); destruct interpret as [ih1 iv1]; destruct IHeval as [Hheap1  Hiv1].
+    split; eauto. erewrite <- as_ty_vrel; eauto; eapply truncate_vrel.
+  (* eval_convert_float *)
+  - cbn [interpret].
+    specialize (IHeval _ _ Hloc Hheap); destruct interpret as [ih1 iv1]; destruct IHeval as [Hheap1  Hiv1].
+    split; eauto. erewrite <- as_ty_vrel; eauto; econstructor.
+  (* eval_convert_float_float *) 
+  - cbn [interpret].
+    specialize (IHeval _ _ Hloc Hheap); destruct interpret as [ih1 iv1]; destruct IHeval as [Hheap1  Hiv1].
+    split; eauto. erewrite <- as_float_vrel; eauto; econstructor.
+  (* eval_vecnew_array *)
+  - cbn [interpret];
+    specialize (IHeval1 _ _ Hloc Hheap); destruct interpret as [ih1 iv1]; destruct IHeval1 as [Hheap1  Hiv1];
+    specialize (IHeval2 _ _ Hloc Hheap1); destruct interpret as [ih2 iv2]; destruct IHeval2 as [Hheap2  Hiv2];
+    inversion Hiv1; subst; clear Hiv1.
+    pose proof (fresh_compat _ _ _ _ Hheap2 H3).
+    set (Interpreter.fresh ih2) in *. destruct p.
+    destruct H5; split; [| now econstructor].
+    eapply update_compat with (default := SemanticsSpec.fail ""); eauto.
+    assert (Hlen' : Int63.of_Z len' = int_of_nat (Z.to_nat len')).
+    { unfold int_of_nat. rewrite Z2Nat.id; eauto. }
+    rewrite Hlen'. apply (Forall2Array_cst _ (Z.to_nat len') _ iv2); eauto.
+  (* eval_vecnew_bytevec *)
+  - cbn [interpret];
+    specialize (IHeval1 _ _ Hloc Hheap); destruct interpret as [ih1 iv1]; destruct IHeval1 as [Hheap1  Hiv1];
+    specialize (IHeval2 _ _ Hloc Hheap1); destruct interpret as [ih2 iv2]; destruct IHeval2 as [Hheap2  Hiv2];
+    inversion Hiv1; subst; clear Hiv1.
+    inversion Hiv2; subst; clear Hiv2. rewrite H3. 
+    pose proof (fresh_compat _ _ _ _ Hheap2 H4).
+    set (Interpreter.fresh ih2) in *. destruct p.
+    destruct H6; split; [| now econstructor].
+    eapply update_compat with (default := SemanticsSpec.fail ""); eauto.
+    unfold init. unfold Forall2Array.
+    assert (Hlen' : Int63.of_Z len' = int_of_nat (Z.to_nat len')).
+    { unfold int_of_nat. rewrite Z2Nat.id; eauto. }
+    rewrite Hlen'. apply Forall2Array_cst; eauto.
+    econstructor.
+  (* eval_vecget *)
+  - cbn [interpret];
+    specialize (IHeval1 _ _ Hloc Hheap); destruct interpret as [ih1 iv1]; destruct IHeval1 as [Hheap1  Hiv1];
+    specialize (IHeval2 _ _ Hloc Hheap1); destruct interpret as [ih2 iv2]; destruct IHeval2 as [Hheap2  Hiv2];
+    inversion Hiv1; subst; clear Hiv1.
+    split; eauto.
+    pose proof (deref_compat (SemanticsSpec.fail "") _ _ _ _ _ Hheap H1 H5).
+    destruct H2 as [? Hderef].
+    case (vector_type_eqb ty ty').
+    2: {  
+      destruct idx'; destruct iv2;  try (destruct p as [i0 ?]; destruct i0); 
+      try (destruct p0 as [i1 ?]; destruct i1);  try econstructor. }
+    destruct idx'; destruct iv2; 
+    try (destruct p as [i0 n]; destruct i0); 
+    try (destruct p0 as [i1 n']; destruct i1); try econstructor; 
+    try inversion Hiv2. subst. 
+    pose proof (leb_length _ (deref ih ptr')).
+    case_eq ((0 <=? n')%Z); intro; simpl; try econstructor.
+    case_eq (n' <? Z.of_nat (Datatypes.length arr))%Z;
+    case_eq (n' <? φ (PArray.length (deref ih ptr'))%uint63)%Z; intros.
+    + assert (Hn': (0 <= n' < Int63.wB)%Z).
+      {split; [lia|]. clear -H3 H4 H6.
+      apply leb_spec in H3. apply Z.ltb_lt in H6.
+      set (PArray.length _) in *. clearbody i.
+      cbn in *; lia. }
+      assert (Heqn' : Z.to_nat n' = int_to_nat (Int63.of_Z n')).
+      { unfold int_to_nat. f_equal. rewrite Int63.of_Z_spec.
+        rewrite Z.mod_small; eauto. } 
+      rewrite Heqn'. apply Hderef. unfold int_to_nat. rewrite Int63.of_Z_spec.
+      rewrite Z.mod_small; eauto. apply Z.ltb_lt in H7.
+      lia.
+    + rewrite H2 in H7. unfold int_to_nat in H7.
+      rewrite Z2Nat.id in H7. apply to_Z_bounded. 
+      rewrite H7 in H6. inversion H6.
+    + rewrite H2 in H7. unfold int_to_nat in H7.
+      rewrite Z2Nat.id in H7. apply to_Z_bounded. 
+      rewrite H7 in H6. inversion H6.
+    + econstructor. 
+  (* eval_vecset *)
+  - cbn [interpret]; specialize (IHeval1 _ _ Hloc Hheap). destruct interpret as [ih1 iv1]; destruct IHeval1 as [Hheap1  Hiv1].
+    specialize (IHeval2 _ _ Hloc Hheap1).
+    destruct interpret as [ih2 iv2]; destruct IHeval2 as [Hheap2  Hiv2].
+    inversion Hiv1 ; subst. inversion Hiv2 ; subst. specialize (IHeval3 _ _ Hloc Hheap2). 
+    destruct interpret as [ih3 iv3]. destruct IHeval3 as [Hheap3  Hiv3].
+    case_eq  (vector_type_eqb ty ty'); [| repeat econstructor; eauto].
+    pose proof (deref_compat (SemanticsSpec.fail "") _ _ _ _ _ Hheap H2 H7).
+    destruct H4 as [Hsize Hderef]. 
+    rewrite Hsize. unfold int_to_nat. rewrite Z2Nat.id.
+    pose (to_Z_bounded (PArray.length (deref ih ptr'))); lia. 
+    intro Htyty'. 
+    case_eq (Z.leb 0 i && (Z.ltb i (Int63.to_Z (PArray.length (deref ih ptr')))))%bool;
+     [| repeat econstructor; eauto].
+    rename i into z. intro Harr. apply MCProd.andb_and in Harr.
+    destruct Harr as [Hz0 Harr]. apply Z.leb_le in Hz0. 
+    apply Z.ltb_lt in Harr.   
+    pose proof (Hmax := leb_length _ (deref ih ptr')).
+    apply leb_spec in Hmax.
+    destruct ty. 
+    + split; [| econstructor; eauto].       
+      eapply update_compat with (default := SemanticsSpec.fail ""); eauto. 
+      split. now rewrite length_set PArray.length_set.
+      intros i Hi. set (arr' := deref _ _) in *. clearbody arr'.
+      case_eq (i =? Int63.of_Z z)%uint63. 
+      * intro eq; apply eqb_correct in eq. subst. 
+        unfold int_to_nat. rewrite Int63.of_Z_spec Z.mod_small; [cbn in *; lia |].
+        rewrite get_set_same; eauto.
+        apply ltb_spec. rewrite Int63.of_Z_spec Z.mod_small; cbn in *; lia.  
+        pose (Hnth := nth_set_same). rewrite Hnth; eauto.
+        rewrite Hsize. unfold int_to_nat. apply Z2Nat.inj_lt; cbn in *; lia.
+      * rewrite eqb_false_spec. intro Hneq. rewrite get_set_other; eauto.
+        rewrite nth_set_other. intro Hneq'; apply Hneq.
+        assert (int_of_nat (Z.to_nat z) = int_of_nat (int_to_nat i)) by now f_equal.
+        rewrite int_of_to_nat in H4. unfold int_of_nat in H4.
+        rewrite Z2Nat.id in H4; [lia | eauto].
+        eapply Hderef. now rewrite length_set in Hi.         
+    + destruct iv3; inversion Hiv3; try repeat econstructor; eauto.
+      destruct ty; try repeat econstructor; eauto.
+      case_eq ((0 <=? i)%Z && (i <? 256)%Z)%bool; try repeat econstructor; eauto.
+      eapply update_compat with (default := SemanticsSpec.fail ""); eauto. 
+      split. now rewrite length_set PArray.length_set. rename i into z'. 
+      intros i Hi. set (arr' := deref _ _) in *. clearbody arr'.
+      case_eq (i =? Int63.of_Z z)%uint63. 
+      * intro eq; apply eqb_correct in eq. subst. 
+        unfold int_to_nat. rewrite Int63.of_Z_spec Z.mod_small; [cbn in *; lia |].
+        rewrite get_set_same; eauto.
+        apply ltb_spec. rewrite Int63.of_Z_spec Z.mod_small; cbn in *; lia.  
+        pose (Hnth := nth_set_same). rewrite Hnth; eauto.
+        rewrite Hsize. unfold int_to_nat. apply Z2Nat.inj_lt; cbn in *; lia.
+      * rewrite eqb_false_spec. intro Hneq. rewrite get_set_other; eauto.
+        rewrite nth_set_other. intro Hneq'; apply Hneq.
+        assert (int_of_nat (Z.to_nat z) = int_of_nat (int_to_nat i)) by now f_equal.
+        rewrite int_of_to_nat in H8. unfold int_of_nat in H8.
+        rewrite Z2Nat.id in H8; [lia | eauto].
+        eapply Hderef. now rewrite length_set in Hi.         
+   (* eval_vec_length *)     
+  - cbn [interpret].
+    specialize (IHeval _ _ Hloc Hheap); destruct interpret as [ih1 iv1]; destruct IHeval as [Hheap1  Hiv1].
+    split; eauto. inversion Hiv1; subst.  
+    destruct (vector_type_eqb ty ty'); try econstructor.
+    pose proof (deref_compat (SemanticsSpec.fail "") _ _ _ _ _ Hheap H0 H4).
+    destruct H1 as [Hsize Hderef]. rewrite Hsize.
+    unfold int_to_nat. rewrite Z2Nat.id. 
+    pose (to_Z_bounded (PArray.length (deref ih ptr'))); lia.        
+    econstructor. 
   Qed.
 Set Guard Checking.
 
