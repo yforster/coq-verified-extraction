@@ -126,6 +126,9 @@ Proof.
   induction 1; cbn; eauto.
 Qed.
 
+Require Import Malfunction.Malfunction Malfunction.SemanticsSpec.
+From Coq Require Import Uint63.
+
 Fixpoint Array_of_List' {A} count (l : list A) (a : array A) :=
   match l with
   | [] => a
@@ -217,6 +220,7 @@ Proof.
     eapply nth_indep. lia.
 Qed.
 
+
 Lemma Array_of_list_get_again {A : Set} i s (l : list A) a :
   i >= s + List.length l ->
   s + List.length l < Z.to_nat Int63.wB ->
@@ -243,6 +247,7 @@ Proof.
       * subst. cbn in Hi. lia.
 Qed.
 
+
 Lemma Array_of_list_S A default n a (l:list A) : 
   n < Datatypes.length l ->
   S (Datatypes.length l) <= int_to_nat max_length ->
@@ -250,7 +255,7 @@ Lemma Array_of_list_S A default n a (l:list A) :
   (Array_of_list default l).[int_of_nat n].
 Proof.
   intros. 
-  repeat rewrite Array_of_list_get; try lia_max_length. eauto.
+  repeat rewrite Array_of_list_get; cbn in *; try lia; eauto.
 Qed.
 
 Lemma Array_of_list'_length A k (l:list A) a :
@@ -269,9 +274,9 @@ Proof.
   unfold Array_of_list. rewrite Array_of_list'_length.
   rewrite PArray.length_make. intro H. 
   assert (Hl: (int_of_nat (Datatypes.length l) ≤? max_length)%uint63 = true).
-  { apply leb_spec. rewrite Int63.of_Z_spec. 
-    rewrite Z.mod_small; lia_max_length. }
-  rewrite Hl. apply int_to_of_nat. lia_max_length. 
+  { apply leb_spec. rewrite Int63.of_Z_spec. rewrite Z.mod_small; [cbn in *; lia |].
+    cbn in *; lia. }
+  rewrite Hl. apply int_to_of_nat. cbn in *; lia. 
 Qed.
 
 Lemma Forall2Array_init {A B:Type} (R : A -> B -> Prop) n f g

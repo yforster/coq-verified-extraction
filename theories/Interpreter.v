@@ -1,12 +1,11 @@
 Require Import ssreflect.
 
 Require Import ZArith Array.PArray List Floats Lia.
-Require Uint63.
 Import ListNotations.
 
 (*Require Import Malfunction.Malfunction Malfunction.Deserialize Malfunction.SemanticsSpec Malfunction.Serialize Ceres.Ceres.*)
 
-Require Import Malfunction.Malfunction Malfunction.SemanticsSpec.
+Require Import Malfunction.Malfunction Malfunction.SemanticsSpec Malfunction.utils_array.
 From MetaCoq Require Import bytestring.
 Open Scope bs.
 
@@ -107,6 +106,7 @@ Definition truncate `{Heap} ty n :=
                      if Z.ltb masked min_int then masked else
                        Z.sub masked range
                  end).
+
 
 (*                 
 #[bypass_check(guard)]
@@ -855,4 +855,34 @@ Proof.
     unfold int_to_nat. rewrite Z2Nat.id. 
     pose (to_Z_bounded (PArray.length (deref ih ptr'))); lia.        
     econstructor. 
-Qed.
+  Qed.
+Set Guard Checking.
+
+
+(*  Lemma vtrans_inj v v' : vtrans v = vtrans v' -> v = v'.
+  Admitted. 
+  Lemma apD {A B} {f g : forall a:A, B a} : f = g -> forall x, f x = g x. 
+  now destruct 1.
+  Defined.  
+
+  Lemma interp_correct iglobals globals locals e v ilocals :
+    (forall x, vrel iglobals (ilocals x) (locals x)) ->
+    vrel (interpret ilocals e) v -> eval globals locals e v.
+  induction e; intro Hlocal; cbn in *. 
+  - intros Hvar. unfold Ident.Map.find in Hvar. rewrite Hlocal in Hvar.
+    apply vtrans_inj in Hvar. subst. econstructor. 
+  - intros Hlambda. destruct p as [xs e]. induction xs; cbn in *.
+    * admit.
+    * destruct xs.
+      + destruct v; cbn in Hlambda; try destruct p; try now inversion Hlambda.
+        destruct p. inversion Hlambda. clear Hlambda.
+        pose proof (Hlambda := apD H0 a). 
+        
+         H0. pose (ap )
+        f_equal
+        
+        eapply eval_lambda_sing. 
+           
+
+  destruct v. inversion Hvar.  eapply eval_var. *)
+
