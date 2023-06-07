@@ -2,8 +2,11 @@ From MetaCoq.Utils Require Import utils.
 Require Import List String.
 Import ListNotations.
 Local Open Scope string_scope.
-From Malfunction Require Import Mcase Compile SemanticsSpec utils_array.
-From MetaCoq Require Import Utils.ReflectEq EWcbvEvalNamed Utils.bytestring Utils.MCList.
+From Malfunction Require Import Mcase.
+From MetaCoq Require Import ReflectEq EWcbvEvalNamed bytestring MCList.
+
+From Malfunction Require Import Compile SemanticsSpec utils_array.
+
 From Equations Require Import Equations.
 
 Definition lookup {A} (E : list (Kernames.ident * A)) (x : string) :=
@@ -284,6 +287,10 @@ Proof.
   rewrite Zdiv.Zmod_small in Heq; [| lia_max_length]. rewrite <- Heq at 2.
   econstructor.
 Qed. 
+
+(*   todo "missing eval_num"%bs. eauto.
+Qed.
+ *)    
  
 Lemma find_add_self {Hp : Heap} idx d na recs locals :
   NoDup (map fst recs) ->
