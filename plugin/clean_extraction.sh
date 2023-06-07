@@ -39,6 +39,6 @@ else
 fi
 
 # Extraction bug: opens are in the wrong order
-patch -r - -N -p0 -i fix_extraction.patch
-patch -r - -N -p0 -i fix_extraction2.patch
+patch -N -p0 < fix_extraction.patch || exit $?
+patch -N -p0 < fix_extraction2.patch || exit $?
 exit 0
