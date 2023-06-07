@@ -5,7 +5,7 @@ Local Open Scope string_scope.
 From Malfunction Require Import Mcase.
 From MetaCoq Require Import ReflectEq EWcbvEvalNamed bytestring MCList.
 
-From Malfunction Require Import Compile SemanticsSpec.
+From Malfunction Require Import Compile SemanticsSpec utils_array.
 
 From Equations Require Import Equations.
 
@@ -291,8 +291,10 @@ Lemma eval_num `{Heap} Σ Γ_ i z h :
 Proof.
   intros. subst.
   pose proof (Malfunction.Int63.of_Z_spec z) as Heq.
-  rewrite Zdiv.Zmod_small in Heq. rewrite <- Heq at 2.
-Admitted.
+  rewrite Zdiv.Zmod_small in Heq; [| lia_max_length]. rewrite <- Heq at 2.
+  econstructor.
+Qed. 
+
 (*   todo "missing eval_num"%bs. eauto.
 Qed.
  *)    
@@ -303,7 +305,7 @@ Lemma find_add_self {Hp : Heap} idx d na recs locals :
   Malfunction.Ident.Map.find na (add_self (map fst recs) (RFunc_build (map snd recs)) locals)
   = RClos (locals, map fst recs, RFunc_build (map snd recs), idx).
 Proof.
-  intros Hdup Hnth. unfold add_self, add_recs, mapi.
+  intros Hdup Hnth. unfold add_self, add_recs, List.mapi.
   unfold Malfunction.Ident.Map.find.
   revert Hnth Hdup.
   change idx with (0 + idx) at 2.
@@ -313,7 +315,7 @@ Proof.
   - cbn. destruct a as [na' e]. 
     destruct idx; cbn in Hnth; inversion Hnth.
     + subst. unfold Malfunction.Ident.Map.add, Malfunction.Ident.eqb.
-      rewrite eqb_refl. repeat f_equal. lia.
+      rewrite eqb_refl. repeat f_equal. lia.  
     + unfold Malfunction.Ident.Map.add, Malfunction.Ident.eqb.
       cbn. destruct (eqb_spec na na').
       * subst. exfalso. inversion Hdup; subst. eapply H2.
@@ -328,7 +330,7 @@ Proof.
   unfold fix_env. induction #|mfix| in idx |- *; cbn.
   - lia.
   - intros. destruct idx.
-    + cbn. now rewrite <- minus_n_O.
+    + cbn. now rewrite Nat.sub_0_r.
     + cbn. eapply IHn. lia.
 Qed.
 
@@ -373,7 +375,7 @@ Proof.
     - eauto.
   + pose proof (find_none _ _ E). cbn in *.
     rewrite <- Hlocals. clear E.
-    unfold add_self, add_recs, mapi. generalize 0.
+    unfold add_self, add_recs, List.mapi. generalize 0.
     generalize (RFunc_build (map snd recs)).
     generalize (map fst recs) at 1.
     assert (forall x, In x (map fst mfix) -> na <> x). {
@@ -383,7 +385,7 @@ Proof.
       destruct (eqb_spec x x); try congruence. clear - H0.
       unfold fix_env. generalize mfix at 2. induction mfix using rev_ind; cbn in *; eauto; intros.
       rewrite map_app, in_app_iff in H0. cbn in H0.
-      rewrite app_length. cbn. rewrite plus_comm. cbn. rewrite map_app. cbn.
+      rewrite app_length. cbn. rewrite Nat.add_comm. cbn. rewrite map_app. cbn.
       rewrite rev_app_distr. cbn.
       destruct H0 as [ | [ | []]].
       - edestruct IHmfix; eauto.
