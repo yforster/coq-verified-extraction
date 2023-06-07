@@ -26,24 +26,23 @@ Definition CanonicalHeap : Heap :=
    deref :=  fun _ '(_,h) ptr => h ptr;
    update := fun _ '(max_ptr , h) ptr arr => (max_ptr , fun ptr' => if Int63.eqb ptr ptr' then arr else h ptr) |}. 
 
- Inductive rec_value `{Heap} := 
-   | RFunc of Ident.t * t
-   | RThunk of pointer
-   | Bad_recursive_value.
+Inductive rec_value `{Heap} := 
+  | RFunc of Ident.t * t
+  | RThunk of pointer
+  | Bad_recursive_value.
  
- Inductive value `{Heap} :=
- | Block of int * array value
- | Vec of vector_type * pointer
- | BString of vector_type * pointer
- | Func of @Ident.Map.t value * Ident.t *  t
- | RClos of @Ident.Map.t value * list Ident.t * list rec_value * nat
- | Lazy of @Ident.Map.t value * t
- | value_Int of inttype * Z
- | Float of float
- | Thunk of pointer
- | fail of string
- | not_evaluated
- .
+Inductive value `{Heap} :=
+  | Block of int * array value
+  | Vec of vector_type * pointer
+  | BString of vector_type * pointer
+  | Func of @Ident.Map.t value * Ident.t *  t
+  | RClos of @Ident.Map.t value * list Ident.t * list rec_value * nat
+  | Lazy of @Ident.Map.t value * t
+  | value_Int of inttype * Z
+  | Float of float
+  | Thunk of pointer
+  | fail of string
+  | not_evaluated.
 
 Definition heap `{Heap} := heapGen value.
 
@@ -75,17 +74,10 @@ Definition RFunc_build `{Heap} recs :=
     recs.
 
 Definition add_recs `{Heap} locals (self : list Ident.t) rfunc := 
-    mapi (fun n x => (x , RClos (locals, self, rfunc, n))) self.
+  List.mapi (fun n x => (x , RClos (locals, self, rfunc, n))) self.
 
 Definition add_self `{Heap} self rfunc locals := 
-    List.fold_right (fun '(x,t) l => Ident.Map.add x t l) locals (add_recs locals self rfunc).
-
-Fixpoint map_acc {A B S: Type} (f : S -> A -> S * B) (s:S) (l : list A) : S * list B :=
-  match l with
-  | [] => (s , [])
-  | a :: t => let (s',b) := f s a in 
-              let (s'',bs) := map_acc f s' t in (s'', b :: bs)
-  end.
+  List.fold_right (fun '(x,t) l => Ident.Map.add x t l) locals (add_recs locals self rfunc).
 
 Definition cond `{Heap} scr case : bool := 
     (match case, scr with
@@ -368,11 +360,6 @@ Fixpoint interpret `{Heap} (h : heap)
   | _ => (h , fail "assert todo")
 end. 
 
-Definition Forall2Array {A B:Type} (R : A -> B -> Prop) 
-  (l:list A) (a:array B) default := 
-    List.length l = int_to_nat (PArray.length a) /\
-    forall i:int, int_to_nat i < List.length l -> R (nth (int_to_nat i) l default ) a.[i].
-
 Class CompatiblePtr `{SemanticsSpec.Heap} `{Heap} :=  
 { R_ptr : SemanticsSpec.pointer -> pointer -> Prop }.
 
@@ -424,20 +411,6 @@ Class CompatibleHeap `{CompatiblePtr} :=
       Forall2Array vrel vals vals' default 
    }.
 
-
-Lemma Forall2_acc_map {S S' A B B'} (R : S -> S' -> Prop) (RB : B -> B' -> Prop)
-        (f : S' -> A -> S' * B') (P : S -> A -> S -> B -> Prop) x x' y l1 l2 :
-  Forall2_acc P x l1 y l2 ->
-  (forall x x' a b y, R x x' -> P x a y b -> let (y' , b') := f x' a in R y y' /\ RB b b') ->
-  R x x' -> 
-  let (y' , l') := map_acc f x' l1 in R y y' /\ Forall2 RB l2 l'.
-Proof.
-  intros H H'. revert x'. induction H; cbn; intros x' Hx; f_equal; eauto.
-  specialize (H' _ _ _ _ _ Hx H). destruct (f _ _ ) as (s',b').
-  destruct H'. specialize (IHForall2_acc _ H1). destruct (map_acc _ _ _).
-  destruct IHForall2_acc. split; eauto.  
-Qed.
-
 Lemma cond_correct  `{CompatiblePtr} 
   scr scr' x : vrel scr scr' -> 
   SemanticsSpec.cond scr x = Interpreter.cond scr' x.
@@ -470,21 +443,10 @@ Proof.
       rewrite E. eauto.
 Qed.
 
-
 Lemma vrel_add `{CompatiblePtr} x v iv locals ilocals : vrel v iv -> vrel_locals locals ilocals -> 
   vrel_locals (Ident.Map.add x v locals) (Ident.Map.add x iv ilocals).
 Proof.
   intros Hv Hlocals nm. unfold Ident.Map.add. now destruct Ident.eqb.
-Qed.
-  
-Lemma Forall2_acc_length {X A B R x l y l'} : @Forall2_acc X A B R x l y l' -> List.length l = List.length l'.
-Proof. 
-  induction 1; now cbn.
-Qed.   
-
-Lemma Forall2_length {A B P l l'} : @Forall2 A B P l l' -> List.length l = List.length l'.
-Proof. 
-  induction 1; now cbn.
 Qed.
 
 Lemma isNotEvaluated_vrel `{CompatiblePtr} v v' b : 
@@ -492,54 +454,6 @@ Lemma isNotEvaluated_vrel `{CompatiblePtr} v v' b :
 Proof.
   now destruct 1.
 Qed.    
-
-Lemma Forall2Array_init {A B:Type} (R : A -> B -> Prop) n f g
-   default :
-   n < int_to_nat max_length ->
-   (forall k, k < n ->  R (f k) (g (int_of_nat k))) ->
-   Forall2Array R (init n f) (Array_init (int_of_nat n) g) default.
-Proof.
-  intros Hmax HR. unfold Forall2Array.
-  assert (HwB : (Z.of_nat n < Int63.wB)%Z).
-  { clear -Hmax; cbn in *; lia. }
-  rewrite Array_of_list_length. 
-  { rewrite map_length seq_length. epose (int_to_of_nat n). 
-    unfold int_to_nat in e. now rewrite e. }
-  repeat rewrite map_length seq_length. split; [symmetry; apply int_to_of_nat|]; eauto.
-  intros i Hi. pose (HR (int_to_nat i) Hi). 
-  unfold Array_init. rewrite <- (int_of_to_nat i). 
-  rewrite Array_of_list_get; try lia.
-  1-3: rewrite map_length seq_length; pose (e := int_to_of_nat n HwB);
-       unfold int_to_nat in e; rewrite e; lia.
-  rewrite int_of_to_nat. unfold init.  
-  set (k := int_to_nat i) in *. clearbody k; clear i.
-  rewrite map_nth. erewrite nth_indep. erewrite map_nth.
-  pose (int_to_of_nat n HwB). 
-  unfold int_to_nat in e. rewrite e. apply HR. rewrite seq_nth; lia.
-  rewrite map_length seq_length; lia.
-Qed. 
-
-Lemma Forall2Array_cst {A B:Type} (R : A -> B -> Prop) n v v'
-   default :
-   n <= int_to_nat max_length ->
-   R v v' ->
-   Forall2Array R (init n (fun _ => v)) (make (int_of_nat n) v') default.
-Proof. 
-  intros Hmax HR. unfold Forall2Array.    
-  repeat rewrite map_length seq_length PArray.length_make.
-  case_eq (int_of_nat n ≤? max_length)%uint63.
-  - split; [symmetry; apply int_to_of_nat|]; eauto.
-    cbn in *. lia. 
-    intros i Hi. rewrite get_make.
-    set (k := int_to_nat i) in *. unfold init.
-    clearbody k; clear i. erewrite nth_indep.
-    erewrite map_nth. Unshelve. 3: exact 0.   exact HR.
-    now rewrite map_length seq_length.
-  - intro abs. pose (leb_spec (int_of_nat n) (max_length)). destruct i. 
-    rewrite H0 in abs.
-    rewrite Int63.of_Z_spec. rewrite Z.mod_small; clear H H0; cbn in *; lia.
-    inversion abs.
-Qed.     
 
 Ltac fail_case IHeval Hloc Hheap Heq := 
   let Hv := fresh "iv1" in cbn; specialize (IHeval _ _ Hloc Hheap); destruct interpret as [? ?];
@@ -554,7 +468,7 @@ Lemma vrel_locals_add_self `{CompatiblePtr}  locals' locals'0 mfix mfix' self :
 Proof. 
   intros Hloc ?.
   unfold add_self, SemanticsSpec.add_self.
-  unfold add_recs, SemanticsSpec.add_recs. unfold mapi.
+  unfold add_recs, SemanticsSpec.add_recs. unfold List.mapi.
   generalize 0. generalize self at 1 3. 
   pose proof (Hcopy := Hloc). revert Hcopy.  
   generalize locals' at 1 3. generalize locals'0 at 1 3.
@@ -584,39 +498,6 @@ Lemma truncate_vrel `{CompatibleHeap} ty z :
   vrel (SemanticsSpec.truncate ty z) (truncate ty z).
   destruct ty; econstructor.
 Qed. 
-
-Lemma wb_max_length :
-  int_to_nat max_length < Z.to_nat Int63.wB.
-Proof.
-  cbn. lia.
-Qed.
-
-Arguments Int63.wB : simpl never.
-Arguments max_length : simpl never.
-
-Lemma length_set A (l : list  A) n a : 
-  List.length (set l n a) = List.length l.
-Proof. 
-  revert n. induction l; destruct n; cbn; eauto. now f_equal.
-Qed.
-
-Lemma nth_set_same A (l : list A) n a d :
-  (n < List.length l) -> nth n (set l n a) d = a.
-Proof. 
-  revert n. induction l; destruct n; cbn ; intros; try solve [inversion H]; eauto. 
-  apply IHl. now apply Nat.succ_lt_mono in H.
-Qed. 
-
-Lemma nth_set_other A (l : list A) n m a d : 
-  n <> m -> nth m (set l n a) d = nth m l d.
-Proof. 
-  revert n m; induction l; intros; cbn; eauto.
-  destruct n; destruct m; cbn; try congruence.
-  eapply IHl; eauto. congruence. 
-Qed. 
-
-Ltac lia_max_length := 
-  pose proof wb_max_length; unfold max_length in*; cbn in *; lia.
 
 Lemma eval_correct `{CompatibleHeap} 
   globals locals ilocals iglobals e h h' ih v :
@@ -863,7 +744,7 @@ Proof.
     set (Interpreter.fresh ih2) in *. destruct p.
     destruct H6; split; [| now econstructor].
     eapply update_compat with (default := SemanticsSpec.fail ""); eauto.
-    unfold init. unfold Forall2Array.
+    unfold List.init. unfold Forall2Array.
     assert (Hlen' : Int63.of_Z len' = int_of_nat (Z.to_nat len')).
     { unfold int_of_nat. rewrite Z2Nat.id; eauto. }
     rewrite Hlen'. apply Forall2Array_cst; eauto.
@@ -928,7 +809,7 @@ Proof.
     destruct ty. 
     + split; [| econstructor; eauto].       
       eapply update_compat with (default := SemanticsSpec.fail ""); eauto. 
-      split. now rewrite length_set PArray.length_set.
+      split. now rewrite List.length_set PArray.length_set.
       intros i Hi. set (arr' := deref _ _) in *. clearbody arr'.
       case_eq (i =? Int63.of_Z z)%uint63. 
       * intro eq; apply eqb_correct in eq. subst. 
@@ -937,33 +818,33 @@ Proof.
         rewrite get_set_same; eauto.
         apply ltb_spec. 
         rewrite Int63.of_Z_spec Z.mod_small; lia_max_length.  
-        pose (Hnth := nth_set_same). rewrite Hnth; eauto.
+        pose (Hnth := List.nth_set_same). rewrite Hnth; eauto.
         rewrite Hsize. unfold int_to_nat. apply Z2Nat.inj_lt; cbn in *; lia.
       * rewrite eqb_false_spec. intro Hneq. rewrite get_set_other; eauto.
-        rewrite nth_set_other. intro Hneq'; apply Hneq.
+        rewrite List.nth_set_other. intro Hneq'; apply Hneq.
         assert (int_of_nat (Z.to_nat z) = int_of_nat (int_to_nat i)) by now f_equal.
         rewrite int_of_to_nat in H4. unfold int_of_nat in H4.
         rewrite Z2Nat.id in H4; [lia | eauto].
-        eapply Hderef. now rewrite length_set in Hi.         
+        eapply Hderef. now rewrite List.length_set in Hi.         
     + destruct iv3; inversion Hiv3; try repeat econstructor; eauto.
       destruct ty; try repeat econstructor; eauto.
       case_eq ((0 <=? i)%Z && (i <? 256)%Z)%bool; try repeat econstructor; eauto.
       eapply update_compat with (default := SemanticsSpec.fail ""); eauto. 
-      split. now rewrite length_set PArray.length_set. rename i into z'. 
+      split. now rewrite List.length_set PArray.length_set. rename i into z'. 
       intros i Hi. set (arr' := deref _ _) in *. clearbody arr'.
       case_eq (i =? Int63.of_Z z)%uint63. 
       * intro eq; apply eqb_correct in eq. subst. 
         unfold int_to_nat. rewrite Int63.of_Z_spec Z.mod_small; [lia_max_length |].
         rewrite get_set_same; eauto.
         apply ltb_spec. rewrite Int63.of_Z_spec Z.mod_small; lia_max_length.  
-        pose (Hnth := nth_set_same). rewrite Hnth; eauto.
+        pose (Hnth := List.nth_set_same). rewrite Hnth; eauto.
         rewrite Hsize. unfold int_to_nat. apply Z2Nat.inj_lt; cbn in *; lia.
       * rewrite eqb_false_spec. intro Hneq. rewrite get_set_other; eauto.
-        rewrite nth_set_other. intro Hneq'; apply Hneq.
+        rewrite List.nth_set_other. intro Hneq'; apply Hneq.
         assert (int_of_nat (Z.to_nat z) = int_of_nat (int_to_nat i)) by now f_equal.
         rewrite int_of_to_nat in H8. unfold int_of_nat in H8.
         rewrite Z2Nat.id in H8; [lia | eauto].
-        eapply Hderef. now rewrite length_set in Hi.         
+        eapply Hderef. now rewrite List.length_set in Hi.         
    (* eval_vec_length *)     
   - cbn [interpret].
     specialize (IHeval _ _ Hloc Hheap); destruct interpret as [ih1 iv1]; destruct IHeval as [Hheap1  Hiv1].

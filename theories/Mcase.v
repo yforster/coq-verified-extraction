@@ -326,7 +326,7 @@ Proof.
         eapply Hdiscr.
         rewrite !app_length in *. cbn in *.
         pose proof int_maxs. lia.
-        rewrite !app_length in *. cbn in *. lia.
+        rewrite !app_length in *. lia_max_length.
         subst. rewrite int_to_of_nat.
         2:{ rewrite app_length in *. cbn in *. pose proof int_maxs. lia. }
         rewrite app_length; cbn. lia.

@@ -1,6 +1,6 @@
 
 Require Import ssreflect.
-From Malfunction Require Import Malfunction.
+From Malfunction Require Import Malfunction utils_array.
 From MetaCoq.PCUIC Require Import PCUICAst PCUICFirstorder.
 
 Require Import ZArith Array.PArray List Floats Lia.
@@ -9,30 +9,6 @@ Import ListNotations.
 
 Open Scope bs. 
 
-Definition int_to_nat (i : int) : nat :=
-  Z.to_nat (Int63.to_Z i).
-
-Definition int_of_nat n := Uint63.of_Z (Coq.ZArith.BinInt.Z.of_nat n).
-
-Lemma int_of_to_nat i :
-  int_of_nat (int_to_nat i) = i.
-Proof.
-  unfold int_of_nat, int_to_nat.
-  rewrite Z2Nat.id.
-  1:eapply Int63.to_Z_bounded.
-  now rewrite Int63.of_to_Z.
-Qed.
-
-Lemma int_to_of_nat i :
-  (Z.of_nat i < Int63.wB)%Z ->
-  int_to_nat (int_of_nat i) = i.
-Proof.
-  unfold int_of_nat, int_to_nat.
-  intros ?.
-  rewrite Int63.of_Z_spec.
-  rewrite Z.mod_small. 1:lia.
-  now rewrite Nat2Z.id.
-Qed.
 
 Set Default Goal Selector "!".
 
@@ -174,23 +150,6 @@ Fixpoint find_match `{Heap} scr x : option t := match x with
 Definition Mklambda binders e :=
   match binders with [] => e | _ => Mlambda (binders, e) end.
 
-Fixpoint mapi_ {A B} (f : nat -> A -> B) (l : list A) (n:nat) : list B :=
-  match l with
-    | [] => []
-    | x :: l' =>  f n x :: mapi_ f l' (S n) 
-  end.
-
-Definition mapi {A B} (f : nat -> A -> B) l := mapi_ f l 0. 
-
-Definition init {A} (size : nat) (f : nat -> A) : list A := map f (seq 0 size).
-
-Fixpoint set {A} (l : list A) (n : nat) (a:A) : list A 
-  := match l , n with
-    [] , _ =>  []
-  | x :: l , 0 => a :: l
-  | x :: l , S n => x :: set l n a
-  end.
-
 Definition RFunc_build `{Heap} recs := 
     map (fun t =>
       match t with 
@@ -201,17 +160,10 @@ Definition RFunc_build `{Heap} recs :=
     recs.
 
 Definition add_recs `{Heap} locals (self : list Ident.t) rfunc := 
-  mapi (fun n x => (x , RClos (locals, self, rfunc, n))) self.
+  List.mapi (fun n x => (x , RClos (locals, self, rfunc, n))) self.
 
 Definition add_self `{Heap} self rfunc locals := 
   List.fold_right (fun '(x,t) l => Ident.Map.add x t l) locals (add_recs locals self rfunc) .
-
-Inductive
-  Forall2_acc {X A B : Type} (R : X -> A -> X -> B -> Prop) : X -> list A -> X -> list B -> Prop :=
-    Forall2_acc_nil : forall x, Forall2_acc R x [] x []
-    | Forall2_acc_cons : forall (x y z : X) (a : A) (b : B) 
-                            (l : list A) (l' : list B) ,
-                     R x a y b -> Forall2_acc R y l z l' -> Forall2_acc R x (a :: l) z (b :: l').
 
 Definition comparison_eqb x1 x2 :=
   match x1, x2 with
@@ -367,7 +319,7 @@ Inductive eval (locals : @Ident.Map.t value) : heap -> t -> heap -> value -> Pro
 | eval_num_float f h : eval locals h (Mnum (numconst_Float64 f)) h  (Float f)
 | eval_string s h h' h'' ptr : 
   String.length s < int_to_nat max_length ->
-  let str := init (String.length s)
+  let str := List.init (String.length s)
     (fun i => value_Int (Int, Z.of_nat (Byte.to_nat (option_def (Ascii.byte_of_ascii Ascii.Space) (get i s))))) in
   fresh h ptr h' -> 
   update h' ptr str h'' ->
@@ -450,7 +402,7 @@ Inductive eval (locals : @Ident.Map.t value) : heap -> t -> heap -> value -> Pro
       Z.to_nat len' <= int_to_nat max_length ->
       eval locals h1 def h2 def' ->
       fresh h2 ptr h3 -> 
-      update h3 ptr (init (Z.to_nat len') (fun _ => def')) h4 ->
+      update h3 ptr (List.init (Z.to_nat len') (fun _ => def')) h4 ->
       eval locals h (Mvecnew (Array, len, def)) h4 (Vec (Array, ptr))
 | eval_vecnew_bytevec h h1 h2 h3 h4 len len' def k ptr : 
       eval locals h len h1 (value_Int (Int, len')) -> 
@@ -459,7 +411,7 @@ Inductive eval (locals : @Ident.Map.t value) : heap -> t -> heap -> value -> Pro
       eval locals h1 def h2 (value_Int (Int, k)) ->
       is_true (Z.leb 0%Z k && Z.ltb k 256) ->
       fresh h2 ptr h3 -> 
-      update h3 ptr (init (Z.to_nat len') (fun _ => (value_Int (Int, k)))) h4 ->
+      update h3 ptr (List.init (Z.to_nat len') (fun _ => (value_Int (Int, k)))) h4 ->
       eval locals h (Mvecnew (Bytevec, len, def)) 
                   h4 (if Z.leb 0%Z k && Z.ltb k 256 
                       then Vec (Bytevec, ptr)
@@ -485,7 +437,7 @@ Inductive eval (locals : @Ident.Map.t value) : heap -> t -> heap -> value -> Pro
     eval locals h1 idx h2 (value_Int (Int, i)) ->
     eval locals h2 e h3 v ->
     deref h ptr arr -> 
-    update h3 ptr (set arr (Z.to_nat i) v) h4 ->
+    update h3 ptr (List.set arr (Z.to_nat i) v) h4 ->
     eval locals h (Mvecset (ty, vec, idx, e)) 
         (if vector_type_eqb ty ty' then 
            if Z.leb 0 i && Z.ltb i (Z.of_nat (List.length arr)) then 
@@ -665,7 +617,7 @@ forall P : Ident.Map.t -> heap -> t -> heap -> value -> Prop,
           (h h' h'' : heapGen value) (ptr : pointer),
         String.length s < int_to_nat max_length ->
         let str :=
-          init (String.length s)
+          List.init (String.length s)
             (fun i : nat =>
              value_Int
                (Int,
@@ -789,7 +741,7 @@ forall P : Ident.Map.t -> heap -> t -> heap -> value -> Prop,
         eval locals h1 def h2 def' ->
         P locals h1 def h2 def' ->
         fresh h2 ptr h3 ->
-        update h3 ptr (init (Z.to_nat len') (fun _ : nat => def')) h4 ->
+        update h3 ptr (List.init (Z.to_nat len') (fun _ : nat => def')) h4 ->
         P locals h (Mvecnew (Array, len, def)) h4 (Vec (Array, ptr))) ->
        (forall (locals : Ident.Map.t) (h h1 h2 : heap)
           (h3 h4 : heapGen value) (len : t) (len' : Z) 
@@ -803,7 +755,7 @@ forall P : Ident.Map.t -> heap -> t -> heap -> value -> Prop,
         P locals h1 def h2 (value_Int (Int, k)) ->
         fresh h2 ptr h3 ->
         update h3 ptr
-          (init (Z.to_nat len') (fun _ : nat => value_Int (Int, k))) h4 ->
+          (List.init (Z.to_nat len') (fun _ : nat => value_Int (Int, k))) h4 ->
         P locals h (Mvecnew (Bytevec, len, def)) h4
           (if ((0 <=? k)%Z && (k <? 256)%Z)%bool
            then Vec (Bytevec, ptr)
@@ -840,7 +792,7 @@ forall P : Ident.Map.t -> heap -> t -> heap -> value -> Prop,
         eval locals h2 e h3 v ->
         P locals h2 e h3 v ->
         deref h ptr arr ->
-        update h3 ptr (set arr (Z.to_nat i) v) h4 ->
+        update h3 ptr (List.set arr (Z.to_nat i) v) h4 ->
         P locals h (Mvecset (ty, vec, idx, e)) 
         (if vector_type_eqb ty ty' then 
            if Z.leb 0 i && Z.ltb i (Z.of_nat (List.length arr)) then 
