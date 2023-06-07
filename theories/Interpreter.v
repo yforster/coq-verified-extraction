@@ -470,160 +470,11 @@ Proof.
       rewrite E. eauto.
 Qed.
 
-Lemma Array_of_list'_get {A} s l (a : array A) i :
-  i < s + List.length l ->
-  (s + List.length l < Z.to_nat Int63.wB) ->
-  s + List.length l <= int_to_nat (PArray.length a) ->
-  PArray.get (Array_of_List' s l a) (int_of_nat i) =
-    if (i <? s)%nat then
-      a.[int_of_nat i]
-    else
-      nth (i - s) l (a.[int_of_nat i]).
-Proof.
-  intros Hl Hs Ha.
-  induction l as [ | ? ? IHl] in s, i, a, Hl, Hs, Ha |- *.
-  - destruct (Nat.ltb_spec i s).
-    + cbn. reflexivity.
-    + cbn. destruct (i - s); reflexivity.
-  - rewrite IHl. 
-    + cbn in Hl. lia.
-    + cbn [Datatypes.length] in Hs. lia.
-    + rewrite PArray.length_set. cbn [Datatypes.length] in Ha. lia.
-    + fold (int_of_nat s). destruct (Nat.ltb_spec i s) as [H | H].
-      * destruct (Nat.ltb_spec i (S s)) as [H0 | H0]; try lia.
-        rewrite get_set_other.
-        -- intros E. eapply (f_equal int_to_nat) in E.
-           rewrite !int_to_of_nat in E.
-           all:assert (H1 : s < Z.to_nat Int63.wB) by lia.
-           all:eapply inj_lt in H1.
-           all:rewrite Z2Nat.id in H1. all:lia. 
-        -- reflexivity.
-      * destruct (Nat.ltb_spec i (S s)); try lia.
-        -- assert (i = s) by lia. subst.
-           rewrite get_set_same.
-           ++ eapply Int63.ltb_spec.
-              1:eapply Z2Nat.inj_lt.
-              1:eapply Int63.to_Z_bounded.
-              1:eapply Int63.to_Z_bounded. 
-              fold (int_to_nat (int_of_nat s)).
-              rewrite int_to_of_nat. 1:lia.
-              unfold int_to_nat in Ha. lia.
-           ++ cbn. destruct s. 1:reflexivity.
-              rewrite Nat.sub_diag. reflexivity.
-        -- cbn. destruct (i - s) as [ | n] eqn:E.
-           ++ lia.
-           ++ assert (H1 : i - S s = n) by lia. rewrite H1.
-              eapply nth_indep.
-              cbn in Hl. lia.
-Qed.
-
-Lemma wb_max_length :
-  int_to_nat max_length < Z.to_nat Int63.wB.
-Proof.
-  cbn. lia.
-Qed.
-
-Arguments Int63.wB : simpl never.
-Arguments max_length : simpl never.
-
-Lemma Array_of_list_get {A} (a : A) l i :
-  (i < Z.to_nat Int63.wB) ->
-  (List.length l < Z.to_nat Int63.wB) ->
-  List.length l <= int_to_nat max_length ->
-  i < List.length l ->
-  (Array_of_list a l).[int_of_nat i] = nth i l a.
-Proof.
-  unfold Array_of_list. intros Hs Hl1 Hl Hi.
-  rewrite Array_of_list'_get.
-  + assumption.
-  + lia. 
-  + rewrite PArray.length_make.
-    fold (int_of_nat (Datatypes.length l)).
-    destruct (Int63.lebP (int_of_nat (Datatypes.length l)) max_length) as [ | n ].
-    * rewrite int_to_of_nat.
-      1:eapply Z2Nat.inj_lt. all: lia. 
-    * destruct n.
-      epose proof (int_to_of_nat (Datatypes.length l) _) as H.
-      eapply Z2Nat.inj_le.
-      1:eapply Int63.to_Z_bounded.
-      1:eapply Int63.to_Z_bounded.
-      unfold int_to_nat in H. rewrite H.
-      unfold int_to_nat in Hl. exact Hl.
-      Unshelve. all:lia.
-  + destruct (Nat.ltb_spec i 0); try lia.
-    rewrite Nat.sub_0_r.
-    eapply nth_indep. lia.
-Qed.
-
-
-Lemma Array_of_list_get_again {A : Set} i s (l : list A) a :
-  i >= s + List.length l ->
-  s + List.length l < Z.to_nat Int63.wB ->
-  i < Z.to_nat Int63.wB ->
-  (Array_of_List' s l a).[int_of_nat i]  = PArray.get a (int_of_nat i).
-Proof.
-  induction l as [ | ? l IHl ] in s, i, a |- *; intros Hi Hs Ha.
-  - cbn. reflexivity.
-  - cbn. rewrite IHl. 
-    + cbn in Hi. lia.
-    + cbn [List.length] in Hs. lia. 
-    + cbn [List.length] in Hs. lia.
-    + rewrite get_set_other. 2:reflexivity.
-      fold (int_of_nat s).
-      intros H. eapply (f_equal int_to_nat) in H.
-      rewrite !int_to_of_nat in H.
-      * eapply inj_lt in Hs.
-        rewrite Z2Nat.id in Hs. 1:cbn; lia.
-        rewrite <- Hs.
-        eapply inj_lt. cbn. lia.
-      * eapply inj_lt in Ha.
-        rewrite Z2Nat.id in Ha. 1:cbn; lia.
-        lia.
-      * subst. cbn in Hi. lia.
-Qed.
-
-Axiom todo : forall {A : Type}, A.
 
 Lemma vrel_add `{CompatiblePtr} x v iv locals ilocals : vrel v iv -> vrel_locals locals ilocals -> 
   vrel_locals (Ident.Map.add x v locals) (Ident.Map.add x iv ilocals).
 Proof.
   intros Hv Hlocals nm. unfold Ident.Map.add. now destruct Ident.eqb.
-Qed.
-
-Lemma Array_of_list_S A default n a (l:list A) : 
-  n < Datatypes.length l ->
-  S (Datatypes.length l) <= int_to_nat max_length ->
-  (Array_of_list default (a :: l)).[int_of_nat (S n)] = 
-  (Array_of_list default l).[int_of_nat n].
-Proof.
-  intros.
-  pose proof wb_max_length.
-  now repeat rewrite Array_of_list_get; cbn in *; try lia.
-Qed. 
-
-Lemma Array_of_list'_length A k (l:list A) a :
-  PArray.length (Array_of_List' k l a) =
-  PArray.length a.
-Proof. 
-  revert k a. induction l; [reflexivity|].
-  intros; cbn. rewrite IHl. now rewrite PArray.length_set.
-Qed.    
-
-Lemma Array_of_list_length A default (l:list A) :
-  Datatypes.length l < int_to_nat max_length -> 
-  int_to_nat (PArray.length (Array_of_list default l)) =
-  List.length l.
-Proof.
-  unfold Array_of_list. rewrite Array_of_list'_length.
-  rewrite PArray.length_make. intro H.
-  pose proof wb_max_length.
-  assert (Hl: (int_of_nat (Datatypes.length l) ≤? max_length)%uint63 = true).
-  { apply leb_spec. rewrite !Int63.of_Z_spec.
-    rewrite Z.mod_small; [cbn in *; lia |].
-    unfold max_length in *.
-    cbn in * |- . 
-    cbn in *; lia. }
-  rewrite Hl. apply int_to_of_nat. cbn in *; lia. 
 Qed.
   
 Lemma Forall2_acc_length {X A B R x l y l'} : @Forall2_acc X A B R x l y l' -> List.length l = List.length l'.
@@ -690,17 +541,6 @@ Proof.
     inversion abs.
 Qed.     
 
-(*
-Axiom funext : forall A B, forall f g : A -> B, (forall x, f x = g x) -> f = g.
-
-Lemma interpret_ilocals_proper `{CompatiblePtr} ih iglobals ilocals ilocals' e :
-  (forall x, ilocals x = ilocals' x) ->
-  interpret ih iglobals ilocals e = interpret ih iglobals ilocals' e.
-Proof.
-  intros Hlocal; apply funext in Hlocal. now subst.
-Qed.  
- *)
-
 Ltac fail_case IHeval Hloc Hheap Heq := 
   let Hv := fresh "iv1" in cbn; specialize (IHeval _ _ Hloc Hheap); destruct interpret as [? ?];
   destruct IHeval as [? Hv]; destruct Hv; inversion Heq; split;eauto; econstructor.
@@ -745,6 +585,15 @@ Lemma truncate_vrel `{CompatibleHeap} ty z :
   destruct ty; econstructor.
 Qed. 
 
+Lemma wb_max_length :
+  int_to_nat max_length < Z.to_nat Int63.wB.
+Proof.
+  cbn. lia.
+Qed.
+
+Arguments Int63.wB : simpl never.
+Arguments max_length : simpl never.
+
 Lemma length_set A (l : list  A) n a : 
   List.length (set l n a) = List.length l.
 Proof. 
@@ -765,6 +614,9 @@ Proof.
   destruct n; destruct m; cbn; try congruence.
   eapply IHl; eauto. congruence. 
 Qed. 
+
+Ltac lia_max_length := 
+  pose proof wb_max_length; unfold max_length in*; cbn in *; lia.
 
 Lemma eval_correct `{CompatibleHeap} 
   globals locals ilocals iglobals e h h' ih v :
@@ -858,12 +710,11 @@ Proof.
       destruct IHForall2_acc as [? IHForall2_acc]. 
       assert (Hl: (int_of_nat (Datatypes.length l) ≤? max_length)%uint63 = true).
       { apply leb_spec. rewrite Int63.of_Z_spec.
-        rewrite (Forall2_acc_length H1).  pose proof wb_max_length as Hwb.
-        rewrite Z.mod_small; [cbn in *; lia |].
+        rewrite (Forall2_acc_length H1). rewrite Z.mod_small; [lia_max_length |].
         unfold max_length in *. cbn in *. lia. }
       assert (Hl': (int_of_nat (S (Datatypes.length l)) ≤? max_length)%uint63 = true).
-      { pose proof wb_max_length as Hwb. apply leb_spec. rewrite Int63.of_Z_spec. rewrite (Forall2_acc_length H1). rewrite Z.mod_small; [cbn in *; lia |].
-        unfold max_length in *. cbn in *. lia. }
+      { apply leb_spec. rewrite Int63.of_Z_spec. rewrite (Forall2_acc_length H1). 
+        rewrite Z.mod_small; lia_max_length. }
       rewrite Hl in IHForall2_acc. rewrite Hl'. inversion IHForall2_acc; subst. clear IHForall2_acc.  
       econstructor. destruct H3. split.
       * simpl. rewrite Array_of_list_length.
@@ -873,15 +724,15 @@ Proof.
         pose proof (Hbounded := to_Z_bounded idx).
         destruct (int_to_nat idx).
         ** simpl. pose Int63.wB_pos. rewrite Array_of_list_get; try (cbn; lia).
-          ++ cbn in H0. rewrite (Forall2_length Hl0) in H0. pose proof wb_max_length as Hwb. clear - H0 Hwb; cbn in *; lia. 
-          ++ cbn in H0. rewrite (Forall2_length Hl0) in H0. pose proof wb_max_length as Hwb. clear - H0 Hwb; cbn in *; lia. 
+          ++ cbn in H0. rewrite (Forall2_length Hl0) in H0. clear - H0; lia_max_length. 
+          ++ cbn in H0. rewrite (Forall2_length Hl0) in H0. clear - H0; lia_max_length. 
           ++ eauto.
         ** simpl. rewrite Array_of_list_S. 
            ++ cbn; cbn in Hidx. rewrite <- (Forall2_length Hl0). lia.
            ++ cbn; cbn in H0. rewrite <- (Forall2_length Hl0). lia.
            ++ specialize (H3 (int_of_nat n)). 
               rewrite int_to_of_nat in H3.
-              { cbn; cbn in Hidx; cbn in H0. pose proof wb_max_length as Hwb. lia. }
+              { clear -Hidx H0; lia_max_length. }
               eapply H3. cbn in Hidx; lia.  
   (* eval_field *)    
   - cbn. specialize (IHeval _ _ Hloc Hheap). destruct interpret as [ih1 iv1]; destruct IHeval as [Hheap1  Hiv1].
@@ -948,7 +799,7 @@ Proof.
     eapply update_compat with (default := SemanticsSpec.fail ""); eauto.
     apply Forall2Array_init; eauto.
     intros k Hk. pose (int_to_of_nat k). 
-    unfold int_to_nat in e. rewrite e; [cbn in *; lia| econstructor].
+    unfold int_to_nat in e. rewrite e; [lia_max_length| econstructor].
   (* eval_numop1 *)
   - cbn [interpret]; destruct op; cbn [interpret];
     specialize (IHeval _ _ Hloc Hheap); destruct interpret as [ih1 iv1]; destruct IHeval as [Hheap1  Hiv1];
@@ -1041,7 +892,7 @@ Proof.
       {split; [lia|]. clear -H3 H4 H6.
       apply leb_spec in H3. apply Z.ltb_lt in H6.
       set (PArray.length _) in *. clearbody i.
-      cbn in *; lia. }
+      clear H4. lia_max_length.  }
       assert (Heqn' : Z.to_nat n' = int_to_nat (Int63.of_Z n')).
       { unfold int_to_nat. f_equal. rewrite Int63.of_Z_spec.
         rewrite Z.mod_small; eauto. } 
@@ -1081,9 +932,11 @@ Proof.
       intros i Hi. set (arr' := deref _ _) in *. clearbody arr'.
       case_eq (i =? Int63.of_Z z)%uint63. 
       * intro eq; apply eqb_correct in eq. subst. 
-        unfold int_to_nat. rewrite Int63.of_Z_spec Z.mod_small; [cbn in *; lia |].
+        unfold int_to_nat. rewrite Int63.of_Z_spec Z.mod_small; 
+          [ lia_max_length |].
         rewrite get_set_same; eauto.
-        apply ltb_spec. rewrite Int63.of_Z_spec Z.mod_small; cbn in *; lia.  
+        apply ltb_spec. 
+        rewrite Int63.of_Z_spec Z.mod_small; lia_max_length.  
         pose (Hnth := nth_set_same). rewrite Hnth; eauto.
         rewrite Hsize. unfold int_to_nat. apply Z2Nat.inj_lt; cbn in *; lia.
       * rewrite eqb_false_spec. intro Hneq. rewrite get_set_other; eauto.
@@ -1100,9 +953,9 @@ Proof.
       intros i Hi. set (arr' := deref _ _) in *. clearbody arr'.
       case_eq (i =? Int63.of_Z z)%uint63. 
       * intro eq; apply eqb_correct in eq. subst. 
-        unfold int_to_nat. rewrite Int63.of_Z_spec Z.mod_small; [cbn in *; lia |].
+        unfold int_to_nat. rewrite Int63.of_Z_spec Z.mod_small; [lia_max_length |].
         rewrite get_set_same; eauto.
-        apply ltb_spec. rewrite Int63.of_Z_spec Z.mod_small; cbn in *; lia.  
+        apply ltb_spec. rewrite Int63.of_Z_spec Z.mod_small; lia_max_length.  
         pose (Hnth := nth_set_same). rewrite Hnth; eauto.
         rewrite Hsize. unfold int_to_nat. apply Z2Nat.inj_lt; cbn in *; lia.
       * rewrite eqb_false_spec. intro Hneq. rewrite get_set_other; eauto.
