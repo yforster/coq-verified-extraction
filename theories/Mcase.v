@@ -2,10 +2,10 @@ Require Import List Lia.
 Export ListNotations.
 
 From MetaCoq Require Import  bytestring BasicAst EWcbvEvalNamed All_Forall ReflectEq.
-From Malfunction Require Import SemanticsSpec.
+From Malfunction Require Import utils_array SemanticsSpec.
 From MetaCoq Require Import MCList.
 
-From Malfunction Require Import Malfunction  Compile.
+From Malfunction Require Import Malfunction Compile.
 Open Scope list_scope.
 
 Definition Func_ `{H : Heap} nms locals b v :=
@@ -227,10 +227,8 @@ Qed.
 Lemma int_maxs :
   int_to_nat PArray.max_length < Z.to_nat Int63.wB.
 Proof.
-  cbn. lia.
+  lia_max_length.
 Qed.
-
-Opaque Int63.wB PArray.max_length.
 
 Lemma eval_case_block {Hp : Heap} globals locals discr i args brs nms br v h num_args  :
   eval globals locals h discr h (Block (int_of_nat (blocks_until i num_args), args)) ->
@@ -326,10 +324,7 @@ Proof.
         eapply Hdiscr.
         rewrite !app_length in *. cbn in *.
         pose proof int_maxs. lia.
-        rewrite !app_length in *. lia_max_length.
-        subst. rewrite int_to_of_nat.
-        2:{ rewrite app_length in *. cbn in *. pose proof int_maxs. lia. }
-        rewrite app_length; cbn. lia.
+        rewrite !app_length in *. rewrite int_to_of_nat; lia_max_length.
         subst v'. rewrite int_to_of_nat.     
         rewrite app_nth2, PeanoNat.Nat.sub_diag; [ reflexivity | lia].
         rewrite app_length in *. cbn in *. pose proof int_maxs. lia. 
