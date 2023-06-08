@@ -1,3 +1,5 @@
+From MetaCoq Require Import bytestring ReflectEq.
+
 Require Import String Ascii Bool Arith.
 Require Import Malfunction.Malfunction.
 
@@ -7,14 +9,32 @@ Require Import Malfunction.Ceres.CeresFormat Malfunction.Ceres.CeresSerialize.
 Local Open Scope sexp.
 Local Open Scope string.
 
-Fixpoint _escape_ident (_end s : string) : string :=
+Fixpoint _escape_ident (_end s : String.t) : String.t :=
   match s with
-  | ""%string => _end
-  | (c :: s')%string => let escaped_s' := _escape_ident _end s' in if ("'" =? c)%char2 then ("_" :: escaped_s')%string else (c :: escaped_s')%string
+  | ""%bs => _end
+  |  String.String c s' =>
+       if c == byte_of_ascii "'" then String.String "_" (_escape_ident _end s')
+       else match s' with
+            | String.String c2 s'' =>
+                if (String.String c (String.String c2 String.EmptyString)) == "Γ"%bs
+                   then ("Gamma" ++ _escape_ident _end s'')%bs
+                else if (String.String c (String.String c2 String.EmptyString)) == "φ"%bs
+                   then ("Phi" ++ _escape_ident _end s'')%bs
+                else if (String.String c (String.String c2 String.EmptyString)) == "Δ"%bs
+                   then ("Delta" ++ _escape_ident _end s'')%bs
+                else if (String.String c (String.String c2 String.EmptyString)) == "π"%bs
+                   then ("pi" ++ _escape_ident _end s'')%bs
+                else if (String.String c (String.String c2 String.EmptyString)) == "ρ"%bs
+                   then ("rho" ++ _escape_ident _end s'')%bs
+                else if (String.String c (String.String c2 String.EmptyString)) == "Σ"%bs
+                   then ("Sigma" ++ _escape_ident _end s'')%bs
+                else String.String c (_escape_ident _end s')
+            | _ => String.String c (_escape_ident _end s')
+            end
   end.
 
 #[export] Instance Serialize_Ident : Serialize Ident.t :=
-  fun a => Atom (append "$" (_escape_ident "" (bytestring.String.to_string a))).
+  fun a => Atom (append "$" (bytestring.String.to_string (_escape_ident ""%bs a))).
 
 #[export] Instance Integral_int : Integral int :=
   fun n => (Int63.to_Z n).
