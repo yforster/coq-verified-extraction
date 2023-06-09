@@ -218,7 +218,7 @@ Definition Serialize_module : Serialize program :=
   fun '(m, x) =>
     let exports := exports m in
     match
-      Cons (Atom "module") (Serialize_list (m ++ exports)%list)
+      Cons (Atom "module") (Serialize_list (List.rev_append m exports)%list)
     with
       List l =>
         let exports := List.map (fun x => Atom (Raw ("$" ++ (bytestring.String.to_string (fst x))))) exports in
