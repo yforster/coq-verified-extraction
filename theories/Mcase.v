@@ -191,9 +191,6 @@ Proof.
     + econstructor. cbn. lia.
 Qed.
 
-Axiom todo : forall {A}, A.
-Ltac todo s := apply todo.
-
 Require Import ZArith.
 
 Lemma int_of_to_nat i :
@@ -260,7 +257,7 @@ Proof.
       destruct i; cbn in Hnth.
       * inversion Hnth as [ ]. subst; clear Hnth. cbn.
         rewrite nth_error_app2; try lia. cbn.
-        rewrite minus_diag. cbn.
+        rewrite Nat.sub_diag. cbn.
         destruct n0; cbn in *; try congruence.
         destruct nms; cbn in *; try congruence.
         cbn. rewrite Bool.orb_false_r. now rewrite <- plus_n_O, Int63.eqb_refl.
@@ -279,7 +276,7 @@ Proof.
             -- now rewrite <- !app_assoc.
         } exfalso.
         revert E. subst. rewrite nth_error_app2; try lia. cbn.
-        rewrite minus_diag. cbn.
+        rewrite Nat.sub_diag. cbn.
         destruct n0; cbn in *; try congruence.
         cbn. rewrite Bool.orb_false_r. unfold blocks_until. cbn.
         rewrite firstn_app_left. 2: eauto.
@@ -371,7 +368,7 @@ Proof.
       destruct i; cbn in Hnth.
       * inversion Hnth as [ ]. subst; clear Hnth. cbn.
         rewrite nth_error_app2; try lia.
-        rewrite minus_diag. cbn. cbn in *. inversion Hnum. subst.
+        rewrite Nat.sub_diag. cbn. cbn in *. inversion Hnum. subst.
         cbn [existsb cond nth_error option_map fst].
         rewrite Bool.orb_false_r.
         rewrite andb_true_intro. reflexivity.
@@ -396,7 +393,7 @@ Proof.
             -- now rewrite <- !app_assoc.
         } exfalso.
         revert E. subst. rewrite nth_error_app2; try lia. cbn.
-        rewrite minus_diag. cbn.
+        rewrite Nat.sub_diag. cbn.
         destruct n0; cbn [existsb cond nth_error option_map fst]. 2: cbn; congruence.
         rewrite Bool.orb_false_r. rewrite Bool.andb_true_iff. intros [].
         eapply Zle_bool_imp_le in H0.
