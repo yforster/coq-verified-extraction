@@ -22,6 +22,24 @@ Definition ADT : Set :=
   nat (* constructors w/o arguments *) *
   list (list camlType) (* constrcutors w/ arguments *)).
 
+Section Realizability. 
+
+  Definition realize_term `{Heap} (A:camlType) : t -> Prop.
+  Admitted. 
+
+  Fixpoint realize_val `{Heap} (A:camlType) locals : value -> Prop.
+    refine (
+      match A with 
+       | Arrow A' B'=> fun f => _
+       | Rel n => _
+       | Adt kn n params => _
+      end); clear A.
+    - refine (exists locals x t, f = Func (locals,x,t) /\ 
+                forall v id, realize_val _ A' v -> 
+                             realize_term (Mapply (Mlambda ([x],t),[Mvar id]))).
+
+End Realizability.
+
 Section firstorder.
 
   Context {Σb : list (kername * bool)}.
