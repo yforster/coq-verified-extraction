@@ -1,10 +1,14 @@
 Require Import ssreflect.
 
+From MetaCoq.Utils Require Import MCList.
+
 Require Import ZArith Array.PArray List Floats Lia.
 Import ListNotations.
 
 Require Import Malfunction.Malfunction.
 From Coq Require Import Uint63.
+
+From MetaCoq.PCUIC Require Import PCUICFirstorder.
 
 Definition int_to_nat (i : int) : nat :=
   Z.to_nat (Int63.to_Z i).
@@ -41,7 +45,7 @@ Arguments Int63.wB : simpl never.
 Arguments max_length : simpl never.
 
 Ltac lia_max_length := 
-  pose proof wb_max_length; unfold max_length in*; cbn in *; lia.
+  pose proof wb_max_length; unfold max_length in *; cbn in *; lia.
 
 Module List. 
   Fixpoint mapi_ {A B} (f : nat -> A -> B) (l : list A) (n:nat) : list B :=
@@ -65,6 +69,7 @@ Module List.
    List.length (set l n a) = List.length l.
   Proof. 
    revert n. induction l; destruct n; cbn; eauto.
+   now f_equal. 
   Qed.
 
   Lemma nth_set_same A (l : list A) n a d :
@@ -79,7 +84,7 @@ Module List.
   Proof. 
    revert n m; induction l; intros; cbn; eauto.
    destruct n; destruct m; cbn; try congruence.
-   eapply IHl; eauto.  
+   eapply IHl; now eauto.  
   Qed. 
 
 End List. 
@@ -118,12 +123,12 @@ Qed.
 
 Lemma Forall2_acc_length {X A B R x l y l'} : @Forall2_acc X A B R x l y l' -> List.length l = List.length l'.
 Proof. 
-  induction 1; cbn; eauto.
+  induction 1; cbn; now eauto.
 Qed.   
 
 Lemma Forall2_length {A B P l l'} : @Forall2 A B P l l' -> List.length l = List.length l'.
 Proof. 
-  induction 1; cbn; eauto.
+  induction 1; cbn; now eauto.
 Qed.
 
 Require Import Malfunction.Malfunction Malfunction.SemanticsSpec.
@@ -372,8 +377,9 @@ Lemma Array_of_list_S A default n a (l:list A) :
   (Array_of_list default (a :: l)).[int_of_nat (S n)] = 
   (Array_of_list default l).[int_of_nat n].
 Proof.
-  intros. 
-  repeat rewrite Array_of_list_get; try lia_max_length. eauto.
+  intros. pose proof wb_max_length.
+  repeat rewrite Array_of_list_get; try (cbn in *; lia). 
+  eauto.
 Qed.
 
 Lemma Array_of_list'_length A k (l:list A) a :
@@ -441,8 +447,105 @@ Proof.
     now rewrite map_length seq_length.
   - intro abs. pose (leb_spec (int_of_nat n) (max_length)). destruct i. 
     rewrite H0 in abs.
-    rewrite Int63.of_Z_spec. rewrite Z.mod_small; clear H H0; lia_max_length.
+    rewrite Int63.of_Z_spec. 
+    rewrite Z.mod_small; clear H H0; try lia_max_length.
     inversion abs.
 Qed.     
+
+Lemma filter_length {A} (l : list A) f :
+  List.length (filter f l) <= List.length l.
+Proof.
+  induction l; cbn.
+  - lia.
+  - destruct (f a); cbn; lia.
+Qed.
+
+Fixpoint to_list {A} (f : nat -> A) (size : nat) : list A :=
+  match size with 
+  | O => []
+  | S n => to_list f n ++ [f n]
+  end. 
+
+Lemma to_list_length {A} (f : nat -> A) (size : nat) : 
+  List.length (to_list f size) = size.
+Proof.
+  induction size; cbn; eauto. rewrite app_length. cbn; lia.
+Qed. 
+
+Lemma to_list_nth {A} (f : nat -> A) (size : nat) n d : 
+  n < size ->  
+  nth n (to_list f size) d = f n.
+Proof.
+  induction size; [lia |]. cbn. 
+  case_eq (Nat.eqb n size); intros.
+  cbn. apply Nat.eqb_eq in H. rewrite H.
+  erewrite app_nth2; rewrite to_list_length; [|cbn in *; lia].
+  now rewrite Nat.sub_diag.
+  apply EqNat.beq_nat_false_stt in H. 
+  erewrite app_nth1. apply IHsize. lia. rewrite to_list_length; lia.
+Qed. 
+
+Lemma filter_rev A (l:list A) f : filter f (rev l) = rev (filter f l).
+Proof.
+  induction l; cbn; eauto. rewrite filter_app IHl; cbn. 
+  destruct (f a); cbn; eauto.
+  apply app_nil_r.
+Qed. 
+
+Lemma filter_firstn A k f (l:list A) : 
+  k < #| filter f l| -> 
+  exists k', k' < #| l | /\ k = List.length (filter f (firstn k' l)) /\
+  exists a, nth_error l k' = Some a /\ is_true (f a).
+Proof.
+  intros H.
+  induction l using rev_ind.
+  - cbn in *. lia.
+  - rewrite filter_app in H. cbn in *. rewrite app_length in H.
+    rewrite app_length.
+    destruct (f x) eqn:E; cbn in *.
+    + assert (k = #|filter f l| \/ k < #|filter f l|) as [Hl | Hl] by lia.
+      * subst. exists (List.length l).
+        repeat split; eauto; try lia.
+        rewrite firstn_app_left; lia.
+        exists x. split; eauto. rewrite nth_error_app2; try lia. 
+        now rewrite Nat.sub_diag. 
+      * eapply IHl in Hl as (k' & ? & ? & a & ? & ?); subst.
+        assert (k' < List.length l).
+        { pose proof (nth_error_Some l k') as [HH _]. rewrite H2 in HH. lia. }
+        exists k'. repeat split; try lia.
+        -- rewrite firstn_app. 
+           assert (k' - List.length l = 0) as -> by lia.
+          now rewrite firstn_O app_nil_r.
+        -- exists a. 
+           rewrite nth_error_app1; eauto.
+    + rewrite <- plus_n_O in H. eapply IHl in H as (k' & ? & ? & a & ? & ?); subst.
+      assert (k' < List.length l).
+      { pose proof (nth_error_Some l k') as [HH _]. rewrite H1 in HH. lia. }
+      exists k'. repeat split; try lia.
+      -- rewrite firstn_app. 
+         assert (k' - List.length l = 0) as -> by lia.
+        now rewrite firstn_O app_nil_r.
+      -- exists a. 
+         rewrite nth_error_app1; eauto.
+Qed.
+
+Lemma filter_firstn' A k f (l:list A) : 
+  k < #| filter f l| -> 
+  exists k', k' < #| l | /\ k = List.length (filter f (firstn k' l)) /\
+  exists a, nth_error l k' = Some a /\ nth_error (filter f l) k = Some a /\ is_true (f a).
+Proof.
+  intros. apply filter_firstn in H. destruct H as [? [? [? [? [? ?]]]]].
+  repeat (eexists; repeat split; eauto).
+  apply PCUICReduction.nth_error_firstn_skipn in H1.
+  rewrite H1. repeat rewrite filter_app.
+  cbn. rewrite H2. now apply nth_error_snoc.
+Qed.
+
+Lemma filter_nth_error A (f : A -> bool) (x : A) (l : list A) k: 
+       nth_error (filter f l) k = Some x -> In x l /\ f x = true.
+Proof.
+  intros. apply nth_error_In in H.
+  now apply filter_In in H.
+Qed. 
 
 

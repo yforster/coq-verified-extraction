@@ -193,40 +193,6 @@ Qed.
 
 Require Import ZArith.
 
-Lemma int_of_to_nat i :
-  int_of_nat (int_to_nat i) = i.
-Proof.
-  unfold int_of_nat, int_to_nat.
-  rewrite Z2Nat.id.
-  2:eapply Int63.to_Z_bounded.
-  now rewrite Int63.of_to_Z.
-Qed.
-
-Lemma int_to_of_nat i :
-  (Z.of_nat i < Int63.wB)%Z ->
-  int_to_nat (int_of_nat i) = i.
-Proof.
-  unfold int_of_nat, int_to_nat.
-  intros ?.
-  rewrite Int63.of_Z_spec.
-  rewrite Z.mod_small. 2:lia.
-  now rewrite Nat2Z.id.
-Qed.
-
-Lemma filter_length {A} (l : list A) f :
-  List.length (filter f l) <= List.length l.
-Proof.
-  induction l; cbn.
-  - lia.
-  - destruct (f a); cbn; lia.
-Qed.
-
-Lemma int_maxs :
-  int_to_nat PArray.max_length < Z.to_nat Int63.wB.
-Proof.
-  lia_max_length.
-Qed.
-
 Lemma eval_case_block {Hp : Heap} globals locals discr i args brs nms br v h num_args  :
   eval globals locals h discr h (Block (int_of_nat (blocks_until i num_args), args)) ->
   nms <> [] ->
@@ -319,12 +285,11 @@ Proof.
       * evar (v' : value).
         enough (a = v') as E. subst v'. rewrite E. econstructor.
         eapply Hdiscr.
-        rewrite !app_length in *. cbn in *.
-        pose proof int_maxs. lia.
+        rewrite !app_length in *. lia_max_length.
         rewrite !app_length in *. rewrite int_to_of_nat; lia_max_length.
         subst v'. rewrite int_to_of_nat.     
         rewrite app_nth2, PeanoNat.Nat.sub_diag; [ reflexivity | lia].
-        rewrite app_length in *. cbn in *. pose proof int_maxs. lia. 
+        rewrite app_length in *. lia_max_length. 
       * now inversion Hdup.
       * assumption.
       * rewrite <- app_assoc. eapply Hdiscr.
