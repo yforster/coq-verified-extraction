@@ -1,13 +1,82 @@
-From MetaCoq Require Import utils.
-Require Import List String.
-Import ListNotations.
-Local Open Scope string_scope.
-From Malfunction Require Import Mcase.
-From MetaCoq Require Import ReflectEq EWcbvEvalNamed bytestring MCList.
+(* General imports to work with TemplateMonad *)
+From MetaCoq.Template Require Import All.
+From MetaCoq Require Import bytestring.
+Require Import List.
+Import MCMonadNotation ListNotations.
+Open Scope bs.
 
-From Malfunction Require Import Compile SemanticsSpec utils_array.
+(* Definitions that can be outsourced to a central file *)
 
-From Equations Require Import Equations.
+MetaCoq Run (tmCurrentModPath tt >>= tmDefinition "solve_ltac_mp").
+
+Definition solve_ltac (tac : string) {args : Type} (a : args) (Goal : Type) := Goal.
+Existing Class solve_ltac.
+
+Definition tmDef name {A} a := @tmDefinitionRed name (Some (unfold (solve_ltac_mp, "solve_ltac"))) A a.
+
+(* Local definition adding a new tactic *)
+
+Definition autoinduct {A} (a : A) :=
+  t <- tmQuote a ;;
+  t' <- match t with
+        | tConst kn _ => tmEval cbv t
+        | tFix mfix idx => ret t
+        | _ => tmFail "passed term is neither a constant nor a fixpoint"
+        end ;;
+  tmPrint t';;
+  n <- match t' with
+       | tFix mfix idx => ret idx
+       | _ => tmFail "passed term does not unfold to a fixpoint"
+       end ;;
+  ret n.
+
+MetaCoq Run (tmEval cbv (<% plus %>)).
+
+
+Lemma test n m : n + m = m + n.
+Proof.
+  run_template_program (autoinduct plus) (fun k => pose k).
+
+
+Lemma filter_firstn A k f (l:list A) : 
+  k < List.length (filter f l) -> 
+  List.length l <> 0 ->
+  exists k', k' < List.length l /\ k = List.length (filter f (firstn k' l)) /\
+  exists a, nth_error l k' = Some a /\ is_true (f a).
+Proof.
+  intros H _.
+  induction l using rev_ind.
+  - cbn in *. lia.
+  - rewrite filter_app in *. cbn in *. rewrite app_length in *.
+    destruct (f x) eqn:E; cbn in *.
+    + assert (k = #|filter f l| \/ k < #|filter f l|) as [Hl | Hl] by lia.
+      * subst. exists (List.length l).
+        repeat split; eauto; try lia.
+        rewrite firstn_app_left; lia.
+        exists x. split; eauto. rewrite nth_error_app2; try lia. 
+        rewrite minus_diag. reflexivity.
+      * eapply IHl in Hl as (k' & ? & ? & a & ? & ?); subst.
+        assert (k' < List.length l).
+        { pose proof (nth_error_Some l k') as [HH _]. rewrite H2 in HH. lia. }
+        exists k'. repeat split; try lia.
+        -- rewrite firstn_app. 
+           assert (k' - List.length l = 0) as -> by lia.
+          now rewrite firstn_O, app_nil_r.
+        -- exists a. 
+           rewrite nth_error_app1; eauto.
+    + rewrite <- plus_n_O in H. eapply IHl in H as (k' & ? & ? & a & ? & ?); subst.
+      assert (k' < List.length l).
+      { pose proof (nth_error_Some l k') as [HH _]. rewrite H1 in HH. lia. }
+      exists k'. repeat split; try lia.
+      -- rewrite firstn_app. 
+         assert (k' - List.length l = 0) as -> by lia.
+        now rewrite firstn_O, app_nil_r.
+      -- exists a. 
+         rewrite nth_error_app1; eauto.
+Qed.
+        
+        
+        
 
 Definition lookup {A} (E : list (Kernames.ident * A)) (x : string) :=
   match find (fun '(s, _) => String.eqb x s) E with
