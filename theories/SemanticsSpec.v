@@ -36,7 +36,6 @@ Inductive rec_value `{Heap} :=
 Inductive value `{Heap} :=
 | Block of int * list value
 | Vec of vector_type * pointer
-| BString of vector_type * pointer
 | Func of @Ident.Map.t value * Ident.t *  t
 | RClos of @Ident.Map.t value * list Ident.t * list rec_value * nat
 | Lazy of @Ident.Map.t value * t

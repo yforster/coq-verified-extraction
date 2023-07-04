@@ -34,7 +34,6 @@ Inductive rec_value `{Heap} :=
 Inductive value `{Heap} :=
   | Block of int * array value
   | Vec of vector_type * pointer
-  | BString of vector_type * pointer
   | Func of @Ident.Map.t value * Ident.t *  t
   | RClos of @Ident.Map.t value * list Ident.t * list rec_value * nat
   | Lazy of @Ident.Map.t value * t
@@ -367,7 +366,6 @@ Inductive vrel `{CompatiblePtr} : SemanticsSpec.value -> value -> Prop :=
   | vBlock : forall tag vals vals', Forall2Array vrel vals vals' (SemanticsSpec.fail "") ->
       vrel (SemanticsSpec.Block (tag, vals)) (Block (tag, vals'))
   | vVec : forall ty ptr ptr', R_ptr ptr ptr' -> vrel (SemanticsSpec.Vec (ty, ptr)) (Vec (ty, ptr'))
-  | vBString : forall ty ptr ptr', R_ptr ptr ptr' -> vrel (SemanticsSpec.BString (ty, ptr)) (BString (ty, ptr'))
   | vFunc : forall x locals locals' e,  
     (forall x, vrel (locals x) (locals' x)) ->
     vrel (SemanticsSpec.Func (locals,x,e)) (Func (locals',x,e))
