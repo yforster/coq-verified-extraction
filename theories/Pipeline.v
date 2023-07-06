@@ -101,13 +101,21 @@ Section pipeline_theorem.
 
   Lemma fo_v : PCUICFirstorder.firstorder_value Σ [] v.
   Proof.
-  Admitted.
+    sq.
+    eapply PCUICFirstorder.firstorder_value_spec; eauto.
+    - eapply PCUICClassification.subject_reduction_eval; eauto.
+    - eapply PCUICWcbvEval.eval_to_value; eauto.
+  Qed.
 
   Lemma v_t_spec : v_t = (transform verified_erasure_pipeline (Σ, v) precond2).2.
   Proof.
     unfold v_t. generalize fo_v, precond2. clear.
     induction 1.
-    - intros. unfold verified_erasure_pipeline.
+    intros. unfold verified_erasure_pipeline.
+    rewrite transform_compose.
+    (* rewrite transform_compose. at 2. intros *)
+    (* setoid_rewrite transform_compose. *)
+    (* setoid_rewrite transform_compose.  *)
       (* rewrite !transform_compose; eauto. intros. cbn in * |-. *)
       (* setoid_rewrite transform_compose. *)
       (* unfold constructors_as_blocks_transformation. *)
