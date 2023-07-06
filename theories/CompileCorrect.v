@@ -294,10 +294,6 @@ Proof.
   rewrite Zdiv.Zmod_small in Heq; [| lia_max_length]. rewrite <- Heq at 2.
   econstructor.
 Qed. 
-
-(*   todo "missing eval_num"%bs. eauto.
-Qed.
- *)    
  
 Lemma find_add_self {Hp : Heap} idx d na recs locals :
   NoDup (map fst recs) ->
@@ -418,8 +414,9 @@ Proof.
     unfold EWcbvEvalNamed.lookup, lookup in *.
     rewrite e in HΓ. rewrite <- HΓ.
     econstructor.
-  - cbn. econstructor. cbn. econstructor. 
-    eapply eval_Mvar. unfold Malfunction.Ident.Map.find, Malfunction.Ident.Map.add, Malfunction.Ident.eqb. rewrite eqb_refl. todo "box".
+  - cbn. econstructor. cbn. econstructor.
+    eapply eval_Mvar. unfold Malfunction.Ident.Map.find, Malfunction.Ident.Map.add, Malfunction.Ident.eqb. rewrite eqb_refl.
+    todo "box".
   - (* box app *)
     cbn.
     destruct (Mapply_u_spec (compile Σ a) (compile Σ t)) as [(fn & arg & E & ->) | (E & ->) ].

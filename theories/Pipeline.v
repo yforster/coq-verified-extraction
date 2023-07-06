@@ -30,6 +30,19 @@ Import EWcbvEval.
 Require Malfunction.SemanticsSpec.
 From Malfunction Require Import Compile Serialize.
 
+Definition transform_compose
+  {program program' program'' value value' value'' : Type}
+  {eval : program -> value -> Prop} {eval' : program' -> value' -> Prop}
+  {eval'' : program'' -> value'' -> Prop}
+  (o : t program program' value value' eval eval')
+  (o' : t program' program'' value' value'' eval' eval'')
+  (pre : forall p : program', post o p -> pre o' p) :
+  forall x p1 p2 p3, transform (compose o o' pre) x p1 = transform o' (transform o x p2) p3.
+Proof.
+  cbn. intros.
+  unfold run, time.
+Admitted.
+
 Section pipeline_theorem.
 
   Fixpoint compile_value_box (t : PCUICAst.term) (acc : list EAst.term) : EAst.term :=
@@ -93,6 +106,21 @@ Section pipeline_theorem.
   Lemma v_t_spec : v_t = (transform verified_erasure_pipeline (Σ, v) precond2).2.
   Proof.
     unfold v_t. generalize fo_v, precond2. clear.
+    induction 1.
+    - intros. unfold verified_erasure_pipeline.
+      rewrite !transform_compose; eauto. intros. cbn in * |-.
+      setoid_rewrite transform_compose.
+      unfold constructors_as_blocks_transformation.
+      unfold transform at 1.
+      unfold rebuild_wf_env_transform.
+      unfold transform at 1.
+      unfold pcuic_expand_lets_transform.
+      unfold transform.
+      cbn -[transform].
+      rewrite !transform_compose. intros. cbn in * |-.
+
+        pcuic_expand_lets_transform, transform. cbn [plus].
+          vm_compute.
   Admitted.
 
   Lemma verified_erasure_pipeline_theorem :
