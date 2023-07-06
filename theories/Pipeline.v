@@ -37,11 +37,13 @@ Definition transform_compose
   (o : t program program' value value' eval eval')
   (o' : t program' program'' value' value'' eval' eval'')
   (pre : forall p : program', post o p -> pre o' p) :
-  forall x p1 p2 p3, transform (compose o o' pre) x p1 = transform o' (transform o x p2) p3.
-Proof.
+  forall x p1 p3,
+    p3 = (pre (transform o x p1) (correctness o x p1)) ->
+    transform (compose o o' pre) x p1 = transform o' (transform o x p1) p3.
+Proof.  
   cbn. intros.
-  unfold run, time.
-Admitted.
+  now unfold run, time.
+Qed.
 
 Section pipeline_theorem.
 
@@ -112,20 +114,24 @@ Section pipeline_theorem.
     unfold v_t. generalize fo_v, precond2. clear.
     induction 1.
     intros. unfold verified_erasure_pipeline.
-    rewrite transform_compose.
-    (* rewrite transform_compose. at 2. intros *)
+
+    rewrite transform_compose. intros.
+    setoid_rewrite transform_compose.
+
+    unfold constructors_as_blocks_transformation.
+    unfold transform at 1.
+    unfold rebuild_wf_env_transform at 1.
+    unfold transform at 1. 2 : reflexivity.
+
+    (* setoid_rewrite transform_compose. intros. *)
+
+    (* rewrite transform_compose. *)
+    (* cbv beta zeta. *)
     (* setoid_rewrite transform_compose. *)
-    (* setoid_rewrite transform_compose.  *)
-      (* rewrite !transform_compose; eauto. intros. cbn in * |-. *)
-      (* setoid_rewrite transform_compose. *)
-      (* unfold constructors_as_blocks_transformation. *)
-      (* unfold transform at 1. *)
-      (* unfold rebuild_wf_env_transform. *)
-      (* unfold transform at 1. *)
-      (* unfold pcuic_expand_lets_transform. *)
-      (* unfold transform. *)
-      (* cbn -[transform]. *)
-      (* rewrite !transform_compose. intros. cbn in * |-. *)
+    (* unfold pcuic_expand_lets_transform. *)
+    (* unfold transform. *)
+    (* cbn -[transform]. *)
+    (* rewrite !transform_compose. intros. cbn in * |-. *)
 
       (*   pcuic_expand_lets_transform, transform. cbn [plus]. *)
       (*     vm_compute. *)
