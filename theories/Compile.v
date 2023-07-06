@@ -142,24 +142,20 @@ End Compile.
 Definition compile_constant_decl Σ cb := 
   option_map (compile Σ) cb.(cst_body).
   
-Definition compile_decl Σ d :=
-  match d with
-  | ConstantDecl cb => compile_constant_decl Σ cb
-  | InductiveDecl idecl => None
-  end.
+(* Definition compile_decl Σ d := *)
+(*   match d with *)
+(*   | ConstantDecl cb => compile_constant_decl Σ cb *)
+(*   | InductiveDecl idecl => None *)
+(*   end. *)
 
-Definition compile_env Σ := flat_map
-(fun '(x, d) =>
- match compile_decl Σ d with
- | Some t => [(Kernames.string_of_kername x, t)]
- | None => []
- end) Σ.
+(* Definition compile_env Σ := map (fun '(x, d) => (Kernames.string_of_kername x, compile_decl Σ d)) Σ. *)
 
-Fixpoint compile_env' Σ : list (string * t) := 
+Fixpoint compile_env Σ : list (string * option t) := 
   match Σ with
   | [] => []
-  | (x,d) :: Σ => match compile_decl Σ d with Some t => (Kernames.string_of_kername x, t) :: compile_env' Σ 
-                                         | _ => compile_env' Σ
+  | (x,d) :: Σ => match d with
+                  ConstantDecl cb => (Kernames.string_of_kername x, compile_constant_decl Σ cb) :: compile_env Σ
+                | _ => compile_env Σ
               end
   end.
 

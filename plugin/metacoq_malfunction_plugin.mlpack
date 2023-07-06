@@ -69,6 +69,7 @@ CeresSerialize0
 Malfunction
 Compile
 Serialize
+SemanticsSpec
 Pipeline
 
 G_metacoq_malfunction

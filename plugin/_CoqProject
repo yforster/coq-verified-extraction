@@ -149,6 +149,8 @@ extraction/pipeline.mli
 extraction/pipeline.ml
 extraction/eWcbvEvalNamed.mli
 extraction/eWcbvEvalNamed.ml
+extraction/semanticsSpec.mli
+extraction/semanticsSpec.ml
 
 extraction/ceresFormat.mli
 extraction/ceresFormat.ml
