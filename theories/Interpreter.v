@@ -6,7 +6,7 @@ Import ListNotations.
 (*Require Import Malfunction.Malfunction Malfunction.Deserialize Malfunction.SemanticsSpec Malfunction.Serialize Ceres.Ceres.*)
 
 Require Import Malfunction.Malfunction Malfunction.SemanticsSpec Malfunction.utils_array.
-From MetaCoq Require Import bytestring.
+From MetaCoq.Utils Require Import bytestring.
 Open Scope bs.
 
 From Coq Require Import Uint63.
@@ -106,23 +106,6 @@ Definition truncate `{Heap} ty n :=
                      if Z.ltb masked min_int then masked else
                        Z.sub masked range
                  end).
-
-
-(*                 
-#[bypass_check(guard)]
-Fixpoint to_sexp_value (a : value) : sexp :=
-  match a with
-  | Block (i, a) => @Serialize_product _ _ _ (@Serialize_list _ to_sexp_value) (i, List.map (fun j => a.[int_of_nat j]) (seq 0 (int_to_nat (PArray.length a))))
-  | Vec x => Atom "TODO VEC"
-  | Func x => Atom "FUNC"
-  | value_Int x => Atom "TODO INT"
-  | Float x => Atom "TODO FLOAT"
-  | Thunk x => Atom "THUNK"
-  | fail x => Atom ("fail" ++ String.to_string x)
-  end%string.
-
-#[export] Instance Serialize_value : Serialize value := to_sexp_value.
-*)
 
 #[bypass_check(guard)]
 Fixpoint interpret `{Heap} (h : heap)
@@ -856,7 +839,6 @@ Proof.
     pose (to_Z_bounded (PArray.length (deref ih ptr'))); lia.        
     econstructor. 
   Qed.
-Set Guard Checking.
 
 
 (*  Lemma vtrans_inj v v' : vtrans v = vtrans v' -> v = v'.

@@ -8,7 +8,7 @@ From Ceres Require Import
   CeresS.
 (* end hide *)
 
-From MetaCoq Require Import bytestring.
+From MetaCoq.Utils Require Import bytestring.
 
 Coercion Tree.string : string >-> Tree.t.
 Coercion byte_to_string (b : Byte.byte) := String.String b String.EmptyString.

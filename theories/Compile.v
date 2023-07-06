@@ -2,7 +2,8 @@ From Coq Require Import List String Arith Lia.
 Import ListNotations.
 From Equations Require Import Equations.
 
-From MetaCoq Require Import PCUICAstUtils MCList bytestring.
+From MetaCoq.PCUIC Require Import PCUICAstUtils.
+From MetaCoq.Utils Require Import MCList bytestring.
 From MetaCoq.Erasure Require Import EAst ESpineView EEtaExpanded EInduction ERemoveParams Erasure EGlobalEnv.
 
 From Malfunction Require Import Malfunction.
@@ -112,16 +113,7 @@ Section Compile.
       | tCase i mch brs =>
         match lookup_constructor_args Σ (fst i) with
         | Some num_args =>
-            Mcase (num_args, compile mch, map_InP brs (fun br H => (rev_map (fun nm => (BasicAst.string_of_name nm)) (fst br), compile (snd br)))) 
-             (*  Mswitch (compile mch, mapi_InP brs 0 (fun i br H => let num_args_until_i := firstn i num_args in
-                                                                  let blocks_until_i := #| filter (fun x => match x with 0 => true | _ => false end) num_args_until_i| in
-                                                                  let nonblocks_until_i := #|num_args_until_i| - blocks_until_i in
-                                                                (match fst br with
-                                                                | [] => [Malfunction.Tag (int_of_nat blocks_until_i)]
-                                                                | args => [Malfunction.Intrange (int_of_nat nonblocks_until_i, int_of_nat nonblocks_until_i)]
-                                                                end, Mapply_ (Mlambda_ (rev_map (fun nm => (BasicAst.string_of_name nm)) (fst br), compile (snd br)),
-                                                                                                          mapi (fun i _ => Mfield (int_of_nat i, compile mch)) (rev (fst br))))))
- *)       
+            Mcase (num_args, compile mch, map_InP brs (fun br H => (rev_map (fun nm => (BasicAst.string_of_name nm)) (fst br), compile (snd br))))     
        | None => Mstring "inductive not found"
         end
       | tFix mfix idx =>

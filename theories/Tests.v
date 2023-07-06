@@ -2,7 +2,7 @@ From Coq Require Import String.
 From Ceres Require Import Ceres.
 From Malfunction Require Import Pipeline Serialize CeresFormat CeresSerialize Interpreter.
 
-From MetaCoq Require Import ETransform Common.Transform bytestring.
+From MetaCoq Require Import ETransform Common.Transform Utils.bytestring.
 From MetaCoq.Template Require All Loader TemplateMonad.
 Open Scope bs.
 
@@ -13,6 +13,8 @@ Definition Mlet_ '(l, b) :=
   | nil => b
   | _ => Malfunction.Mlet (l, b)
   end.
+
+Local Existing Instance SemanticsSpec.CanonicalHeap.
 
 Definition eval_malfunction (cf := config.extraction_checker_flags) (p : Ast.Env.program)
   : string :=

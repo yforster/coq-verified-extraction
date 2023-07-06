@@ -1,4 +1,4 @@
-From MetaCoq Require Import bytestring ReflectEq.
+From MetaCoq.Utils Require Import bytestring ReflectEq.
 
 Require Import String Ascii Bool Arith.
 Require Import Malfunction.Malfunction.

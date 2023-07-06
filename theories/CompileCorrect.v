@@ -1,9 +1,9 @@
-From MetaCoq Require Import utils.
+From MetaCoq.Utils Require Import utils.
 Require Import List String.
 Import ListNotations.
 Local Open Scope string_scope.
 From Malfunction Require Import Mcase.
-From MetaCoq Require Import ReflectEq EWcbvEvalNamed bytestring MCList.
+From MetaCoq Require Import Utils.ReflectEq EWcbvEvalNamed Utils.bytestring Utils.MCList.
 
 From Malfunction Require Import Compile SemanticsSpec utils_array.
 
@@ -418,6 +418,8 @@ Proof.
     unfold EWcbvEvalNamed.lookup, lookup in *.
     rewrite e in HΓ. rewrite <- HΓ.
     econstructor.
+  - cbn. econstructor. cbn. econstructor. 
+    eapply eval_Mvar. unfold Malfunction.Ident.Map.find, Malfunction.Ident.Map.add, Malfunction.Ident.eqb. rewrite eqb_refl. todo "box".
   - (* box app *)
     cbn.
     destruct (Mapply_u_spec (compile Σ a) (compile Σ t)) as [(fn & arg & E & ->) | (E & ->) ].
