@@ -108,19 +108,19 @@ Section pipeline_theorem.
     unfold v_t. generalize fo_v, precond2. clear.
     induction 1.
     - intros. unfold verified_erasure_pipeline.
-      rewrite !transform_compose; eauto. intros. cbn in * |-.
-      setoid_rewrite transform_compose.
-      unfold constructors_as_blocks_transformation.
-      unfold transform at 1.
-      unfold rebuild_wf_env_transform.
-      unfold transform at 1.
-      unfold pcuic_expand_lets_transform.
-      unfold transform.
-      cbn -[transform].
-      rewrite !transform_compose. intros. cbn in * |-.
+      (* rewrite !transform_compose; eauto. intros. cbn in * |-. *)
+      (* setoid_rewrite transform_compose. *)
+      (* unfold constructors_as_blocks_transformation. *)
+      (* unfold transform at 1. *)
+      (* unfold rebuild_wf_env_transform. *)
+      (* unfold transform at 1. *)
+      (* unfold pcuic_expand_lets_transform. *)
+      (* unfold transform. *)
+      (* cbn -[transform]. *)
+      (* rewrite !transform_compose. intros. cbn in * |-. *)
 
-        pcuic_expand_lets_transform, transform. cbn [plus].
-          vm_compute.
+      (*   pcuic_expand_lets_transform, transform. cbn [plus]. *)
+      (*     vm_compute. *)
   Admitted.
 
   Lemma verified_erasure_pipeline_theorem :

@@ -17,8 +17,6 @@ Definition lookup {A} (E : list (Kernames.ident * A)) (x : string) :=
 
 Fixpoint compile_value `{H : Heap} (Σ : EAst.global_declarations) (s : EWcbvEvalNamed.value) : SemanticsSpec.value :=
   match s with
-  | vBox =>
-      RClos (fun _ => fail "empty", ["reccall"], [RFunc ("_", Malfunction.Mvar "reccall")], 0)
   | vClos na b env => Func ((fun x => match lookup (map (fun '(x,v) => (x, compile_value Σ v)) env) x with Some v => v | None => fail "notfound" end), na, compile Σ b)
   | vConstruct i m [] =>
       match lookup_constructor_args Σ i with
@@ -414,31 +412,28 @@ Proof.
     unfold EWcbvEvalNamed.lookup, lookup in *.
     rewrite e in HΓ. rewrite <- HΓ.
     econstructor.
-  - cbn. econstructor. cbn. econstructor.
-    eapply eval_Mvar. unfold Malfunction.Ident.Map.find, Malfunction.Ident.Map.add, Malfunction.Ident.eqb. rewrite eqb_refl.
-    todo "box".
-  - (* box app *)
-    cbn.
-    destruct (Mapply_u_spec (compile Σ a) (compile Σ t)) as [(fn & arg & E & ->) | (E & ->) ].
-    + destruct a; simp compile; intros [? [=]].
-      * destruct (compile Σ a1); cbn in H0; try congruence. destruct p, l; cbn in *; congruence.
-      * revert H0. destruct l; simp compile; destruct lookup_constructor_args; cbn.
-        all: congruence.
-      * revert H0. destruct l; simp compile; destruct lookup_constructor_args; cbn in *; congruence.
-      * revert H0. destruct p. simp compile. unfold compile_unfold_clause_11.
-        destruct lookup_record_projs; congruence.
-      * revert H0. destruct p; cbn. unfold to_primitive. cbn. destruct p; cbn; congruence.
-    + rewrite Mapply_spec. 2: destruct arg; cbn; congruence.
-      eapply Mapply_eval_rec.
-      2:{ rewrite <- E. eapply IHHeval1; eauto. }
-      * reflexivity.
-      * eapply IHHeval2; eauto.
-      * unfold add_self. cbn. econstructor.
-    + cbn. eapply eval_app_sing_rec.
-      * eapply IHHeval1; eauto.
-      * eapply IHHeval2; eauto.
-      * reflexivity.
-      * econstructor.
+  (* - (* box app *) *)
+  (*   cbn. *)
+  (*   destruct (Mapply_u_spec (compile Σ a) (compile Σ t)) as [(fn & arg & E & ->) | (E & ->) ]. *)
+  (*   + destruct a; simp compile; intros [? [=]]. *)
+  (*     * destruct (compile Σ a1); cbn in H0; try congruence. destruct p, l; cbn in *; congruence. *)
+  (*     * revert H0. destruct l; simp compile; destruct lookup_constructor_args; cbn. *)
+  (*       all: congruence. *)
+  (*     * revert H0. destruct l; simp compile; destruct lookup_constructor_args; cbn in *; congruence. *)
+  (*     * revert H0. destruct p. simp compile. unfold compile_unfold_clause_11. *)
+  (*       destruct lookup_record_projs; congruence. *)
+  (*     * revert H0. destruct p; cbn. unfold to_primitive. cbn. destruct p; cbn; congruence. *)
+  (*   + rewrite Mapply_spec. 2: destruct arg; cbn; congruence. *)
+  (*     eapply Mapply_eval_rec. *)
+  (*     2:{ rewrite <- E. eapply IHHeval1; eauto. } *)
+  (*     * reflexivity. *)
+  (*     * eapply IHHeval2; eauto. *)
+  (*     * unfold add_self. cbn. econstructor. *)
+  (*   + cbn. eapply eval_app_sing_rec. *)
+  (*     * eapply IHHeval1; eauto. *)
+  (*     * eapply IHHeval2; eauto. *)
+  (*     * reflexivity. *)
+  (*     * econstructor. *)
   - (* beta *)
     destruct (Mapply_u_spec (compile Σ f1) (compile Σ a)) as [(fn & arg & E & ->) | (E & ->) ].
     + destruct f1; simp compile; intros [? [=]].
