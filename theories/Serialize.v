@@ -45,8 +45,8 @@ Fixpoint _escape_ident (_end s : String.t) : String.t :=
 #[export] Instance Serialize_numconst : Serialize numconst :=
   fun a => match a with
         | numconst_Int i => to_sexp i
-        | numconst_Bigint x => Atom (append (CeresString.string_of_Z x) ".bigint")
-        | numconst_Float64 x => Atom "not supported"
+        | numconst_Bigint x => Atom (append (CeresString.string_of_Z x) ".ibig")
+        | numconst_Float64 x => Atom "0.0"
         end.
 
 Definition Cons x (l : sexp) :=
@@ -221,7 +221,7 @@ Definition Serialize_program : Serialize program :=
     match
       Cons (Atom "module") (@Serialize_list _ global_serializer (m ++ ((bytestring.String.of_string "_main", Some x)  :: nil))%list)
     with
-      List l => List (l ++ ([Atom "export"] :: nil))
+      List l => List (l ++ ([Atom "export"] :: match x with Mglobal i => Atom (bytestring.String.to_string i) :: nil | _ => nil end))
     | x => x
     end.
 
