@@ -37,12 +37,12 @@ Definition transform_compose
   (o : t program program' value value' eval eval')
   (o' : t program' program'' value' value'' eval' eval'')
   (pre : forall p : program', post o p -> pre o' p) :
-  forall x p1 p3,
-    p3 = (pre (transform o x p1) (correctness o x p1)) ->
+  forall x p1, exists p3,
     transform (compose o o' pre) x p1 = transform o' (transform o x p1) p3.
 Proof.  
   cbn. intros.
-  now unfold run, time.
+  unfold run, time.
+  eexists; reflexivity.
 Qed.
 
 Section pipeline_theorem.
@@ -109,32 +109,33 @@ Section pipeline_theorem.
     - eapply PCUICWcbvEval.eval_to_value; eauto.
   Qed.
 
+  Ltac destruct_compose :=
+    match goal with
+    |- context [ transform (compose ?x ?y ?pre) ?p ?pre' ] => 
+      let pre'' := fresh in 
+      let H := fresh in 
+      destruct (transform_compose x y pre p pre') as [pre'' H];
+      rewrite H; clear H; revert pre''
+    end.
+
   Lemma v_t_spec : v_t = (transform verified_erasure_pipeline (Σ, v) precond2).2.
   Proof.
     unfold v_t. generalize fo_v, precond2. clear.
     induction 1.
     intros. unfold verified_erasure_pipeline.
 
-    rewrite transform_compose. intros.
-    setoid_rewrite transform_compose.
+    repeat destruct_compose. intros.
+    destruct_compose. intros.
+    cbn [transform rebuild_wf_env_transform].
+    cbn [transform constructors_as_blocks_transformation].
+    cbn [transform inline_projections_optimization].
+    cbn [transform remove_match_on_box_trans].
+    cbn [transform remove_params_optimization].
+    cbn [transform guarded_to_unguarded_fix].
+    cbn [transform erase_transform].
+    cbn [transform pcuic_expand_lets_transform].
+    unfold PCUICExpandLets.expand_lets_program.
 
-    unfold constructors_as_blocks_transformation.
-    unfold transform at 1.
-    unfold rebuild_wf_env_transform at 1.
-    unfold transform at 1. 2 : reflexivity.
-
-    (* setoid_rewrite transform_compose. intros. *)
-
-    (* rewrite transform_compose. *)
-    (* cbv beta zeta. *)
-    (* setoid_rewrite transform_compose. *)
-    (* unfold pcuic_expand_lets_transform. *)
-    (* unfold transform. *)
-    (* cbn -[transform]. *)
-    (* rewrite !transform_compose. intros. cbn in * |-. *)
-
-      (*   pcuic_expand_lets_transform, transform. cbn [plus]. *)
-      (*     vm_compute. *)
   Admitted.
 
   Lemma verified_erasure_pipeline_theorem :
@@ -149,7 +150,18 @@ Section pipeline_theorem.
       [ H : obseq _ _ _ _ _ |- _ ] => hnf in H ;  decompose [ex and prod] H ; subst
     end.
     rewrite v_t_spec.
-
+    unfold verified_erasure_pipeline.
+    repeat destruct_compose.     
+    intros.
+    destruct_compose. intros.
+    cbn [transform rebuild_wf_env_transform] in *.
+    cbn [transform constructors_as_blocks_transformation] in *.
+    cbn [transform inline_projections_optimization] in *.
+    cbn [transform remove_match_on_box_trans] in *.
+    cbn [transform remove_params_optimization] in *.
+    cbn [transform guarded_to_unguarded_fix] in *.
+    cbn [transform erase_transform] in *.
+    cbn [transform pcuic_expand_lets_transform] in *.
     eapply ErasureFunction.firstorder_erases_deterministic in b0; eauto.
     - rewrite b0 in H1. clear b0. subst v_t Σ_t t_t.
       sq. match goal with [ H1 : eval _ _ ?v1 |- eval _ _ ?v2 ] => enough (v2 = v1) as -> by exact H1 end.

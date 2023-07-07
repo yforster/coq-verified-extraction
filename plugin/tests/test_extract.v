@@ -8,6 +8,9 @@ Inductive three := ZERO | ONE | TWO | THREE.
 
 Definition two := TWO.
 
+
+Recursive Extraction plus.
+
 MetaCoq Extract Module two "two.mlf".
 
 Axiom axiom : nat.
@@ -30,6 +33,11 @@ Definition prf := match conj I I with conj x y => (x,0) end.
 MetaCoq Extract Module prf "proof.mlf".
 
 MetaCoq Extract Module blocks_until "mcase.mlf".
+
+Definition test_add := plus 2 5.
+
+MetaCoq Extract Module test_add "add.mlf".
+
 
 (* 
 MetaCoq Quote Recursively Definition tm := compile_malfunction.
