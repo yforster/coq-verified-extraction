@@ -150,6 +150,7 @@ Fixpoint to_sexp_t (a : t) : sexp :=
   | Mnum x => to_sexp x
   | Mstring x => Atom (Str (bytestring.String.to_string x))
   | Mglobal x => (* [Atom "global" ; Atom ("$Top") ; *) to_sexp x  (* ] *)
+  | Mswitch (x, nil) => Atom (Str ("assert false: empty match"))
   | Mswitch (x, sels) => Cons (Atom "switch") (Cons (to_sexp_t x) (@Serialize_list _ (@Serialize_product _ _ (@Serialize_singleton_list _ _) to_sexp_t) sels))
   | Mnumop1 (op, num, x) => [ rawapp (to_sexp op) (numtype_to_string num) ; to_sexp_t x ]
   | Mnumop2 (op, num, x1, x2) => [ rawapp (to_sexp op) (numtype_to_string num) ; to_sexp_t x1 ; to_sexp_t x2 ]
