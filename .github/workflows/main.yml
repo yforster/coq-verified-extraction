@@ -34,7 +34,6 @@ jobs:
             endGroup
             startGroup "opam pin"
               opam pin -n -y "https://github.com/MetaCoq/metacoq.git#verified_erasure_pipeline"
-              opam pin -n -y "https://github.com/lysxia/coq-ceres.git#master"
             endGroup
           after_script: |
             startGroup "List installed packages"
