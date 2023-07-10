@@ -86,8 +86,7 @@ Section Compile.
 
   Equations? compile (t: term) : Malfunction.t
     by wf t (fun x y : EAst.term => size x < size y) :=
-      | tRel n => Mstring "tRel"
-      | tBox => Mstring "tBox"
+      | tVar na => Mvar na
       | tLambda nm bod => Mlambda ([(BasicAst.string_of_name nm)], compile bod)
       | tLetIn nm dfn bod => Mlet ([Named ((BasicAst.string_of_name nm), compile dfn)], compile bod)
       | tApp fn arg =>
@@ -95,24 +94,20 @@ Section Compile.
       | tConst nm => Mglobal (Kernames.string_of_kername nm)
       | tConstruct i m [] =>
         match lookup_constructor_args Σ i with
-        | Some num_args => let num_args_until_m := firstn m num_args in
-                          let index := #| filter (fun x => match x with 0 => true | _ => false end) num_args_until_m| in
-                          Mnum (numconst_Int (int_of_nat index))
-        | None => Mstring "inductive not found"
+        | Some num_args => Mnum (numconst_Int (int_of_nat (nonblocks_until m num_args)))
+        | None => Mstring "error: inductive not found"
         end
       | tConstruct i m args =>
         match lookup_constructor_args Σ i with
-        | Some num_args => let num_args_until_m := firstn m num_args in
-                          let index := #| filter (fun x => match x with 0 => false | _ => true end) num_args_until_m| in
-                          Mblock (int_of_nat index, map_InP args (fun x H => compile x))
-        | None => Mstring "inductive not found"
+        | Some num_args => Mblock (int_of_nat (blocks_until m num_args), map_InP args (fun x H => compile x))
+        | None => Mstring "error: inductive not found"
         end
       | tCase i mch [] => Mlambda (["assert false: empty match"], Mvar "assert false: empty match")
       | tCase i mch brs =>
         match lookup_constructor_args Σ (fst i) with
         | Some num_args =>
             Mcase (num_args, compile mch, map_InP brs (fun br H => (rev_map (fun nm => (BasicAst.string_of_name nm)) (fst br), compile (snd br))))     
-       | None => Mstring "inductive not found"
+       | None => Mstring "error: inductive not found"
         end
       | tFix mfix idx =>
           let bodies := map_InP mfix (fun d H => ((BasicAst.string_of_name (d.(dname))), compile d.(dbody))) in
@@ -121,11 +116,13 @@ Section Compile.
         { | Some args =>
               let len := List.length args in
               Mfield (int_of_nat (len - 1 - nargs), compile bod)
-          | None => Mstring "tProj" }
-      | tCoFix mfix idx => Mstring "tCofix"
-      | tVar na => Mvar na
-      | tEvar _ _ => Mstring "tEvar"
-      | tPrim p => to_primitive p.
+          | None => Mstring "inductive not found" }
+      | tPrim p => to_primitive p
+      | tRel n => Mstring "error: tRel has been translated away"
+      | tBox => Mstring "error: tBox has been translated away"
+      | tCoFix mfix idx => Mstring "error: tCofix not supported"
+      | tEvar _ _ => Mstring "error: tEvar not supported"
+      .
     Proof.
       all: try (cbn; lia).
       - subst args. eapply (In_size id size) in H.
@@ -139,14 +136,6 @@ End Compile.
 
 Definition compile_constant_decl Σ cb := 
   option_map (compile Σ) cb.(cst_body).
-  
-(* Definition compile_decl Σ d := *)
-(*   match d with *)
-(*   | ConstantDecl cb => compile_constant_decl Σ cb *)
-(*   | InductiveDecl idecl => None *)
-(*   end. *)
-
-(* Definition compile_env Σ := map (fun '(x, d) => (Kernames.string_of_kername x, compile_decl Σ d)) Σ. *)
 
 Fixpoint compile_env Σ : list (string * option t) := 
   match Σ with
