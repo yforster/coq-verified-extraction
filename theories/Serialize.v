@@ -46,7 +46,7 @@ Fixpoint _escape_ident (_end s : String.t) : String.t :=
   fun a => match a with
         | numconst_Int i => to_sexp i
         | numconst_Bigint x => Atom (append (CeresString.string_of_Z x) ".ibig")
-        | numconst_Float64 x => Atom "0.0"
+        | numconst_Float64 x => Atom (append (CeresString.string_of_Z (Int63.to_Z (snd (PrimFloat.frshiftexp x)))) ".0")
         end.
 
 Definition Cons x (l : sexp) :=
@@ -69,7 +69,7 @@ Definition rawapp (s : sexp) (a : string) :=
         end.
 
 #[export] Instance Serialize_unary_num_op : Serialize unary_num_op :=
-  fun a => match a with Neg => Atom "neg" | Not => Atom "what to insert for Not?" end.
+  fun a => match a with Neg => Atom "neg" | Not => Atom "not" end.
 
 Definition numtype_to_string (n : numtype) :=
   match n with

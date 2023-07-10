@@ -442,7 +442,7 @@ Proof.
         all: congruence.
       * revert H0. destruct l; simp compile; try congruence.
         destruct lookup_constructor_args; cbn in *; congruence.
-      * revert H0. destruct p. simp compile. unfold compile_unfold_clause_12.
+      * revert H0. destruct p. simp compile. unfold compile_unfold_clause_11.
         destruct lookup_record_projs; congruence.
       * revert H0. destruct p; cbn. unfold to_primitive. cbn. destruct p; cbn; congruence.
     + rewrite Mapply_spec. 2: destruct arg; cbn; congruence.
@@ -584,7 +584,7 @@ Proof.
       * revert H0. destruct l; simp compile; destruct lookup_constructor_args; cbn.  all: congruence.
       * revert H0. destruct l; simp compile; try congruence.
         destruct lookup_constructor_args; cbn; try congruence. unfold Mcase. congruence.
-      * revert H0. destruct p; simp compile. unfold compile_unfold_clause_12.
+      * revert H0. destruct p; simp compile. unfold compile_unfold_clause_11.
         destruct lookup_record_projs; cbn; congruence.
       * revert H0. repeat destruct p; cbn; try congruence. 
     + rewrite Mapply_spec. 2: destruct arg; cbn; congruence.

@@ -24,6 +24,16 @@ make
 
 The commands `MetaCoq Extract <definition>`, `MetaCoq Extract Module <module>`, and `MetaCoq Extract Module <module> "<file>"` can be used to run the new extraction process.
 
+## Structure
+
+- [`Malfunction.v`](theories/Malfunction.v) contains the syntax definition of Malfunction. It is a direct, line-to-line port of the OCaml file [`malfunction.ml`](https://github.com/stedolan/malfunction/blob/master/src/malfunction.ml) to Coq.
+- [`SemanticsSpec.v`](theories/SemanticsSpec.v) defines an inductive big-step evaluation predicate.
+- [`Compile.v`](theories/Compile.v) defines a compilation function of lambda box to Malfunction.
+- [`CompileCorrect.v`](theories/CompileCorrect.v) proves the correctness of this function, using the correctness proof of case analysis in [`Mcase.v`](theories/Mcase.v)
+- [`Interpreter.v`](theories/Interpreter.v) contains an interpretation function, which is close to [`malfunction_interpreter.ml`](https://github.com/stedolan/malfunction/blob/master/src/malfunction_interpreter.ml), and a proof that values according to the evaluation predicate are also found by the interpreter. Note that since the interpreter is not necessarily terminating we switch of Coq's termination checker, meaning this proof can only be seen as a sanity check.
+- [`Serialize.v`](theories/Serialize.v) contains seralization functions into s-expressions. There is also a parser in [`Deserialize.v`](theories/Deserialize.v), used for testing.
+- [`Pipeline.v`](theories/Pipeline.v) composes the full extraction pipeline from Coq to Malfunction
+
 ## Team & Credits
 
 The project is developed by Yannick Forster, Matthieu Sozeau, Pierre-Marie Pédrot, and Nicolas Tabareau.
