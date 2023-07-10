@@ -61,9 +61,6 @@ From MetaCoq Require Import EAst.
 Section Compile.
   Context (Σ : global_declarations).
 
-  Definition Mbox :=
-    Mlet ([Recursive [("reccall", Mlambda (["_"], Mvar "reccall") )]], Mvar "reccall").
-
   Definition lookup_record_projs (e : global_declarations) (ind : Kernames.inductive) : option (list Kernames.ident) :=
     match lookup_inductive e ind with
     | Some (mdecl, idecl) => Some (map proj_name idecl.(ind_projs))
@@ -90,7 +87,7 @@ Section Compile.
   Equations? compile (t: term) : Malfunction.t
     by wf t (fun x y : EAst.term => size x < size y) :=
       | tRel n => Mstring "tRel"
-      | tBox => Mbox
+      | tBox => Mstring "tBox"
       | tLambda nm bod => Mlambda ([(BasicAst.string_of_name nm)], compile bod)
       | tLetIn nm dfn bod => Mlet ([Named ((BasicAst.string_of_name nm), compile dfn)], compile bod)
       | tApp fn arg =>
@@ -110,6 +107,7 @@ Section Compile.
                           Mblock (int_of_nat index, map_InP args (fun x H => compile x))
         | None => Mstring "inductive not found"
         end
+      | tCase i mch [] => Mlambda (["assert false: empty match"], Mvar "assert false: empty match")
       | tCase i mch brs =>
         match lookup_constructor_args Σ (fst i) with
         | Some num_args =>
@@ -123,10 +121,10 @@ Section Compile.
         { | Some args =>
               let len := List.length args in
               Mfield (int_of_nat (len - 1 - nargs), compile bod)
-          | None => Mstring "Proj" }
-      | tCoFix mfix idx => Mstring "TCofix"
+          | None => Mstring "tProj" }
+      | tCoFix mfix idx => Mstring "tCofix"
       | tVar na => Mvar na
-      | tEvar _ _ => Mstring "Evar"
+      | tEvar _ _ => Mstring "tEvar"
       | tPrim p => to_primitive p.
     Proof.
       all: try (cbn; lia).

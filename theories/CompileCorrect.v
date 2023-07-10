@@ -440,8 +440,9 @@ Proof.
       * destruct (compile Σ f1_1); cbn in H0; try congruence. destruct p, l; cbn in *; congruence.
       * revert H0. destruct l; simp compile; destruct lookup_constructor_args; cbn.
         all: congruence.
-      * revert H0. destruct l; simp compile; destruct lookup_constructor_args; cbn in *; congruence.
-      * revert H0. destruct p. simp compile. unfold compile_unfold_clause_11.
+      * revert H0. destruct l; simp compile; try congruence.
+        destruct lookup_constructor_args; cbn in *; congruence.
+      * revert H0. destruct p. simp compile. unfold compile_unfold_clause_12.
         destruct lookup_record_projs; congruence.
       * revert H0. destruct p; cbn. unfold to_primitive. cbn. destruct p; cbn; congruence.
     + rewrite Mapply_spec. 2: destruct arg; cbn; congruence.
@@ -516,6 +517,9 @@ Proof.
         -- congruence.
         -- rewrite <- HΓ. reflexivity.
   - (* case *)
+    destruct brs.
+    { destruct c; invs e1. }
+    simp compile. set (p :: brs) as brs' in *. clearbody brs'. clear p brs. rename brs' into brs.
     destruct br as [nms' b].
     destruct nms'.
     + Arguments Mcase : simpl never.
@@ -578,8 +582,9 @@ Proof.
     + destruct f5; simp compile; intros [? [=]].
       * destruct (compile Σ f5_1); cbn in H0; try congruence. destruct p, l; cbn in *; congruence.
       * revert H0. destruct l; simp compile; destruct lookup_constructor_args; cbn.  all: congruence.
-      * revert H0.   destruct lookup_constructor_args; cbn; try congruence. unfold Mcase. congruence.
-      * revert H0. destruct p; simp compile. unfold compile_unfold_clause_11.
+      * revert H0. destruct l; simp compile; try congruence.
+        destruct lookup_constructor_args; cbn; try congruence. unfold Mcase. congruence.
+      * revert H0. destruct p; simp compile. unfold compile_unfold_clause_12.
         destruct lookup_record_projs; cbn; congruence.
       * revert H0. repeat destruct p; cbn; try congruence. 
     + rewrite Mapply_spec. 2: destruct arg; cbn; congruence.
