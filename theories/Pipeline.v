@@ -124,51 +124,51 @@ Section pipeline_theorem.
     induction 1.
     intros. unfold verified_erasure_pipeline.
 
-    repeat destruct_compose. intros.
-    destruct_compose. intros.
-    cbn [transform rebuild_wf_env_transform].
-    cbn [transform constructors_as_blocks_transformation].
-    cbn [transform inline_projections_optimization].
-    cbn [transform remove_match_on_box_trans].
-    cbn [transform remove_params_optimization].
-    cbn [transform guarded_to_unguarded_fix].
-    cbn [transform erase_transform].
-    cbn [transform pcuic_expand_lets_transform].
-    unfold PCUICExpandLets.expand_lets_program.
+    (* repeat destruct_compose. intros. *)
+    (* destruct_compose. intros. *)
+    (* cbn [transform rebuild_wf_env_transform]. *)
+    (* cbn [transform constructors_as_blocks_transformation]. *)
+    (* cbn [transform inline_projections_optimization]. *)
+    (* cbn [transform remove_match_on_box_trans]. *)
+    (* cbn [transform remove_params_optimization]. *)
+    (* cbn [transform guarded_to_unguarded_fix]. *)
+    (* cbn [transform erase_transform]. *)
+    (* cbn [transform pcuic_expand_lets_transform]. *)
+    (* unfold PCUICExpandLets.expand_lets_program. *)
 
   Admitted.
 
   Lemma verified_erasure_pipeline_theorem :
     ∥ eval (wfl := extraction_wcbv_flags) Σ_t t_t v_t∥.
   Proof.
-    hnf.
-    pose proof (preservation verified_erasure_pipeline (Σ, t)) as Hcorr.
-    unshelve eapply Hcorr in Heval as Hev. eapply precond.
-    destruct Hev as [v' [[H1] H2]].
+    (* hnf. *)
+    (* pose proof (preservation verified_erasure_pipeline (Σ, t)) as Hcorr. *)
+    (* unshelve eapply Hcorr in Heval as Hev. eapply precond. *)
+    (* destruct Hev as [v' [[H1] H2]]. *)
 
-    repeat match goal with
-      [ H : obseq _ _ _ _ _ |- _ ] => hnf in H ;  decompose [ex and prod] H ; subst
-    end.
-    rewrite v_t_spec.
-    unfold verified_erasure_pipeline.
-    repeat destruct_compose.     
-    intros.
-    destruct_compose. intros.
-    cbn [transform rebuild_wf_env_transform] in *.
-    cbn [transform constructors_as_blocks_transformation] in *.
-    cbn [transform inline_projections_optimization] in *.
-    cbn [transform remove_match_on_box_trans] in *.
-    cbn [transform remove_params_optimization] in *.
-    cbn [transform guarded_to_unguarded_fix] in *.
-    cbn [transform erase_transform] in *.
-    cbn [transform pcuic_expand_lets_transform] in *.
-    eapply ErasureFunction.firstorder_erases_deterministic in b0; eauto.
-    - rewrite b0 in H1. clear b0. subst v_t Σ_t t_t.
-      sq. match goal with [ H1 : eval _ _ ?v1 |- eval _ _ ?v2 ] => enough (v2 = v1) as -> by exact H1 end.
-      clear. todo "matthieu?".
-    - admit.
-    - admit.
-    - eapply PCUICWcbvEval.value_final. admit.
+    (* repeat match goal with *)
+    (*   [ H : obseq _ _ _ _ _ |- _ ] => hnf in H ;  decompose [ex and prod] H ; subst *)
+    (* end. *)
+    (* rewrite v_t_spec. *)
+    (* unfold verified_erasure_pipeline. *)
+    (* repeat destruct_compose.      *)
+    (* intros. *)
+    (* destruct_compose. intros. *)
+    (* cbn [transform rebuild_wf_env_transform] in *. *)
+    (* cbn [transform constructors_as_blocks_transformation] in *. *)
+    (* cbn [transform inline_projections_optimization] in *. *)
+    (* cbn [transform remove_match_on_box_trans] in *. *)
+    (* cbn [transform remove_params_optimization] in *. *)
+    (* cbn [transform guarded_to_unguarded_fix] in *. *)
+    (* cbn [transform erase_transform] in *. *)
+    (* cbn [transform pcuic_expand_lets_transform] in *. *)
+    (* eapply ErasureFunction.firstorder_erases_deterministic in b0; eauto. *)
+    (* - rewrite b0 in H1. clear b0. subst v_t Σ_t t_t. *)
+    (*   sq. match goal with [ H1 : eval _ _ ?v1 |- eval _ _ ?v2 ] => enough (v2 = v1) as -> by exact H1 end. *)
+    (*   clear. todo "matthieu?". *)
+    (* - admit. *)
+    (* - admit. *)
+    (* - eapply PCUICWcbvEval.value_final. admit. *)
   Admitted.
 
   Lemma verified_erasure_pipeline_lambda :
