@@ -231,6 +231,7 @@ Program Definition verified_malfunction_pipeline (efl := EWellformed.all_env_fla
              PCUICTransform.eval_pcuic_program
              (fun _ _ => True) :=
   verified_erasure_pipeline ▷
+  implement_box_transformation _ (has_app := eq_refl) (has_pars := eq_refl) (has_cstrblocks := eq_refl) ▷
   name_annotation ▷
   compile_to_malfunction _.
 Next Obligation.
@@ -238,6 +239,15 @@ Next Obligation.
 Qed.
 Next Obligation.
   cbn in *. todo "wf".
+Qed.
+Next Obligation.
+  todo "wf".
+Qed.
+Next Obligation.
+  todo "wf".
+Qed.
+Next Obligation.
+  todo "wf".
 Qed.
 
 Section malfunction_pipeline_theorem.
