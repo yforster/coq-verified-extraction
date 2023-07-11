@@ -179,20 +179,34 @@ Section pipeline_theorem.
 
 End pipeline_theorem.
 
-Program Definition name_annotation (efl : EWellformed.EEnvFlags) : Transform.t EProgram.eprogram (list (Kernames.kername × EAst.global_decl) × EAst.term) EAst.term EWcbvEvalNamed.value (EProgram.eval_eprogram extraction_wcbv_flags) (fun p v => ∥EWcbvEvalNamed.eval p.1 [] p.2 v∥) :=
+Program Definition name_annotation (efl := extraction_env_flags) : Transform.t EProgram.eprogram (list (Kernames.kername × EAst.global_decl) × EAst.term) EAst.term EWcbvEvalNamed.value (EProgram.eval_eprogram extraction_wcbv_flags) (fun p v => ∥EWcbvEvalNamed.eval p.1 [] p.2 v∥) :=
   {| name := "annotate names";
       pre := fun p =>  EProgram.wf_eprogram efl p ;
       transform p _ := (annotate_env [] p.1, annotate [] p.2) ;
       post := fun p =>  EWellformed.wf_glob p.1 /\ EWellformed.wellformed p.1 0 p.2;
-      obseq p p' v v' := ∥represents_value v' v∥ |}.
+      obseq p _ p' v v' := ∥ represents_value v' v∥ |}.
 Next Obligation.
   todo "wellformed annotate".
 Qed.
 Next Obligation.
   red. intros. red in H. sq.
-  unshelve eapply eval_to_eval_named_full in H;
-  todo "preserves eval".
-Qed.
+  unshelve eapply eval_to_eval_named_full in H as [v_ Hv].
+  - admit.
+  - exists v_. repeat split; sq. cbn. eapply Hv. eapply Hv.
+  - eapply pr.
+  - destruct pr. clear H1 H.
+    generalize (@nil Kernames.ident) at 2. induction H0; cbn; intros.
+    + econstructor.
+    + destruct d. destruct c. destruct cst_body.
+      * econstructor; eauto. cbn in *. eapply sunny_subset. eapply sunny_annotate.
+        intros ? [].
+      * econstructor; eauto. cbn in *. eauto.
+      * econstructor; eauto. cbn in *. eauto.
+  - destruct pr. generalize (@nil Kernames.ident) at 2.
+    admit.
+    (* induction H0; cbn; intros. *)
+  - eapply pr.
+Admitted.
 
 Program Definition compile_to_malfunction (efl : EWellformed.EEnvFlags) {hp : SemanticsSpec.Heap}:
   Transform.t (list (Kernames.kername × EAst.global_decl) × EAst.term) Malfunction.program
@@ -202,7 +216,7 @@ Program Definition compile_to_malfunction (efl : EWellformed.EEnvFlags) {hp : Se
       pre := fun p =>   EWellformed.wf_glob p.1 /\ EWellformed.wellformed p.1 0 p.2;
       transform p _ := compile_program p ;
       post := fun p =>  True ;
-      obseq p p' v v' := v' = CompileCorrect.compile_value p.1 v
+      obseq p _ p' v v' := v' = CompileCorrect.compile_value p.1 v
   |}.
 Next Obligation.
   red. intros. sq.
@@ -217,10 +231,13 @@ Program Definition verified_malfunction_pipeline (efl := EWellformed.all_env_fla
              PCUICTransform.eval_pcuic_program
              (fun _ _ => True) :=
   verified_erasure_pipeline ▷
-  name_annotation _ ▷
+  name_annotation ▷
   compile_to_malfunction _.
 Next Obligation.
   todo "wf".
+Qed.
+Next Obligation.
+  cbn in *. todo "wf".
 Qed.
 
 Section malfunction_pipeline_theorem.
@@ -258,10 +275,11 @@ Section malfunction_pipeline_theorem.
 
   Let Σ_t := (transform verified_malfunction_pipeline (Σ, t) precond_).1.
 
-  Program Definition Σ_b := (transform (verified_erasure_pipeline ▷ name_annotation (switch_cstr_as_blocks
-           (EInlineProjections.disable_projections_env_flag
-              (ERemoveParams.switch_no_params EWellformed.all_env_flags))))  (Σ, t) precond_).1.
-  
+  Program Definition Σ_b := (transform (verified_erasure_pipeline ▷ name_annotation) (Σ, t) precond_).1.
+  Next Obligation.
+    todo "admit".
+  Qed.
+
   Let t_t := (transform verified_malfunction_pipeline (Σ, t) precond_).2.
 
   Fixpoint compile_value_mf (Σb : list (Kernames.kername × EAst.global_decl)) (t : PCUICAst.term) (acc : list SemanticsSpec.value) : SemanticsSpec.value :=
