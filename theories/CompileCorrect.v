@@ -73,11 +73,6 @@ Proof.
     + eapply IHΓ.
 Qed.
 
-Lemma rev_spec {A} (l : list A) : MCList.rev l = rev l.
-Proof. 
-  unfold MCList.rev. reflexivity.
-Qed.
-
 Lemma lookup_add a v Γ na :
   lookup (add a v Γ) na = if na == a then Some v else lookup Γ na.
 Proof.
@@ -740,3 +735,222 @@ Proof.
     eapply nth_error_Some_length in E. lia.
 Qed.
 Print Assumptions compile_correct.
+
+Definition binding_names (b : Malfunction.binding) :=
+  match b with
+  | Malfunction.Unnamed _ => []
+  | Malfunction.Named (x, _) => [x]
+  | Malfunction.Recursive b => map fst b
+  end.
+
+Section fix_global.
+
+  Variable Σ : list Malfunction.Ident.t.
+
+  Fixpoint wellformed (Γ : list Malfunction.Ident.t) (t : Malfunction.t) :=
+    match t with
+    | Malfunction.Mvar x => match in_dec eq_dec x Γ with left _ => true | _ => false end
+    | Malfunction.Mlambda (ids, x) => negb (EWellformed.is_nil ids) && wellformed (ids ++ Γ) x
+    | Malfunction.Mapply (x, args) => negb (EWellformed.is_nil args) && wellformed Γ x && forallb (wellformed Γ) args
+    | Malfunction.Mlet (binds, x) => negb (EWellformed.is_nil binds) && forallb (wellformed_binding Γ) binds && wellformed (flat_map binding_names binds ++ Γ) x
+    | Malfunction.Mnum x => true
+    | Malfunction.Mstring x => true
+    | Malfunction.Mglobal id =>
+        match
+        in_dec eq_dec id Σ
+        with left _ => true | _ => false end
+    | Malfunction.Mswitch (x, sels) =>  negb (EWellformed.is_nil sels) && wellformed Γ x && forallb (fun '(_, x) => wellformed Γ x) sels
+    | Malfunction.Mnumop1 (op, num, x) => wellformed Γ x
+    | Malfunction.Mnumop2 (op, num, x1, x2) => wellformed Γ x1 && wellformed Γ x2
+    | Malfunction.Mconvert (from, to, x) => wellformed Γ x
+    | Malfunction.Mvecnew (ty, x1, x2) => wellformed Γ x1 && wellformed Γ x2
+    | Malfunction.Mvecget (ty, x1, x2) => wellformed Γ x1 && wellformed Γ x2
+    | Malfunction.Mvecset (ty, x1, x2, x3) => wellformed Γ x1 && wellformed Γ x2 && wellformed Γ x3
+    | Malfunction.Mveclen (ty, x) => wellformed Γ x
+    | Malfunction.Mlazy x => wellformed Γ x
+    | Malfunction.Mforce x => wellformed Γ x
+    | Malfunction.Mblock (tag, xs) => forallb (wellformed Γ) xs
+    | Malfunction.Mfield (i, x) => wellformed Γ x
+    end
+  with wellformed_binding Γ (b : Malfunction.binding) :=
+         match b with
+         | Malfunction.Unnamed x => wellformed Γ x
+         | Malfunction.Named (id, x) => wellformed Γ x
+         | Malfunction.Recursive recs => forallb (fun '(id,x) => wellformed (List.rev (map fst recs) ++ Γ) x) recs
+         end.
+
+End fix_global.
+
+Lemma wellformed_Mapply_ Σ Γ x args :
+  wellformed Σ Γ x -> forallb (wellformed Σ Γ) args -> wellformed Σ Γ (Mapply_ (x, args)).
+Proof.
+  intros. unfold Mapply_. destruct args.
+  - eauto.
+  - cbn in *; rtoProp; eauto.
+Qed.
+
+Lemma wellformed_Mlambda_ Σ Γ x ids :
+  wellformed Σ (ids ++ Γ) x -> wellformed Σ Γ (Mlambda_ (ids, x)).
+Proof.
+  intros. unfold Mapply_. destruct ids.
+  - eauto.
+  - cbn in *; rtoProp; eauto.
+Qed.
+
+Fixpoint wellformed_subset Σ Γ1 Γ2 x :
+  incl Γ2 Γ1 -> wellformed Σ Γ2 x -> wellformed Σ Γ1 x
+with wellformed_binding_subset Σ Γ1 Γ2 x :
+  incl Γ2 Γ1 -> wellformed_binding Σ Γ2 x -> wellformed_binding Σ Γ1 x.
+Proof.
+  2: destruct x. destruct x.
+  all: intros Hincl Hwf; cbn in *; eauto.
+  - destruct in_dec; try congruence.
+    destruct in_dec; firstorder congruence.
+  - destruct p. rtoProp. split. eauto.
+    eapply wellformed_subset. 2: eauto. intros ?. rewrite !in_app_iff.
+    intros [ | ? % Hincl]; auto.
+  - destruct p. rtoProp. repeat split; auto.
+    + eapply wellformed_subset; eauto.
+    + clear H. induction l.
+      * econstructor.
+      * cbn in *. rtoProp. split. eapply wellformed_subset; eauto. eapply IHl; eauto.
+  - destruct p. rtoProp. repeat split; eauto.
+    2:{ eapply wellformed_subset; eauto. intros ?. rewrite !in_app_iff. intros [ | ? % Hincl]; eauto. }
+    clear H H0. induction l.
+    + econstructor.
+    + cbn in *. rtoProp. split. eapply wellformed_binding_subset; eauto. eapply IHl; eauto.
+  - destruct p. rtoProp. repeat split; eauto.
+    clear H. induction l; cbn in *.
+    + econstructor.
+    + destruct a. rtoProp. split; eauto.
+  - destruct p as [ [] ]. eauto.
+  - destruct p as [ [[]] ]. rtoProp. split; eauto.
+  - destruct p as [ [] ]. eauto.
+  - destruct p as [ [ ] ]; rtoProp. split; eauto.
+  - destruct p as [ [] ]; rtoProp. split; eauto.
+  - destruct p as [ [[]] ]. rtoProp. split; eauto.
+  - destruct p; rtoProp; eauto.
+  - destruct p. induction l; cbn in *; eauto.
+    rtoProp; split; eauto.
+  - destruct p; rtoProp; eauto.
+  - destruct p; rtoProp; eauto.
+  - revert Hwf. generalize l at 1 3. induction l; cbn in *.
+    + eauto.
+    + intros. destruct a. rtoProp. split; eauto.
+      eapply wellformed_subset. 2: eauto.
+      intros ?. rewrite !in_app_iff. intros [ ] ; eauto.
+Qed.
+
+Lemma compile_wellformed (efl := EWcbvEvalNamed.extraction_env_flags) Γ n s t (Σ : EAst.global_declarations) :
+  EWellformed.wellformed Σ n t ->
+  represents Γ [] s t ->
+  wellformed (map (fun '(i,_) => Kernames.string_of_kername i) Σ) Γ (compile Σ s).
+Proof.
+  intros Hwf Hrep. revert n Hwf.
+  remember [] as E. revert HeqE.
+  eapply @represents_ind with (e := E) (l := Γ) (t := s) (t0 := t) (P0 := fun _ _ _ => True); intros; simp compile;
+    cbn [EWellformed.wellformed] in *;
+    subst; try now tauto.
+  - cbn. eapply nth_error_In  in e. destruct in_dec; eauto; tauto.
+  - cbn in e. congruence.
+  - cbn. rtoProp. repeat split; eauto. 
+  - unfold Mapply_u. destruct (compile Σ s0); cbn; rtoProp; try split; eauto.
+    destruct p; cbn. rtoProp; repeat split; eauto.
+    + destruct l; cbn; split; eauto.
+    + cbn in H. pose proof (H eq_refl _ H3). rtoProp. eauto.
+    + rewrite forallb_app. cbn; rtoProp; repeat split; eauto.
+      cbn in H. unshelve epose proof (H eq_refl _ _). 2: eauto.
+      rtoProp. eauto.
+  - cbn. rtoProp. cbn in *.
+    destruct EGlobalEnv.lookup_env as [ [] | ] eqn: Eq; try congruence.
+    eapply lookup_env_In with (d := (c, _)) in Eq.
+    destruct in_dec; eauto.
+    exfalso. eapply n0. eapply in_map_iff.
+    eexists; split; eauto. cbn. eauto.
+  - destruct args; simp compile.
+    + rtoProp. unfold EGlobalEnv.lookup_constructor_pars_args, lookup_constructor_args, EGlobalEnv.lookup_constructor in *.
+      cbn -[EGlobalEnv.lookup_inductive] in *.
+      destruct EGlobalEnv.lookup_inductive as [ [] | ]; cbn; eauto.
+    + rtoProp. unfold EGlobalEnv.lookup_constructor_pars_args, lookup_constructor_args, EGlobalEnv.lookup_constructor in *.
+      cbn -[EGlobalEnv.lookup_inductive] in *.
+      destruct EGlobalEnv.lookup_inductive as [ [] | ]; cbn; eauto.
+      rtoProp. split.
+      * depelim a. cbn in H2. rtoProp. destruct IH as [IH0 IH]. eapply IH0; eauto.
+      * depelim a.  cbn in H2. rtoProp.
+        eapply All_forallb.  rewrite map_InP_spec in *. clear - a IH H3.
+        induction a; cbn. 1: constructor.
+        cbn in H3. rtoProp. econstructor. eapply IH; eauto.
+        eapply IHa; eauto.  cbn. split; eauto.
+        intros. eapply IH; eauto.
+        cbn in IH. eapply IH.
+  - rtoProp. destruct brs.
+    + simp compile.
+    + simp compile.
+      unfold EGlobalEnv.lookup_constructor_pars_args, lookup_constructor_args, EGlobalEnv.lookup_constructor in *.
+      destruct EGlobalEnv.lookup_inductive as [ [] | ]; cbn -[forallb mapi mapi_rec rev_map map map_InP In]; eauto. unfold Mcase. cbn [wellformed]. rtoProp.
+      set (brs_ := p :: brs) in *. repeat split.
+      * eauto.
+      * clearbody brs_. clear p brs. rewrite map_InP_spec. eapply H in H3; eauto. clear - a IH H2 H3. unfold mapi. generalize 0 at 1, 0 at 1.
+        induction a.
+        -- cbn; eauto.
+        -- cbn -[Mapply_ Mlambda_]. intros. rtoProp. split.
+           2:{ eapply IHa. eapply IH.  cbn in H2. rtoProp. eauto. }
+           eapply wellformed_Mapply_.
+           ++ cbn in IH.
+              destruct r as (nms & Hnms & whatever).
+              eapply wellformed_Mlambda_.
+              cbn in *.
+              assert (nms = map (fun nm : BasicAst.name => BasicAst.string_of_name nm) x.1).
+              { clear - Hnms. induction Hnms; cbn; f_equal. subst. cbn. reflexivity. eauto. }
+              subst. eapply wellformed_subset.
+              2:{ eapply IH; eauto. rtoProp. eapply H. }
+              rewrite rev_map_spec.
+              intros ? ? % in_app_iff. eapply in_app_iff.
+              rewrite <- in_rev. eauto.
+           ++ clear - H3. destruct x. clear - H3.
+              revert H3 n1.
+              induction l using rev_ind; intros.
+              econstructor.
+              rewrite rev_map_spec in *. cbn. rewrite map_app, rev_app_distr. cbn.
+              rtoProp. split. eauto. eauto.
+  - cbn [wellformed].
+    rtoProp. repeat split.
+    + cbn. rewrite map_InP_spec. rewrite map_map. rtoProp; split; auto.
+      eapply All_forallb. eapply (@All_impl _ (fun '(_, t1) => (wellformed (map (fun '(i, _) => Kernames.string_of_kername i) Σ) (List.rev (map (fun x : EAst.def EAst.term => (BasicAst.string_of_name (EAst.dname x), compile Σ (EAst.dbody x)).1) mfix) ++ Γ0)%list t1))).
+      2:{ intros. destruct x. exact X. }
+      eapply All_map. cbn.
+      assert (nms = (map (fun x0 : EAst.def EAst.term => BasicAst.string_of_name (EAst.dname x0)) mfix)) as ->.
+      { clear - a. induction a; cbn; f_equal; eauto.
+        destruct x; cbn in *. subst. reflexivity.
+      } clear a.
+      revert IH.
+      unfold EWellformed.wf_fix_gen in H0. cbn in *. rtoProp. clear H0.
+      assert (List.length mfix' = List.length mfix) as Hlen.
+      { clear - a0. eapply Prelim.Ee.All2_Set_All2 in a0.
+        eapply All2_length in a0 as Hlen. lia.
+      }
+      rewrite Hlen in H2. revert H2.
+      generalize mfix at 1 5 6. revert H1. clear.
+      induction a0; intros.
+      -- econstructor.
+      -- cbn in *. rtoProp. econstructor.
+         ++ eapply IH; eauto.
+         ++ eapply IHa0; eauto. eapply IH.
+    + cbn -[in_dec]. unfold EWellformed.wf_fix_gen in H0.
+      rtoProp. eapply Nat.ltb_lt in H0.
+      rewrite map_InP_spec. rewrite map_map.
+      rewrite app_nil_r. destruct in_dec; eauto. exfalso. eapply n0. clear n0.
+      rewrite in_app_iff. left.
+      assert (List.length mfix' = List.length mfix) as Hlen.
+      { clear IH. eapply Prelim.Ee.All2_Set_All2 in a0.
+        eapply All2_length in a0 as Hlen. lia.
+      }
+      rewrite Hlen in H0. 
+      eapply nth_error_Some in H0.
+      destruct nth_error eqn:Eq; try congruence.
+      erewrite nth_error_nth.
+      2:{ rewrite nth_error_map, Eq. cbn.
+          reflexivity. }
+      cbn. eapply nth_error_In in Eq.
+      eapply in_map_iff; eexists; split; eauto.
+Qed.
