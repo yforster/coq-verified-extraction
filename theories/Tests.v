@@ -2,7 +2,7 @@ From Coq Require Import String.
 From Ceres Require Import Ceres.
 From Malfunction Require Import Pipeline Serialize CeresFormat CeresSerialize Interpreter.
 
-From MetaCoq Require Import ETransform Common.Transform bytestring.
+From MetaCoq Require Import ETransform Common.Transform Utils.bytestring.
 From MetaCoq.Template Require All Loader TemplateMonad.
 Open Scope bs.
 
@@ -14,16 +14,18 @@ Definition Mlet_ '(l, b) :=
   | _ => Malfunction.Mlet (l, b)
   end.
 
+Local Existing Instance SemanticsSpec.CanonicalHeap.
+
 Definition eval_malfunction (cf := config.extraction_checker_flags) (p : Ast.Env.program)
   : string :=
   let p' := run malfunction_pipeline p (MCUtils.todo "wf_env and welltyped term"%bs) in
-  let t := Mlet_ (MCList.rev_map Malfunction.Named (fst p'), snd p') in
+  let t := Mlet_ (MCList.rev_map Malfunction.Named (List.flat_map (fun '(x, d) => match d with Some b => cons (x,b) nil | None => nil end) (fst p')), snd p') in
   time "Pretty printing"%bs (@to_string _ Serialize_t) t.
 
 Definition eval_malfunction_sexp (cf := config.extraction_checker_flags) (p : Ast.Env.program)
   : Malfunction.t :=
   let p' := run malfunction_pipeline p (MCUtils.todo "wf_env and welltyped term"%bs) in
-  let t := Mlet_ (MCList.rev_map Malfunction.Named (fst p'), snd p') in
+  let t := Mlet_ (MCList.rev_map Malfunction.Named (List.flat_map (fun '(x, d) => match d with Some b => cons (x,b) nil | None => nil end) (fst p')), snd p') in
   time "Pretty printing"%bs id t.
 
 

@@ -16,11 +16,12 @@ install: [
 ]
 depends: [
   "coq" { >= "8.17" & < "8.18~" }
-  "coq-ceres"
+  "coq-ceres" {= "0.4.1"}
   "coq-metacoq-erasure-plugin"
+  "malfunction" {= "0.5" }
 ]
 
-synopsis: "Mechanised semantics of malfunction in Coq"
+synopsis: "Verified extraction from Coq to OCaml"
 url {
   git: "https://github.com/yforster/coq-malfunction/#main"
 }

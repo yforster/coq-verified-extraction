@@ -4,7 +4,7 @@ From Malfunction Require Import Malfunction utils_array.
 From MetaCoq.PCUIC Require Import PCUICAst PCUICFirstorder.
 
 Require Import ZArith Array.PArray List Floats Lia.
-From MetaCoq Require Import bytestring.
+From MetaCoq.Utils Require Import bytestring.
 Import ListNotations.
 
 Open Scope bs. 

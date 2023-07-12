@@ -57,6 +57,7 @@ ErasureFunction
 EOptimizePropDiscr
 EInlineProjections
 EConstructorsAsBlocks
+EImplementBox
 EProgram
 ETransform
 Erasure
@@ -69,6 +70,7 @@ CeresSerialize0
 Malfunction
 Compile
 Serialize
+SemanticsSpec
 Pipeline
 
 G_metacoq_malfunction

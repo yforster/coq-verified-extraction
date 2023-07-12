@@ -41,4 +41,5 @@ fi
 # Extraction bug: opens are in the wrong order
 patch -N -p0 < fix_extraction.patch || exit $?
 patch -N -p0 < fix_extraction2.patch || exit $?
+patch -N -p0 < fix_extraction3.patch || exit $?
 exit 0

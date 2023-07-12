@@ -6,7 +6,7 @@ Import ListNotations.
 (*Require Import Malfunction.Malfunction Malfunction.Deserialize Malfunction.SemanticsSpec Malfunction.Serialize Ceres.Ceres.*)
 
 Require Import Malfunction.Malfunction Malfunction.SemanticsSpec Malfunction.utils_array.
-From MetaCoq Require Import bytestring.
+From MetaCoq.Utils Require Import bytestring.
 Open Scope bs.
 
 From Coq Require Import Uint63.
@@ -504,7 +504,7 @@ Proof.
                  | (* block *)  
                  | (* field *) locals h h' idx b vals tag H IHeval | | | | | | 
                  | | | | | | | | | | | | | | | | | | | ]
-                 in ih, Hheap, ilocals, Hloc |- *. 
+    in ih, Hheap, ilocals, Hloc |- *. 
   (* eval_lambda_sing *) 
   - split; eauto. econstructor; eauto.
   (* eval_lambda *)
@@ -568,7 +568,7 @@ Proof.
       assert (Hlength: Datatypes.length l' < int_to_nat max_length) by (cbn in *; lia). 
       specialize (IHForall2_acc Hlength ih1 Hheap1).     
       unshelve epose proof (Forall2_acc_map R_heap vrel
-        (fun (h : Interpreter.heap) (e : t) => interpret h iglobals ilocals e) _ _ _ _ _ _ H1 _ Hheap1).
+                              (fun (h : Interpreter.heap) (e : t) => interpret h iglobals ilocals e) _ _ _ _ _ _ H1 _ Hheap1).
       { clear -Hloc. intros. cbn in *. specialize (H0 ilocals x'). destruct interpret. apply H0; eauto. }
       set (p := map_acc _ ih1 l) in *. destruct p. destruct H as [Heahp2 Hl0]. split; eauto. 
       destruct IHForall2_acc as [? IHForall2_acc]. 
@@ -588,16 +588,16 @@ Proof.
         pose proof (Hbounded := to_Z_bounded idx).
         destruct (int_to_nat idx).
         ** simpl. pose Int63.wB_pos. rewrite Array_of_list_get; try (cbn; lia).
-          ++ cbn in H0. rewrite (Forall2_length Hl0) in H0. clear - H0; lia_max_length. 
-          ++ cbn in H0. rewrite (Forall2_length Hl0) in H0. clear - H0; lia_max_length. 
-          ++ eauto.
-        ** simpl. rewrite Array_of_list_S. 
-           ++ cbn; cbn in Hidx. rewrite <- (Forall2_length Hl0). lia.
-           ++ cbn; cbn in H0. rewrite <- (Forall2_length Hl0). lia.
-           ++ specialize (H3 (int_of_nat n)). 
-              rewrite int_to_of_nat in H3.
-              { clear -Hidx H0; lia_max_length. }
-              eapply H3. cbn in Hidx; lia.  
+        ++ cbn in H0. rewrite (Forall2_length Hl0) in H0. clear - H0; lia_max_length. 
+        ++ cbn in H0. rewrite (Forall2_length Hl0) in H0. clear - H0; lia_max_length. 
+        ++ eauto.
+           ** simpl. rewrite Array_of_list_S. 
+        ++ cbn; cbn in Hidx. rewrite <- (Forall2_length Hl0). lia.
+        ++ cbn; cbn in H0. rewrite <- (Forall2_length Hl0). lia.
+        ++ specialize (H3 (int_of_nat n)). 
+           rewrite int_to_of_nat in H3.
+           { clear -Hidx H0; lia_max_length. }
+           eapply H3. cbn in Hidx; lia.  
   (* eval_field *)    
   - cbn. specialize (IHeval _ _ Hloc Hheap). destruct interpret as [ih1 iv1]; destruct IHeval as [Hheap1  Hiv1].
     split; eauto. inversion Hiv1; subst. clear Hiv1. destruct H5 as [? H5]. 
@@ -640,12 +640,12 @@ Proof.
     eapply update_compat with (default := SemanticsSpec.fail ""); eauto. split; cbn.   
     * rewrite PArray.length_set. lia.
     * intro i. pose proof (int_of_to_nat i). destruct (int_to_nat i); [| destruct  n].
-      + subst. intros _. rewrite get_set_same; eauto.
-        rewrite <- (int_of_to_nat (PArray.length _)). rewrite <- H6. 
-        rewrite H1. cbn; lia.
-      + subst; intros _. rewrite get_set_other; [now apply eqb_false_spec|]. cbn.
-        fold y. rewrite <- H11. econstructor; eauto.
-      + lia. 
+    + subst. intros _. rewrite get_set_same; eauto.
+      rewrite <- (int_of_to_nat (PArray.length _)). rewrite <- H6. 
+      rewrite H1. cbn; lia.
+    + subst; intros _. rewrite get_set_other; [now apply eqb_false_spec|]. cbn.
+      fold y. rewrite <- H11. econstructor; eauto.
+    + lia. 
   (* eval_force_fail *)  
   - fail_case IHeval Hloc Hheap H0.
   (* eval_global *)  
@@ -666,13 +666,13 @@ Proof.
     unfold int_to_nat in e. rewrite e; [lia_max_length| econstructor].
   (* eval_numop1 *)
   - cbn [interpret]; destruct op; cbn [interpret];
-    specialize (IHeval _ _ Hloc Hheap); destruct interpret as [ih1 iv1]; destruct IHeval as [Hheap1  Hiv1];
-    split; eauto; erewrite <- as_ty_vrel; eauto; eapply truncate_vrel.
+      specialize (IHeval _ _ Hloc Hheap); destruct interpret as [ih1 iv1]; destruct IHeval as [Hheap1  Hiv1];
+      split; eauto; erewrite <- as_ty_vrel; eauto; eapply truncate_vrel.
   (* eval_numop2 *)
   - cbn [interpret]; destruct op; cbn [interpret];
-    specialize (IHeval1 _ _ Hloc Hheap); destruct interpret as [ih1 iv1]; destruct IHeval1 as [Hheap1  Hiv1];
-    specialize (IHeval2 _ _ Hloc Hheap1); destruct interpret as [ih2 iv2]; destruct IHeval2 as [Hheap2  Hiv2];
-    split; eauto.
+      specialize (IHeval1 _ _ Hloc Hheap); destruct interpret as [ih1 iv1]; destruct IHeval1 as [Hheap1  Hiv1];
+      specialize (IHeval2 _ _ Hloc Hheap1); destruct interpret as [ih2 iv2]; destruct IHeval2 as [Hheap2  Hiv2];
+      split; eauto.
     1-2: destruct b; repeat erewrite <- as_ty_vrel; eauto; eapply truncate_vrel.
     destruct b; repeat erewrite <- as_ty_vrel; eauto; econstructor. 
   (* eval_numop1_neg *)
@@ -685,14 +685,14 @@ Proof.
   - cbn [interpret]; split; eauto; econstructor. 
   (* eval_numop2_float *)
   - cbn [interpret]; destruct op; cbn [interpret];
-    specialize (IHeval1 _ _ Hloc Hheap); destruct interpret as [ih1 iv1]; destruct IHeval1 as [Hheap1  Hiv1];
-    specialize (IHeval2 _ _ Hloc Hheap1); destruct interpret as [ih2 iv2]; destruct IHeval2 as [Hheap2  Hiv2];
-    split; eauto;cbn; repeat erewrite <- as_float_vrel; eauto; econstructor.
+      specialize (IHeval1 _ _ Hloc Hheap); destruct interpret as [ih1 iv1]; destruct IHeval1 as [Hheap1  Hiv1];
+      specialize (IHeval2 _ _ Hloc Hheap1); destruct interpret as [ih2 iv2]; destruct IHeval2 as [Hheap2  Hiv2];
+      split; eauto;cbn; repeat erewrite <- as_float_vrel; eauto; econstructor.
   (* eval_numop2_embed_float *)  
   - cbn [interpret]; destruct op; cbn [interpret];
-    specialize (IHeval1 _ _ Hloc Hheap); destruct interpret as [ih1 iv1]; destruct IHeval1 as [Hheap1  Hiv1];
-    specialize (IHeval2 _ _ Hloc Hheap1); destruct interpret as [ih2 iv2]; destruct IHeval2 as [Hheap2  Hiv2];
-    split; eauto;cbn; repeat erewrite <- as_float_vrel; eauto; econstructor.
+      specialize (IHeval1 _ _ Hloc Hheap); destruct interpret as [ih1 iv1]; destruct IHeval1 as [Hheap1  Hiv1];
+      specialize (IHeval2 _ _ Hloc Hheap1); destruct interpret as [ih2 iv2]; destruct IHeval2 as [Hheap2  Hiv2];
+      split; eauto;cbn; repeat erewrite <- as_float_vrel; eauto; econstructor.
   (* eval_convert_int *)
   - cbn [interpret].
     specialize (IHeval _ _ Hloc Hheap); destruct interpret as [ih1 iv1]; destruct IHeval as [Hheap1  Hiv1].
@@ -707,9 +707,9 @@ Proof.
     split; eauto. erewrite <- as_float_vrel; eauto; econstructor.
   (* eval_vecnew_array *)
   - cbn [interpret];
-    specialize (IHeval1 _ _ Hloc Hheap); destruct interpret as [ih1 iv1]; destruct IHeval1 as [Hheap1  Hiv1];
-    specialize (IHeval2 _ _ Hloc Hheap1); destruct interpret as [ih2 iv2]; destruct IHeval2 as [Hheap2  Hiv2];
-    inversion Hiv1; subst; clear Hiv1.
+      specialize (IHeval1 _ _ Hloc Hheap); destruct interpret as [ih1 iv1]; destruct IHeval1 as [Hheap1  Hiv1];
+      specialize (IHeval2 _ _ Hloc Hheap1); destruct interpret as [ih2 iv2]; destruct IHeval2 as [Hheap2  Hiv2];
+      inversion Hiv1; subst; clear Hiv1.
     pose proof (fresh_compat _ _ _ _ Hheap2 H3).
     set (Interpreter.fresh ih2) in *. destruct p.
     destruct H5; split; [| now econstructor].
@@ -719,9 +719,9 @@ Proof.
     rewrite Hlen'. apply (Forall2Array_cst _ (Z.to_nat len') _ iv2); eauto.
   (* eval_vecnew_bytevec *)
   - cbn [interpret];
-    specialize (IHeval1 _ _ Hloc Hheap); destruct interpret as [ih1 iv1]; destruct IHeval1 as [Hheap1  Hiv1];
-    specialize (IHeval2 _ _ Hloc Hheap1); destruct interpret as [ih2 iv2]; destruct IHeval2 as [Hheap2  Hiv2];
-    inversion Hiv1; subst; clear Hiv1.
+      specialize (IHeval1 _ _ Hloc Hheap); destruct interpret as [ih1 iv1]; destruct IHeval1 as [Hheap1  Hiv1];
+      specialize (IHeval2 _ _ Hloc Hheap1); destruct interpret as [ih2 iv2]; destruct IHeval2 as [Hheap2  Hiv2];
+      inversion Hiv1; subst; clear Hiv1.
     inversion Hiv2; subst; clear Hiv2. rewrite H3. 
     pose proof (fresh_compat _ _ _ _ Hheap2 H4).
     set (Interpreter.fresh ih2) in *. destruct p.
@@ -734,9 +734,9 @@ Proof.
     econstructor.
   (* eval_vecget *)
   - cbn [interpret];
-    specialize (IHeval1 _ _ Hloc Hheap); destruct interpret as [ih1 iv1]; destruct IHeval1 as [Hheap1  Hiv1];
-    specialize (IHeval2 _ _ Hloc Hheap1); destruct interpret as [ih2 iv2]; destruct IHeval2 as [Hheap2  Hiv2];
-    inversion Hiv1; subst; clear Hiv1.
+      specialize (IHeval1 _ _ Hloc Hheap); destruct interpret as [ih1 iv1]; destruct IHeval1 as [Hheap1  Hiv1];
+      specialize (IHeval2 _ _ Hloc Hheap1); destruct interpret as [ih2 iv2]; destruct IHeval2 as [Hheap2  Hiv2];
+      inversion Hiv1; subst; clear Hiv1.
     split; eauto.
     pose proof (deref_compat (SemanticsSpec.fail "") _ _ _ _ _ Hheap H1 H5).
     destruct H2 as [? Hderef].
@@ -745,18 +745,18 @@ Proof.
       destruct idx'; destruct iv2;  try (destruct p as [i0 ?]; destruct i0); 
       try (destruct p0 as [i1 ?]; destruct i1);  try econstructor. }
     destruct idx'; destruct iv2; 
-    try (destruct p as [i0 n]; destruct i0); 
-    try (destruct p0 as [i1 n']; destruct i1); try econstructor; 
-    try inversion Hiv2. subst. 
+      try (destruct p as [i0 n]; destruct i0); 
+      try (destruct p0 as [i1 n']; destruct i1); try econstructor; 
+      try inversion Hiv2. subst. 
     pose proof (leb_length _ (deref ih ptr')).
     case_eq ((0 <=? n')%Z); intro; simpl; try econstructor.
     case_eq (n' <? Z.of_nat (Datatypes.length arr))%Z;
-    case_eq (n' <? φ (PArray.length (deref ih ptr'))%uint63)%Z; intros.
+      case_eq (n' <? φ (PArray.length (deref ih ptr'))%uint63)%Z; intros.
     + assert (Hn': (0 <= n' < Int63.wB)%Z).
       {split; [lia|]. clear -H3 H4 H6.
-      apply leb_spec in H3. apply Z.ltb_lt in H6.
-      set (PArray.length _) in *. clearbody i.
-      clear H4. lia_max_length.  }
+       apply leb_spec in H3. apply Z.ltb_lt in H6.
+       set (PArray.length _) in *. clearbody i.
+       clear H4. lia_max_length.  }
       assert (Heqn' : Z.to_nat n' = int_to_nat (Int63.of_Z n')).
       { unfold int_to_nat. f_equal. rewrite Int63.of_Z_spec.
         rewrite Z.mod_small; eauto. } 
@@ -783,7 +783,7 @@ Proof.
     pose (to_Z_bounded (PArray.length (deref ih ptr'))); lia. 
     intro Htyty'. 
     case_eq (Z.leb 0 i && (Z.ltb i (Int63.to_Z (PArray.length (deref ih ptr')))))%bool;
-     [| repeat econstructor; eauto].
+      [| repeat econstructor; eauto].
     rename i into z. intro Harr. apply MCProd.andb_and in Harr.
     destruct Harr as [Hz0 Harr]. apply Z.leb_le in Hz0. 
     apply Z.ltb_lt in Harr.   
@@ -828,7 +828,7 @@ Proof.
         rewrite int_of_to_nat in H8. unfold int_of_nat in H8.
         rewrite Z2Nat.id in H8; [lia | eauto].
         eapply Hderef. now rewrite List.length_set in Hi.         
-   (* eval_vec_length *)     
+  (* eval_vec_length *)     
   - cbn [interpret].
     specialize (IHeval _ _ Hloc Hheap); destruct interpret as [ih1 iv1]; destruct IHeval as [Hheap1  Hiv1].
     split; eauto. inversion Hiv1; subst.  
@@ -838,33 +838,4 @@ Proof.
     unfold int_to_nat. rewrite Z2Nat.id. 
     pose (to_Z_bounded (PArray.length (deref ih ptr'))); lia.        
     econstructor. 
-  Qed.
-
-
-(*  Lemma vtrans_inj v v' : vtrans v = vtrans v' -> v = v'.
-  Admitted. 
-  Lemma apD {A B} {f g : forall a:A, B a} : f = g -> forall x, f x = g x. 
-  now destruct 1.
-  Defined.  
-
-  Lemma interp_correct iglobals globals locals e v ilocals :
-    (forall x, vrel iglobals (ilocals x) (locals x)) ->
-    vrel (interpret ilocals e) v -> eval globals locals e v.
-  induction e; intro Hlocal; cbn in *. 
-  - intros Hvar. unfold Ident.Map.find in Hvar. rewrite Hlocal in Hvar.
-    apply vtrans_inj in Hvar. subst. econstructor. 
-  - intros Hlambda. destruct p as [xs e]. induction xs; cbn in *.
-    * admit.
-    * destruct xs.
-      + destruct v; cbn in Hlambda; try destruct p; try now inversion Hlambda.
-        destruct p. inversion Hlambda. clear Hlambda.
-        pose proof (Hlambda := apD H0 a). 
-        
-         H0. pose (ap )
-        f_equal
-        
-        eapply eval_lambda_sing. 
-           
-
-  destruct v. inversion Hvar.  eapply eval_var. *)
-
+Qed.

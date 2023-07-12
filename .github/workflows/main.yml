@@ -3,7 +3,7 @@ name: Test compilation
 on:
   push:
     branches:
-      - main
+      - "**"
   pull_request:
     branches:
       - "**"
@@ -33,8 +33,11 @@ jobs:
               sudo chown -R coq:coq .
             endGroup
             startGroup "opam pin"
-              opam pin -n -y "https://github.com/MetaCoq/metacoq.git#coq-8.17"
-              opam pin -n -y "https://github.com/lysxia/coq-ceres.git#master"
+              opam pin -n -y "https://github.com/MetaCoq/metacoq.git#verified_erasure_pipeline"
+            endGroup
+          after_install: |
+            startGroup "run tests"
+              make test
             endGroup
           after_script: |
             startGroup "List installed packages"

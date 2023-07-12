@@ -1,4 +1,4 @@
-From MetaCoq Require Import bytestring ReflectEq.
+From MetaCoq.Utils Require Import bytestring ReflectEq.
 
 Require Import String Ascii Bool Arith.
 Require Import Malfunction.Malfunction.
@@ -13,7 +13,7 @@ Fixpoint _escape_ident (_end s : String.t) : String.t :=
   match s with
   | ""%bs => _end
   |  String.String c s' =>
-       if c == byte_of_ascii "'" then String.String "_" (_escape_ident _end s')
+       if (c == byte_of_ascii "'") || (c == byte_of_ascii " ") then String.String "_" (_escape_ident _end s') 
        else match s' with
             | String.String c2 s'' =>
                 if (String.String c (String.String c2 String.EmptyString)) == "Γ"%bs
@@ -45,8 +45,8 @@ Fixpoint _escape_ident (_end s : String.t) : String.t :=
 #[export] Instance Serialize_numconst : Serialize numconst :=
   fun a => match a with
         | numconst_Int i => to_sexp i
-        | numconst_Bigint x => Atom (append (CeresString.string_of_Z x) ".bigint")
-        | numconst_Float64 x => Atom "not supported"
+        | numconst_Bigint x => Atom (append (CeresString.string_of_Z x) ".ibig")
+        | numconst_Float64 x => Atom (append (CeresString.string_of_Z (Int63.to_Z (snd (PrimFloat.frshiftexp x)))) ".0")
         end.
 
 Definition Cons x (l : sexp) :=
@@ -69,7 +69,7 @@ Definition rawapp (s : sexp) (a : string) :=
         end.
 
 #[export] Instance Serialize_unary_num_op : Serialize unary_num_op :=
-  fun a => match a with Neg => Atom "neg" | Not => Atom "what to insert for Not?" end.
+  fun a => match a with Neg => Atom "neg" | Not => Atom "not" end.
 
 Definition numtype_to_string (n : numtype) :=
   match n with
@@ -126,20 +126,20 @@ Definition vector_type_to_string (n : vector_type) :=
 Definition Serialize_singleton_list {A} `{Serialize A} : Serialize (list A)
   := fun xs => match xs with cons x nil => to_sexp x | xs =>List (List.map to_sexp xs) end.
 
-(* Fixpoint split_dot accl accw (s : string) := *)
-(*   match s with *)
-(*   | EmptyString => (string_reverse accl, string_reverse accw) *)
-(*   | String c s => *)
-(*       if (c =? ".")%char2 then *)
-(*         let accl' := match accl with EmptyString => accw *)
-(*                                 | accl => (accw ++ "." ++ accl) *)
-(*                      end in *)
-(*         split_dot accl' EmptyString s *)
-(*       else *)
-(*         split_dot accl (String c accw) s *)
-(*   end. *)
-(* Definition before_dot s := fst (split_dot EmptyString EmptyString s). *)
-(* Definition after_dot s := snd (split_dot EmptyString EmptyString s). *)
+Fixpoint split_dot accl accw (s : string) :=
+  match s with
+  | EmptyString => (string_reverse accl, string_reverse accw)
+  | String c s =>
+      if (c =? ".")%char2 then
+        let accl' := match accl with EmptyString => accw
+                                | accl => (accw ++ "." ++ accl)
+                     end in
+        split_dot accl' EmptyString s
+      else
+        split_dot accl (String c accw) s
+  end.
+Definition before_dot s := fst (split_dot EmptyString EmptyString s).
+Definition after_dot s := snd (split_dot EmptyString EmptyString s).
 
 Fixpoint to_sexp_t (a : t) : sexp :=
   match a with
@@ -175,15 +175,6 @@ to_sexp_binding (a : binding) : sexp :=
 #[export] Instance Serialize_t : Serialize t := to_sexp_t.
 #[export] Instance Serialize_binding : Serialize binding := to_sexp_binding.
 
-Definition Serialize_program : Serialize program :=
-  fun '(m, x) =>
-    match
-      Cons (Atom "module") (Serialize_list (m ++ ((bytestring.String.of_string "_main", x)  :: nil))%list)
-    with
-      List l => List (l ++ ([Atom "export"] :: nil))
-    | x => x
-    end.
-
 Fixpoint string_map (f : ascii -> ascii) (s : string) : string :=
   match s with
   | EmptyString => EmptyString
@@ -203,7 +194,7 @@ Definition uncapitalize_char (c : ascii) : ascii :=
   else c.
 
 Definition uncapitalize (s : string) : string :=
-  match s with
+  match s with 
   | EmptyString => EmptyString
   | String c s => String (uncapitalize_char c) s
   end.
@@ -211,14 +202,34 @@ Definition uncapitalize (s : string) : string :=
 Definition encode_name (s : string) : string :=
   uncapitalize (dot_to_underscore s).
 
-Definition exports (m : list (Ident.t * t)) : list (Ident.t * t) :=
-  List.map (fun '(x, v) => (bytestring.String.of_string (encode_name (bytestring.String.to_string x)), Mglobal x)) m.
+Definition exports (m : list (Ident.t * option t)) : list (Ident.t * option t) :=
+  List.map (fun '(x, v) => (bytestring.String.of_string (encode_name (bytestring.String.to_string x)), Some (Mglobal x))) m.
+
+Definition global_serializer : Serialize (Ident.t * option t) :=
+  fun '(i, b) => match b with
+              | Some x => to_sexp (i, x)
+              | None => let both := split_dot "" "" (bytestring.String.to_string i) in
+                       let name := snd both in
+                       let module := snd (split_dot "" "" (fst both)) in
+                       List ( Atom (Raw ("$" ++ bytestring.String.to_string i)) ::
+                                [Atom "global" ; Atom (Raw ("$" ++ module)) ; Atom (Raw ("$" ++ name))   ]
+                                :: nil)
+              end.
+
+Definition Serialize_program : Serialize program :=
+  fun '(m, x) =>
+    match
+      Cons (Atom "module") (@Serialize_list _ global_serializer (m ++ ((bytestring.String.of_string "_main", Some x)  :: nil))%list)
+    with
+      List l => List (l ++ ([Atom "export"] :: match x with Mglobal i => Atom (bytestring.String.to_string i) :: nil | _ => nil end))
+    | x => x
+    end.
 
 Definition Serialize_module : Serialize program :=
   fun '(m, x) =>
     let exports := exports m in
     match
-      Cons (Atom "module") (Serialize_list (List.rev_append m exports)%list)
+      Cons (Atom "module") (@Serialize_list _ global_serializer (List.rev_append m exports)%list)
     with
       List l =>
         let exports := List.map (fun x => Atom (Raw ("$" ++ (bytestring.String.to_string (fst x))))) exports in

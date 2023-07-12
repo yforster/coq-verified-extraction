@@ -2,7 +2,8 @@ From Coq Require Import List String Arith Lia.
 Import ListNotations.
 From Equations Require Import Equations.
 
-From MetaCoq Require Import PCUICAstUtils MCList bytestring.
+From MetaCoq.PCUIC Require Import PCUICAstUtils.
+From MetaCoq.Utils Require Import MCList bytestring.
 From MetaCoq.Erasure Require Import EAst ESpineView EEtaExpanded EInduction ERemoveParams Erasure EGlobalEnv.
 
 From Malfunction Require Import Malfunction.
@@ -60,9 +61,6 @@ From MetaCoq Require Import EAst.
 Section Compile.
   Context (Σ : global_declarations).
 
-  Definition Mbox :=
-    Mlet ([Recursive [("reccall", Mlambda (["_"], Mvar "reccall") )]], Mvar "reccall").
-
   Definition lookup_record_projs (e : global_declarations) (ind : Kernames.inductive) : option (list Kernames.ident) :=
     match lookup_inductive e ind with
     | Some (mdecl, idecl) => Some (map proj_name idecl.(ind_projs))
@@ -88,8 +86,7 @@ Section Compile.
 
   Equations? compile (t: term) : Malfunction.t
     by wf t (fun x y : EAst.term => size x < size y) :=
-      | tRel n => Mstring "tRel"
-      | tBox => Mbox
+      | tVar na => Mvar na
       | tLambda nm bod => Mlambda ([(BasicAst.string_of_name nm)], compile bod)
       | tLetIn nm dfn bod => Mlet ([Named ((BasicAst.string_of_name nm), compile dfn)], compile bod)
       | tApp fn arg =>
@@ -97,32 +94,20 @@ Section Compile.
       | tConst nm => Mglobal (Kernames.string_of_kername nm)
       | tConstruct i m [] =>
         match lookup_constructor_args Σ i with
-        | Some num_args => let num_args_until_m := firstn m num_args in
-                          let index := #| filter (fun x => match x with 0 => true | _ => false end) num_args_until_m| in
-                          Mnum (numconst_Int (int_of_nat index))
-        | None => Mstring "inductive not found"
+        | Some num_args => Mnum (numconst_Int (int_of_nat (nonblocks_until m num_args)))
+        | None => Mstring "error: inductive not found"
         end
       | tConstruct i m args =>
         match lookup_constructor_args Σ i with
-        | Some num_args => let num_args_until_m := firstn m num_args in
-                          let index := #| filter (fun x => match x with 0 => false | _ => true end) num_args_until_m| in
-                          Mblock (int_of_nat index, map_InP args (fun x H => compile x))
-        | None => Mstring "inductive not found"
+        | Some num_args => Mblock (int_of_nat (blocks_until m num_args), map_InP args (fun x H => compile x))
+        | None => Mstring "error: inductive not found"
         end
+      | tCase i mch [] => Mlambda (["empty_match"], Mvar "empty_match")
       | tCase i mch brs =>
         match lookup_constructor_args Σ (fst i) with
         | Some num_args =>
-            Mcase (num_args, compile mch, map_InP brs (fun br H => (rev_map (fun nm => (BasicAst.string_of_name nm)) (fst br), compile (snd br)))) 
-             (*  Mswitch (compile mch, mapi_InP brs 0 (fun i br H => let num_args_until_i := firstn i num_args in
-                                                                  let blocks_until_i := #| filter (fun x => match x with 0 => true | _ => false end) num_args_until_i| in
-                                                                  let nonblocks_until_i := #|num_args_until_i| - blocks_until_i in
-                                                                (match fst br with
-                                                                | [] => [Malfunction.Tag (int_of_nat blocks_until_i)]
-                                                                | args => [Malfunction.Intrange (int_of_nat nonblocks_until_i, int_of_nat nonblocks_until_i)]
-                                                                end, Mapply_ (Mlambda_ (rev_map (fun nm => (BasicAst.string_of_name nm)) (fst br), compile (snd br)),
-                                                                                                          mapi (fun i _ => Mfield (int_of_nat i, compile mch)) (rev (fst br))))))
- *)       
-       | None => Mstring "inductive not found"
+            Mcase (num_args, compile mch, map_InP brs (fun br H => (rev_map (fun nm => (BasicAst.string_of_name nm)) (fst br), compile (snd br))))     
+       | None => Mstring "error: inductive not found"
         end
       | tFix mfix idx =>
           let bodies := map_InP mfix (fun d H => ((BasicAst.string_of_name (d.(dname))), compile d.(dbody))) in
@@ -131,11 +116,13 @@ Section Compile.
         { | Some args =>
               let len := List.length args in
               Mfield (int_of_nat (len - 1 - nargs), compile bod)
-          | None => Mstring "Proj" }
-      | tCoFix mfix idx => Mstring "TCofix"
-      | tVar na => Mvar na
-      | tEvar _ _ => Mstring "Evar"
-      | tPrim p => to_primitive p.
+          | None => Mstring "inductive not found" }
+      | tPrim p => to_primitive p
+      | tRel n => Mstring "error: tRel has been translated away"
+      | tBox => Mstring "error: tBox has been translated away"
+      | tCoFix mfix idx => Mstring "error: tCofix not supported"
+      | tEvar _ _ => Mstring "error: tEvar not supported"
+      .
     Proof.
       all: try (cbn; lia).
       - subst args. eapply (In_size id size) in H.
@@ -149,25 +136,13 @@ End Compile.
 
 Definition compile_constant_decl Σ cb := 
   option_map (compile Σ) cb.(cst_body).
-  
-Definition compile_decl Σ d :=
-  match d with
-  | ConstantDecl cb => compile_constant_decl Σ cb
-  | InductiveDecl idecl => None
-  end.
 
-Definition compile_env Σ := flat_map
-(fun '(x, d) =>
- match compile_decl Σ d with
- | Some t => [(Kernames.string_of_kername x, t)]
- | None => []
- end) Σ.
-
-Fixpoint compile_env' Σ : list (string * t) := 
+Fixpoint compile_env Σ : list (string * option t) := 
   match Σ with
   | [] => []
-  | (x,d) :: Σ => match compile_decl Σ d with Some t => (Kernames.string_of_kername x, t) :: compile_env' Σ 
-                                         | _ => compile_env' Σ
+  | (x,d) :: Σ => match d with
+                  ConstantDecl cb => (Kernames.string_of_kername x, compile_constant_decl Σ cb) :: compile_env Σ
+                | _ => compile_env Σ
               end
   end.
 

@@ -15,7 +15,7 @@ From Malfunction Require Import
   CeresFormat.
 (* end hide *)
 
-From MetaCoq Require Import bytestring.
+From MetaCoq.Utils Require Import bytestring.
 
 (** Serialization to S-expressions. *)
 Class Serialize (A : Type) :=

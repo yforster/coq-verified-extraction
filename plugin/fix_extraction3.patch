@@ -1,5 +1,5 @@
-*** extraction/serialize.mli.orig	2023-07-11 16:34:14.352596231 +0200
---- extraction/serialize.mli	2023-07-11 16:34:22.092515640 +0200
+*** extraction/serialize.ml.orig	2023-07-11 16:34:04.052701333 +0200
+--- extraction/serialize.ml	2023-07-11 16:34:07.019337982 +0200
 *************** open CeresSerialize
 *** 6,15 ****
   open CeresString

@@ -1,6 +1,6 @@
 From Coq Require Import ssreflect.
 From Coq Require Import ZArith Floats.
-From MetaCoq Require Import bytestring ReflectEq.
+From MetaCoq.Utils Require Import bytestring ReflectEq.
 Module Int63 := Numbers.Cyclic.Int63.Uint63.
 Notation int := Int63.int.
 
@@ -136,4 +136,4 @@ End list_notation.
 Definition var := Ident.t.
 
 Definition module := list (Malfunction.Ident.t * t).
-Definition program : Type := list (Ident.t * t) * t.
+Definition program : Type := list (Ident.t * option t) * t.

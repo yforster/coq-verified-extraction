@@ -1,6 +1,6 @@
 (* Distributed under the terms of the MIT license. *)
 From Coq Require Import Ascii FSets ExtrOcamlBasic ExtrOCamlFloats ExtrOCamlInt63.
-From MetaCoq Require Import utils.
+From MetaCoq Require Import Utils.utils.
 From Malfunction Require Import Pipeline.
 
 (** * Extraction setup for the erasure phase of template-coq.
