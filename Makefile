@@ -24,5 +24,8 @@ plugin: coq install-coq plugin/Makefile
 	+make -C plugin
 	+make -C plugin install
 
+test: 
+	cd plugin/tests && make 
+
 Makefile.coq: _CoqProject
 	coq_makefile -f _CoqProject -o Makefile.coq

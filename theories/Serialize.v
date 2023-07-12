@@ -13,7 +13,7 @@ Fixpoint _escape_ident (_end s : String.t) : String.t :=
   match s with
   | ""%bs => _end
   |  String.String c s' =>
-       if c == byte_of_ascii "'" then String.String "_" (_escape_ident _end s')
+       if (c == byte_of_ascii "'") || (c == byte_of_ascii " ") then String.String "_" (_escape_ident _end s') 
        else match s' with
             | String.String c2 s'' =>
                 if (String.String c (String.String c2 String.EmptyString)) == "Γ"%bs

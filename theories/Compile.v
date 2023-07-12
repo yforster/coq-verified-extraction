@@ -102,7 +102,7 @@ Section Compile.
         | Some num_args => Mblock (int_of_nat (blocks_until m num_args), map_InP args (fun x H => compile x))
         | None => Mstring "error: inductive not found"
         end
-      | tCase i mch [] => Mlambda (["assert false: empty match"], Mvar "assert false: empty match")
+      | tCase i mch [] => Mlambda (["empty_match"], Mvar "empty_match")
       | tCase i mch brs =>
         match lookup_constructor_args Σ (fst i) with
         | Some num_args =>

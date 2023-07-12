@@ -183,15 +183,25 @@ Program Definition name_annotation (efl := extraction_env_flags) : Transform.t E
   {| name := "annotate names";
       pre := fun p =>  EProgram.wf_eprogram efl p ;
       transform p _ := (annotate_env [] p.1, annotate [] p.2) ;
-      post := fun p =>  EWellformed.wf_glob p.1 /\ EWellformed.wellformed p.1 0 p.2;
+      post := fun p => EProgram.wf_eprogram named_extraction_env_flags p ;
       obseq p _ p' v v' := ∥ represents_value v' v∥ |}.
 Next Obligation.
-  todo "wellformed annotate".
+  destruct input as [Σ s].
+  destruct p as [HΣ Hs].
+  split.
+  2: now eapply wellformed_annotate with (Γ := []).
+  cbn in *. clear Hs.
+  induction HΣ.
+  - econstructor.
+  - cbn in *. destruct d as [ [[]]| ]; cbn in *; econstructor; eauto.
+    cbn. now eapply wellformed_annotate with (Γ := []).
+    { clear - H0. induction H0; (try destruct x as [? [ [[]]| ]]); cbn in *; econstructor; eauto. }
+    { clear - H0. induction H0; (try destruct x as [? [ [[]]| ]]); cbn in *; econstructor; eauto. }
 Qed.
 Next Obligation.
   red. intros. red in H. sq.
   unshelve eapply eval_to_eval_named_full in H as [v_ Hv].
-  - admit.
+  - shelve.
   - exists v_. repeat split; sq. cbn. eapply Hv. eapply Hv.
   - eapply pr.
   - destruct pr. clear H1 H.
@@ -202,11 +212,15 @@ Next Obligation.
         intros ? [].
       * econstructor; eauto. cbn in *. eauto.
       * econstructor; eauto. cbn in *. eauto.
-  - destruct pr. generalize (@nil Kernames.ident) at 2.
-    admit.
-    (* induction H0; cbn; intros. *)
+  - destruct pr. clear - H0.
+    induction p.1.
+    + cbn. econstructor.
+    + cbn. destruct a as [? [ [[]]| ]]; intros; econstructor; eauto; cbn; eauto.
+      2-4: eapply IHg; now invs H0.
+      split; eauto. eexists. split. cbn. reflexivity.
+      eapply nclosed_represents; cbn. invs H0. cbn in *. eauto.
   - eapply pr.
-Admitted.
+Qed.
 
 Program Definition compile_to_malfunction (efl : EWellformed.EEnvFlags) {hp : SemanticsSpec.Heap}:
   Transform.t (list (Kernames.kername × EAst.global_decl) × EAst.term) Malfunction.program
@@ -220,7 +234,10 @@ Program Definition compile_to_malfunction (efl : EWellformed.EEnvFlags) {hp : Se
   |}.
 Next Obligation.
   red. intros. sq.
-  eapply compile_correct in H. eauto.
+  eapply compile_correct in H.
+  - eauto.
+  - intros. 
+
   all: todo "side conditions".
   Unshelve. all: todo "".
 Qed.

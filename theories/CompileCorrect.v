@@ -2,8 +2,9 @@ From MetaCoq.Utils Require Import utils.
 Require Import List String.
 Import ListNotations.
 Local Open Scope string_scope.
-From Malfunction Require Import Mcase.
+From Malfunction Require Import Mcase Compile SemanticsSpec utils_array.
 From MetaCoq Require Import Utils.ReflectEq EWcbvEvalNamed Utils.bytestring Utils.MCList.
+From Equations Require Import Equations.
 
 Definition lookup {A} (E : list (Kernames.ident * A)) (x : string) :=
   match find (fun '(s, _) => String.eqb x s) E with
@@ -11,7 +12,7 @@ Definition lookup {A} (E : list (Kernames.ident * A)) (x : string) :=
   | None => None
   end.
 
-Fixpoint compile_value `{H : Heap} (Σ : EAst.global_declarations) (s : EWcbvEvalNamed.value) : SemanticsSpec.value :=
+Fixpoint compile_value {H : Heap} (Σ : EAst.global_declarations) (s : EWcbvEvalNamed.value) : SemanticsSpec.value :=
   match s with
   | vClos na b env => Func ((fun x => match lookup (map (fun '(x,v) => (x, compile_value Σ v)) env) x with Some v => v | None => fail "notfound" end), na, compile Σ b)
   | vConstruct i m [] =>
