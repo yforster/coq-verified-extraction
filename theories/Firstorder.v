@@ -1,8 +1,10 @@
 Require Import ssreflect Eqdep_dec.
 From MetaCoq.Utils Require Import All_Forall MCSquash MCList.
 From MetaCoq.Common Require Import config Kernames.
-From MetaCoq.PCUIC Require Import PCUICAst PCUICFirstorder.
-From MetaCoq.Erasure Require Import EWcbvEval.
+From MetaCoq.PCUIC Require Import PCUICAst PCUICTyping PCUICFirstorder.
+From MetaCoq.Erasure Require Import EWcbvEval EWcbvEvalNamed.
+From MetaCoq.SafeChecker Require Import PCUICErrors PCUICWfEnv PCUICWfEnvImpl.
+
 From Malfunction Require Import Malfunction SemanticsSpec utils_array Compile.
 
 Require Import ZArith Array.PArray List String Floats Lia Bool.
@@ -818,7 +820,121 @@ ind_universes0 ind_variance0) x Hparam Hfo'); eauto.
           lia. 
         * inversion H2.  
   Qed.
+  
+  From Malfunction Require Import CompileCorrect.
 
+  Definition CoqValue_to_CamlValue `{WcbvFlags} 
+  (cf:=config.extraction_checker_flags) {guard : abstract_guard_impl}
+  (Σ:reference_impl_ext) kn mind Eind 
+  {normal_in : forall Σ_ : global_env_ext,
+  wf_ext Σ_ -> Σ_ ∼_ext Σ -> PCUICSN.NormalizationIn Σ_}
+(retro : Retroknowledge.t)
+(Hparam : ind_params mind = [])
+(Hnparam : ind_npars mind = 0)
+(Hfo : is_true (forallb (@firstorder_oneind Σb mind) (ind_bodies mind))) ind univ v u t vErase' :
+let adt := CoqType_to_camlType mind Hparam Hfo in
+let Emind := ErasureFunction.erase_mutual_inductive_body mind in 
+let Σ' := [(kn , EAst.InductiveDecl Emind)] in
+let global_adt := add_ADT CanonicalHeap [] [] kn adt in 
+Σ.(reference_impl_env_ext) = (mk_global_env univ [(kn , InductiveDecl mind)] retro ,Monomorphic_ctx) ->
+with_constructor_as_block = true ->
+ind < List.length (snd adt) ->
+EGlobalEnv.lookup_inductive Σ' (mkInd kn ind) = Some (Emind, Eind) ->
+forall (wt : Σ ;;; [] |- t : tInd (mkInd kn ind) u)
+(wv : Σ ;;; [] |- v : tInd (mkInd kn ind) u),  
+let tErase := ErasureFunction.erase (normalization_in := normal_in) canonical_abstract_env_impl Σ [] t 
+(fun Σ' e => match (eq_sym e) in (_ = ΣΣ) return welltyped ΣΣ [] t with eq_refl => iswelltyped wt end) in 
+let vErase := ErasureFunction.erase (normalization_in := normal_in) canonical_abstract_env_impl Σ [] v 
+(fun Σ' e => match (eq_sym e) in (_ = ΣΣ) return welltyped ΣΣ [] v with eq_refl => iswelltyped wv end) in 
+PCUICWcbvEval.eval Σ t v ->
+EWcbvEval.eval Σ' tErase vErase ->
+represents_value vErase' vErase ->
+eval [] (fun _ => not_evaluated) empty_heap
+    (compile Σ' tErase)
+    empty_heap (compile_value Σ' vErase') ->
+realize_val CanonicalHeap [] []
+            global_adt (Adt kn (int_of_nat ind) []) (compile_value Σ' vErase').
+Proof.
+  intros. cbn. rewrite ReflectEq.eqb_refl.
+  rewrite int_to_of_nat. admit.
+  pose proof (X':=X).
+  eapply @PCUICClassification.eval_classification with (args := []) in X; eauto.
+  destruct v; try solve [inversion X]; cbn in X.   
+  admit.
+  (*cbn in vErase.
+  admit. 
+  induction vErase'.      
+  3: { destruct args; unfold compile_value. unfold lookup_constructor_args.
+       cbn.  ErasureFunction.erase_correct_firstorder } 
+    EWcbvEval.eval
+  EWcbvEvalNamed.eval Σ Γ s t
+  SemanticsSpec.eval Σ' Γ' h (compile Σ s) h (compile_value Σ t).
+*)
+Abort.
+  Definition CoqFunction_to_CamlFunction `{WcbvFlags} 
+    (cf:=config.extraction_checker_flags) {guard : abstract_guard_impl}
+    (Σ:reference_impl_ext) kn mind Eind 
+    {normal_in : forall Σ_ : global_env_ext,
+    wf_ext Σ_ -> Σ_ ∼_ext Σ -> PCUICSN.NormalizationIn Σ_}
+  (retro : Retroknowledge.t)
+  (Hparam : ind_params mind = [])
+  (Hnparam : ind_npars mind = 0)
+  (Hfo : is_true (forallb (@firstorder_oneind Σb mind) (ind_bodies mind))) ind univ v u f na:
+  let adt := CoqType_to_camlType mind Hparam Hfo in
+  let Emind := ErasureFunction.erase_mutual_inductive_body mind in 
+  let Σ' := [(kn , EAst.InductiveDecl Emind)] in
+  let global_adt := add_ADT CanonicalHeap [] [] kn adt in 
+  Σ.(reference_impl_env_ext) = (mk_global_env univ [(kn , InductiveDecl mind)] retro ,Monomorphic_ctx) ->
+  with_constructor_as_block = true ->
+  ind < List.length (snd adt) ->
+  EGlobalEnv.lookup_inductive Σ' (mkInd kn ind) = Some (Emind, Eind) ->
+  forall (wt : Σ ;;; [] |- f : tProd na (tInd (mkInd kn ind) u) (tInd (mkInd kn ind) u)),  
+  eval [] (fun _ => not_evaluated) empty_heap
+      ((compile Σ' (ErasureFunction.erase (normalization_in := normal_in) canonical_abstract_env_impl Σ [] f 
+          (fun Σ' e => match (eq_sym e) in (_ = ΣΣ) return welltyped ΣΣ [] f with eq_refl => iswelltyped wt end))))
+      empty_heap v ->
+  realize_val CanonicalHeap [] []
+              global_adt (Arrow (Adt kn (int_of_nat ind) []) (Adt kn (int_of_nat ind) [])) v.
+Proof.
+  intros. cbn. rewrite ReflectEq.eqb_refl. cbn.
+
+  do 3 eexists. split; intros. 
+  2: {
+    rewrite int_to_of_nat; [admit|].
+    eapply camlValue_to_CoqValue_nil in H5; eauto; cbn.
+    2: { rewrite int_to_of_nat. admit. eauto. }
+    2: { rewrite ReflectEq.eqb_refl. rewrite int_to_of_nat. admit.
+        cbn. rewrite nth_error_map. admit. }
+    destruct H5 as [? [? ?]].
+         
+    }   
+
+    } 
+
+
+  Existing Instance config.extraction_checker_flags.
+
+
+
+  Definition camlValue_to_CoqValue_gen `{WcbvFlags}  
+    Σ kn mind Eind 
+    (Hparam : ind_params mind = [])
+    (Hnparam : ind_npars mind = 0)
+    (Hfo : is_true (forallb (@firstorder_oneind Σb mind) (ind_bodies mind))) ind v :
+    let adt := CoqType_to_camlType mind Hparam Hfo in
+    let Emind := ErasureFunction.erase_mutual_inductive_body mind in 
+    with_constructor_as_block = true ->
+    ind < List.length (snd adt) ->
+    EGlobalEnv.lookup_inductive Σ (mkInd kn ind) = Some (Emind, Eind) ->
+    realize_ADT CanonicalHeap [] [] adt [] All_nil ind v ->
+    exists t, ∥ EWcbvEval.value Σ t ∥ /\ 
+    eval CanonicalHeap [] (fun _ => not_evaluated) empty_heap (compile Σ t) empty_heap v.
+  Proof.
+    induction Σ; cbn; intros.
+    - cbn in H3. inversion H2.
+    - destruct a. cbn in *.     
+      destruct ReflectEq.eqb.
+      2: { eapply IHΣ. ; eauto.  }   
 
   Definition camlValue_to_CoqValue `{WcbvFlags} Σ global_adt kn mind (Hparam : ind_params mind = [])
       (Hfo : is_true (forallb (@firstorder_oneind Σb mind) (ind_bodies mind))) ind v :
