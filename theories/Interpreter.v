@@ -28,7 +28,6 @@ Definition CanonicalHeap : Heap :=
 
 Inductive rec_value `{Heap} := 
   | RFunc of Ident.t * t
-  | RThunk of pointer
   | Bad_recursive_value.
  
 Inductive value `{Heap} :=
