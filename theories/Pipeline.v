@@ -236,10 +236,10 @@ Next Obligation.
   red. intros. sq.
   eapply compile_correct in H.
   - eauto.
-  - intros. 
-
-  all: todo "side conditions".
-  Unshelve. all: todo "".
+  - intros. todo "wf".
+  - intros.  todo "wf".
+  - intros. todo "wf".
+    Unshelve. all: todo "wf".
 Qed.
 
 Program Definition verified_malfunction_pipeline (efl := EWellformed.all_env_flags)  {hp : SemanticsSpec.Heap}:
