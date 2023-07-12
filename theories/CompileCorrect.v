@@ -5,10 +5,6 @@ Local Open Scope string_scope.
 From Malfunction Require Import Mcase.
 From MetaCoq Require Import Utils.ReflectEq EWcbvEvalNamed Utils.bytestring Utils.MCList.
 
-From Malfunction Require Import Compile SemanticsSpec utils_array.
-
-From Equations Require Import Equations.
-
 Definition lookup {A} (E : list (Kernames.ident * A)) (x : string) :=
   match find (fun '(s, _) => String.eqb x s) E with
   | Some (_, v) => Some v
