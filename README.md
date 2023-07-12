@@ -14,7 +14,7 @@ Verification is work in progress.
 opam switch create coq-malfunction --packages="ocaml-variants.4.13.1+options,ocaml-option-flambda"
 eval $(opam env --switch=coq-malfunction)
 opam repo add coq-released https://coq.inria.fr/opam/released
-opam pin -n -y "https://github.com/MetaCoq/metacoq.git#coq-8.17"
+opam pin -n -y "https://github.com/MetaCoq/metacoq.git#verified_erasure_pipeline"
 opam install . --deps-only
 make
 ```
