@@ -35,11 +35,11 @@ jobs:
             startGroup "opam pin"
               opam pin -n -y "https://github.com/MetaCoq/metacoq.git#verified_erasure_pipeline"
             endGroup
-          after_install: |
-            startGroup "run tests"
-              make test
-            endGroup
           after_script: |
             startGroup "List installed packages"
               opam list
+            endGroup
+            startGroup "run tests"
+              make plugin
+              make test
             endGroup
