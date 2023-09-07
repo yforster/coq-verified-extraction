@@ -155,13 +155,19 @@ Proof.
   generalize (@nil Malfunction.t) at 1 2.
   induction args in e1 |- *; intros l Hleft Hright Happ; cbn.
   - econstructor; cbn in *; eauto.
-  - cbn. econstructor.
-    replace (Malfunction.Mapply (Mnapply e1 l, [a])) with
-    (Mnapply e1 (l ++ [a])) by now rewrite Mnapply_app. cbn.
-    eapply IHargs; eauto.
-    cbn in Hleft.
-    eapply eval_app_nested_inv with (args := a :: args) in Hleft.
-    eapply eval_app_nested_. now rewrite <- app_assoc.
+  - cbn. destruct args; econstructor.
+    * replace (Malfunction.Mapply (Mnapply e1 l, [a])) with
+        (Mnapply e1 (l ++ [a])) by now rewrite Mnapply_app. cbn.
+      eapply IHargs; eauto.
+      cbn in Hleft.
+      eapply eval_app_nested_inv with (args := a :: []) in Hleft.
+      eapply eval_app_nested_. now rewrite <- app_assoc.
+    * replace (Malfunction.Mapply (Mnapply e1 l, [a])) with
+        (Mnapply e1 (l ++ [a])) by now rewrite Mnapply_app. cbn.
+      eapply IHargs; eauto.
+      cbn in Hleft.
+      eapply eval_app_nested_inv with (args := a :: t :: args) in Hleft.
+      eapply eval_app_nested_. now rewrite <- app_assoc.
 Qed.
 
 Lemma Mapply_eval_rec `{H : Heap} globals locals (x : Malfunction.Ident.t)
@@ -179,13 +185,19 @@ Proof.
   generalize (@nil Malfunction.t) at 1 2.
   induction args in e1 |- *; intros l Hnth Hleft Hright Happ; cbn.
   - eapply eval_app_sing_rec; eauto.
-  - cbn. econstructor.
-    replace (Malfunction.Mapply (Mnapply e1 l, [a])) with
-    (Mnapply e1 (l ++ [a])) by now rewrite Mnapply_app. cbn.
-    eapply IHargs; eauto.
-    cbn in Hleft.
-    eapply eval_app_nested_inv with (args := a :: args) in Hleft.
-    eapply eval_app_nested_. now rewrite <- app_assoc.
+  - cbn. destruct args; econstructor.
+    + replace (Malfunction.Mapply (Mnapply e1 l, [a])) with
+      (Mnapply e1 (l ++ [a])) by now rewrite Mnapply_app. cbn.
+      eapply IHargs; eauto.
+      cbn in Hleft.
+      eapply eval_app_nested_inv with (args := a :: []) in Hleft.
+      eapply eval_app_nested_. now rewrite <- app_assoc.
+    + replace (Malfunction.Mapply (Mnapply e1 l, [a])) with
+      (Mnapply e1 (l ++ [a])) by now rewrite Mnapply_app. cbn.
+      eapply IHargs; eauto.
+      cbn in Hleft.
+      eapply eval_app_nested_inv with (args := a :: t :: args) in Hleft.
+      eapply eval_app_nested_. now rewrite <- app_assoc.
 Qed.
 
 Lemma Mapply_u_spec f a :

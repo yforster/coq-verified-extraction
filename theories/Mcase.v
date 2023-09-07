@@ -58,52 +58,6 @@ Proof.
       rewrite Mnapply_app. eauto.
 Qed.
 
-Lemma Mapply_eval `{H : Heap} globals locals (x : Malfunction.Ident.t)
-    (locals' : Malfunction.Ident.Map.t)
-    (e e2 : Malfunction.t) (v2 : SemanticsSpec.value)
-    (e1 : Malfunction.t) (v : SemanticsSpec.value) args h1 h2 h3 h4 :
-    SemanticsSpec.eval globals locals h1 (Mapply_ (e1, args)) h2 (Func (locals', x, e)) ->
-    SemanticsSpec.eval globals locals h2 e2 h3 v2 ->
-    SemanticsSpec.eval globals (Malfunction.Ident.Map.add x v2 locals') h3 e h4 v ->
-    SemanticsSpec.eval globals locals h1 (Malfunction.Mapply (e1, args ++ [e2]))%list h4 v.
-Proof.
-  replace e1 with (Mnapply e1 []) by reflexivity.
-  generalize (@nil Malfunction.t) at 1 2.
-  induction args in e1 |- *; intros l Hleft Hright Happ; cbn.
-  - econstructor; cbn in *; eauto.
-  - cbn. econstructor.
-    replace (Malfunction.Mapply (Mnapply e1 l, [a])) with
-    (Mnapply e1 (l ++ [a])) by now rewrite Mnapply_app. cbn.
-    eapply IHargs; eauto.
-    cbn in Hleft.
-    eapply eval_app_nested_inv with (args := a :: args) in Hleft.
-    eapply eval_app_nested_. now rewrite <- app_assoc.
-Qed.
-
-Lemma Mapply_eval_rec `{H : Heap} globals locals (x : Malfunction.Ident.t)
-    (locals' : Malfunction.Ident.Map.t)
-    (e2 : Malfunction.t) (v2 : SemanticsSpec.value)
-    (e1 : Malfunction.t) (v : SemanticsSpec.value) args h1 h2 h3 h4 
-    self mfix n e :
-    nth n mfix Bad_recursive_value = RFunc (x , e) -> 
-    SemanticsSpec.eval globals locals h1 (Mapply_ (e1, args)) h2 (RClos (locals', self, mfix, n)) ->
-    SemanticsSpec.eval globals locals h2 e2 h3 v2 ->
-    SemanticsSpec.eval globals (Malfunction.Ident.Map.add x v2 (add_self self mfix locals')) h3 e h4 v ->
-    SemanticsSpec.eval globals locals h1 (Malfunction.Mapply (e1, args ++ [e2]))%list h4 v.
-Proof.
-  replace e1 with (Mnapply e1 []) by reflexivity.
-  generalize (@nil Malfunction.t) at 1 2.
-  induction args in e1 |- *; intros l Hnth Hleft Hright Happ; cbn.
-  - eapply eval_app_sing_rec; eauto.
-  - cbn. econstructor.
-    replace (Malfunction.Mapply (Mnapply e1 l, [a])) with
-    (Mnapply e1 (l ++ [a])) by now rewrite Mnapply_app. cbn.
-    eapply IHargs; eauto.
-    cbn in Hleft.
-    eapply eval_app_nested_inv with (args := a :: args) in Hleft.
-    eapply eval_app_nested_. now rewrite <- app_assoc.
-Qed.
-
 Require Import FunctionalExtensionality.
 
 Definition add_multiple {H : Heap} nms values locals := fold_right (fun '(a,b) l => @Ident.Map.add value a b l) locals (map2 pair nms values).

@@ -247,9 +247,9 @@ Inductive eval (locals : @Ident.Map.t value) : heap -> t -> heap -> value -> Pro
   eval locals h e1 h1 v ->
   isFunction v = false ->
   eval locals h (Mapply (e1, [e2])) h1 (fail "not a function:  evaluated to: ")
-| eval_app h h1 e2 e1 v es :
-  eval locals h (Mapply (Mapply (e1, [e2]), es)) h1 v ->
-  eval locals h (Mapply (e1, e2 :: es)) h1 v
+| eval_app h h1 e3 e2 e1 v es :
+  eval locals h (Mapply (Mapply (e1, [e2]), e3 :: es)) h1 v ->
+  eval locals h (Mapply (e1, e2 :: e3 :: es)) h1 v
 | eval_var h id :
   eval locals h (Mvar id) h (Ident.Map.find id locals)
 | eval_let_body h h1 e v : 
@@ -508,10 +508,10 @@ forall P : Ident.Map.t -> heap -> t -> heap -> value -> Prop,
         P locals h (Mapply (e1, [e2])) h1
           (fail "not a function:  evaluated to: ")) ->
        (forall (locals : Ident.Map.t) (h h1 : heap) 
-          (e2 e1 : t) (v : value) (es : list t),
-        eval locals h (Mapply (Mapply (e1, [e2]), es)) h1 v ->
-        P locals h (Mapply (Mapply (e1, [e2]), es)) h1 v ->
-        P locals h (Mapply (e1, e2 :: es)) h1 v) ->
+          (e3 e2 e1 : t) (v : value) (es : list t),
+        eval locals h (Mapply (Mapply (e1, [e2]), e3 :: es)) h1 v ->
+        P locals h (Mapply (Mapply (e1, [e2]), e3 :: es)) h1 v ->
+        P locals h (Mapply (e1, e2 :: e3 :: es)) h1 v) ->
        (forall (locals : Ident.Map.t) (h : heap) (id : Ident.t),
         P locals h (Mvar id) h (Ident.Map.find id locals)) ->
        (forall (locals : Ident.Map.t) (h h1 : heap) (e : t) (v : value),

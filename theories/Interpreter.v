@@ -511,7 +511,7 @@ Proof.
                  | (* app_sing *) locals h1 h2 h3 h4 x locals' e e2 v2 e1 v H IHeval1 H0 IHeval2 H1 IHeval3
                  | (* app_sing_Rec *) locals h1 h2 h3 h4 mfix n y e locals' self e2 v2 e1 v H IHeval1 H0 IHeval2 Hnth H1 IHeval3
                  | (* app_fail *) locals h h' e2 e v Heval IHeval Heq
-                 | (* app *) locals h h' e2 e1 v vals tag IHeval 
+                 | (* app *) locals h h' e3 e2 e1 v vals tag IHeval 
                  | (* var *) 
                  | (* let_body *) | (* let_unnamed *) | (* let_named *) | (* let_rec *)
                  | (* switch *) 
