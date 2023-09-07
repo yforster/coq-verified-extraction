@@ -595,7 +595,6 @@ ind_universes0 ind_variance0) x Hparam Hfo'); eauto.
     induction 1; econstructor; eauto.
   Qed.
 
-  Axiom cstr_arity_length : forall x, cstr_arity x = List.length (cstr_args x).
   Axiom ctors_max_length : forall mind j k ind ctors,
     nth_error mind j = Some ind ->
     nth_error (ind_ctors ind) k = Some ctors -> 
@@ -656,7 +655,27 @@ ind_universes0 ind_variance0) x Hparam Hfo'); eauto.
                  (nth ind
                     (CoqType_to_camlType' mind
                        Hparam Hfo) []))).
-    Admitted.                       
+   Proof. 
+    intro Hind. unshelve erewrite CoqType_to_camlType'_nth; eauto.
+    - eapply nth_error_forallb in Hfo; eauto.
+    - destruct Eind; cbn. destruct MCProd.andb_and. destruct (a _).
+      rewrite (filter_ext _ (fun x =>
+      match #|x| with
+      | 0 => true
+      | S _ => false
+      end)).
+      { clear. intro l; induction l; eauto. }
+      revert k i0. clear Hind i i1 a. induction ind_ctors0; cbn; intros. 
+      + intros. now repeat rewrite firstn_nil.
+      + destruct k; eauto; cbn. destruct MCProd.andb_and. destruct (a0 _). cbn.
+        destruct a. cbn. rewrite CoqType_to_camlType_ind_ctors_length.
+        revert i1. cbn. rewrite Hparam app_nil_r. cbn.
+        rewrite rev_length. intro.  
+        destruct cstr_args0; cbn. 
+        * intros; f_equal. eapply IHind_ctors0; eauto.
+        * eapply IHind_ctors0.
+    - now eapply nth_error_Some_length. 
+  Qed.                       
 
     Lemma filter_length_not_nil ind k mind Eind Hparam Hfo :
     nth_error (ind_bodies mind) ind = Some Eind ->
@@ -676,7 +695,27 @@ ind_universes0 ind_variance0) x Hparam Hfo'); eauto.
                  (nth ind
                     (CoqType_to_camlType' mind
                        Hparam Hfo) []))).
-    Admitted.     
+  Proof. 
+    intro Hind. unshelve erewrite CoqType_to_camlType'_nth; eauto.
+    - eapply nth_error_forallb in Hfo; eauto.
+    - destruct Eind; cbn. destruct MCProd.andb_and. destruct (a _).
+      rewrite (filter_ext _ (fun x =>
+      match #|x| with
+      | 0 => false
+      | S _ => true
+      end)).
+      { clear. intro l; induction l; eauto. }
+      revert k i0. clear Hind i i1 a. induction ind_ctors0; cbn; intros. 
+      + intros. now repeat rewrite firstn_nil.
+      + destruct k; eauto; cbn. destruct MCProd.andb_and. destruct (a0 _). cbn.
+        destruct a. cbn. rewrite CoqType_to_camlType_ind_ctors_length.
+        revert i1. cbn. rewrite Hparam app_nil_r. cbn.
+        rewrite rev_length. intro.  
+        destruct cstr_args0; cbn. 
+        * eapply IHind_ctors0.
+        * intros; f_equal. eapply IHind_ctors0; eauto.
+    - now eapply nth_error_Some_length. 
+  Qed. 
 
   Lemma Forall2_map_left {A B C} (P : A -> B -> Prop) (f : C -> A) (l : list C) (l' : list B) :
     Forall2 P (map f l) l' <-> Forall2 (fun x y => P (f x) y) l l'.
@@ -1103,7 +1142,7 @@ Qed.
                 assert (#|ind_bodies mind| - S (#|ind_bodies mind| - S ind + 0 + 0 - 0) = ind).
                 { rewrite CoqType_to_camlType'_length in Hind. clear - Hind. lia. }
                 rewrite H3; clear H3. cbn. econstructor; try reflexivity.          
-            unfold isType, PCUICEnvTyping.infer_sort. exists ind_sort0.
+            unfold isType, PCUICEnvTyping.infer_sort. exists (subst_instance_univ [] ind_sort0).
             rewrite Hparam in ind_arity_eq. cbn in ind_arity_eq.
             eapply nth_error_forall in Hindices; eauto. cbn in Hindices. rewrite Hindices in ind_arity_eq.                       
             cbn in ind_arity_eq.  
@@ -1112,8 +1151,7 @@ Qed.
             *** unfold declared_constructor, declared_inductive. subst. now cbn.
             *** unfold consistent_instance_ext, consistent_instance; cbn.
                now rewrite Hmono.
-            *** subst. cbn in *. destruct ind_sort0; eauto. cbn in X.
-                admit. 
+            *** subst. cbn in *. destruct ind_sort0; eauto.
           **  destruct a0, cstr_args0; subst; cbn in *. 
            { eapply All2_length in Hlv'. rewrite CoqType_to_camlType_ind_ctors_length in Hlv'.
            rewrite Hparam in Hlv'. inversion Hlv'. }
@@ -1290,25 +1328,19 @@ Proof.
     cbn in Hpure. rewrite MCProd.andb_and in Hpure. destruct Hpure. econstructor; eauto.
 Qed. 
 
-(* Definition extract `{Heap} := Transform.run verified_malfunction_pipeline.*)
+Axiom compile_pure : forall `{Heap} `{WcbvFlags} Σ t, is_true (isPure (compile_pipeline Σ t)).
 
-Lemma compile_pure `{Heap} `{WcbvFlags} Σ t : is_true (isPure (compile_pipeline Σ t)).
-Proof.
-Admitted.
-
-Definition compile_compose `{Heap} `{WcbvFlags} Σ h h' t u' u v w:
+Axiom compile_compose : forall `{Heap} `{WcbvFlags} Σ h h' t u' u v w ,
   eval [] (empty_locals _) h (compile_pipeline Σ u) h v ->
   eval [] (empty_locals _) h u' h' v ->
   eval [] (empty_locals _) h (Mapply (compile_pipeline Σ t, [u'])) h' w ->
   eval [] (empty_locals _) h (compile_pipeline Σ (tApp t u)) h w.
-Admitted. 
 
-Definition compile_function `{Heap} `{WcbvFlags} (cf:=config.extraction_checker_flags)
-  Σ univ_decl h h' f v na A B :
+Axiom compile_function : forall `{Heap} `{WcbvFlags} (cf:=config.extraction_checker_flags)
+  Σ univ_decl h h' f v na A B,
   ∥ (Σ , univ_decl) ;;; [] |- f : tProd na A B ∥ ->
   eval [] (empty_locals _) h (compile_pipeline Σ.(declarations) f) h' v ->
   isFunction v = true.
-Admitted.
 
 Definition CoqFunction_to_CamlFunction `{Heap} `{WcbvFlags} (cf:=config.extraction_checker_flags)
     univ retro univ_decl kn mind 
