@@ -1355,11 +1355,11 @@ Proof.
     2: { eapply isPure_heap_irr,  Ht_eval; try eapply compile_pure; intros; cbn; eauto. }
     unshelve eapply CoqValue_to_CamlValue; try exact H8; try rewrite int_to_of_nat; eauto.
     destruct H3, Ht_typ. sq. 
-    unshelve epose proof (type_App _ _ _ _ _ _ _ _ _ X X0); try exact (ind_sort Eind); eauto.
+    unshelve epose proof (type_App _ _ _ _ _ _ _ _ _ X X0); try exact (subst_instance_univ [] (ind_sort Eind)); eauto.
     rewrite <- (sort_of_product_idem _).
     assert ((Σ, univ_decl);;; []
     |- tInd {| inductive_mind := kn; inductive_ind := ind |}
-         [] : tSort (ind_sort Eind)).
+         [] : (tSort (ind_sort Eind))@[[]]).
     {  unshelve epose proof (type_Ind (Σ,univ_decl) [] (mkInd kn ind) [] mind Eind _ _ _).
     *** econstructor.
     *** unfold declared_constructor, declared_inductive. subst. now cbn.
@@ -1372,7 +1372,7 @@ Proof.
         inversion onInductives. cbn in *.
         eapply nth_error_forall in Hindices; eauto. cbn in Hindices. rewrite Hindices in ind_arity_eq.                       
         cbn in ind_arity_eq. rewrite Hparam in ind_arity_eq. cbn in ind_arity_eq.
-        rewrite ind_arity_eq in X1. cbn in X1. admit. }            
+        now rewrite ind_arity_eq in X1. }            
     eapply type_Prod; eauto.
     unshelve epose proof (type_Ind (Σ,univ_decl) 
           ([],,vass na (tInd {| inductive_mind := kn; inductive_ind := ind |} [])) (mkInd kn ind) [] mind Eind _ _ _).
@@ -1388,7 +1388,7 @@ Proof.
             inversion onInductives. cbn in *.
             eapply nth_error_forall in Hindices; eauto. cbn in Hindices. rewrite Hindices in ind_arity_eq.                       
             cbn in ind_arity_eq. rewrite Hparam in ind_arity_eq. cbn in ind_arity_eq.
-            rewrite ind_arity_eq in X2. cbn in X2. admit. 
+            now rewrite ind_arity_eq in X2. 
   - specialize (Ht _ _ _ H7).
     eapply camlValue_to_CoqValue_nil in Ht; eauto; cbn.
     destruct Ht as [t_coq Ht].
@@ -1411,11 +1411,11 @@ Proof.
     2: { eapply isPure_heap_irr,  Ht_eval; try eapply compile_pure; intros; cbn; eauto. }
     unshelve eapply CoqValue_to_CamlValue; try exact H7; try rewrite int_to_of_nat; eauto.
     destruct H3, Ht_typ. sq.
-    unshelve epose proof (type_App _ _ _ _ _ _ _ _ _ t0 X); try exact (ind_sort Eind); eauto. 
+    unshelve epose proof (type_App _ _ _ _ _ _ _ _ _ t0 X); try exact (subst_instance_univ [] (ind_sort Eind)); eauto. 
     rewrite <- (sort_of_product_idem _).
     assert ((Σ, univ_decl);;; []
     |- tInd {| inductive_mind := kn; inductive_ind := ind |}
-         [] : tSort (ind_sort Eind)).
+         [] : (tSort (ind_sort Eind)@[[]])).
     {  unshelve epose proof (type_Ind (Σ,univ_decl) [] (mkInd kn ind) [] mind Eind _ _ _).
     *** econstructor.
     *** unfold declared_constructor, declared_inductive. subst. now cbn.
@@ -1427,9 +1427,7 @@ Proof.
         inversion onInductives. cbn in *.
         eapply nth_error_forall in Hindices; eauto. cbn in Hindices. rewrite Hindices in ind_arity_eq.                       
         cbn in ind_arity_eq. rewrite Hparam in ind_arity_eq. cbn in ind_arity_eq.
-        rewrite ind_arity_eq in X0. cbn in X0. unfold subst_instance_univ in X0. destruct ind_sort0; eauto.
-        unfold subst_instance, subst_instance_univ0 in X0. unfold subst_instance_level_expr in X0.
-        admit. }            
+        now rewrite ind_arity_eq in X0. }            
     eapply type_Prod; eauto.
     unshelve epose proof (type_Ind (Σ,univ_decl) 
           ([],,vass na (tInd {| inductive_mind := kn; inductive_ind := ind |} [])) (mkInd kn ind) [] mind Eind _ _ _).
@@ -1445,6 +1443,6 @@ Proof.
             inversion onInductives. cbn in *.
             eapply nth_error_forall in Hindices; eauto. cbn in Hindices. rewrite Hindices in ind_arity_eq.                       
             cbn in ind_arity_eq. rewrite Hparam in ind_arity_eq. cbn in ind_arity_eq.
-            rewrite ind_arity_eq in X1. cbn in X1. admit. 
+            now rewrite ind_arity_eq in X1. 
   - rewrite (compile_function _ _ _ _ _ _ _ _ _ H3 H7) in H10. inversion H10.
-  Abort.
+  Qed.
