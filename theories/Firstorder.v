@@ -1,7 +1,8 @@
-Require Import ssreflect Eqdep_dec.
+Require Import ssreflect ssrbool Eqdep_dec.
+From Equations Require Import Equations. 
 From MetaCoq.Utils Require Import All_Forall MCSquash MCList.
 From MetaCoq.Common Require Import Transform config Kernames.
-From MetaCoq.PCUIC Require Import PCUICAst PCUICTyping PCUICFirstorder PCUICCasesHelper.
+From MetaCoq.PCUIC Require Import PCUICAst PCUICTyping PCUICFirstorder PCUICCasesHelper BDStrengthening.
 From MetaCoq.Erasure Require Import EWcbvEval EWcbvEvalNamed.
 From MetaCoq.SafeChecker Require Import PCUICErrors PCUICWfEnv PCUICWfEnvImpl.
 
@@ -217,10 +218,10 @@ Section firstorder.
 
   Lemma bool_irr b (H H' : is_true b) : H = H'.
     destruct b; [| inversion H].
-    assert (H = eq_refl). 
-    eapply (K_dec _ (fun H => H = eq_refl)); eauto.
+    assert (H = eq_refl).
+    eapply (K_dec (fun H => H = eq_refl)); eauto.
     etransitivity; eauto. 
-    eapply (K_dec _ (fun H => eq_refl = H)); eauto.
+    eapply (K_dec (fun H => eq_refl = H)); eauto.
     Unshelve. all: cbn; eauto. 
     all: intros b b'; pose (Coq.Bool.Bool.bool_dec b b'); intuition. 
   Defined.
@@ -563,6 +564,17 @@ ind_universes0 ind_variance0) x Hparam Hfo'); eauto.
   cbn. now f_equal.
   Qed. 
 
+  Lemma CoqType_to_camlType_ind_ctor_app
+  l l' n m i : { i' & { i'' &  CoqType_to_camlType_ind_ctor n m (l++l') i = CoqType_to_camlType_ind_ctor n m l i' ++ CoqType_to_camlType_ind_ctor (#|l| + n) m l' i''}}.
+  pose proof (ii := i). rewrite alli_app in ii. eapply MCProd.andb_and in ii. destruct ii as [i' i''].
+  exists i', i''. revert n i i' i''. induction l; cbn in *; intros.  
+  - f_equal. eapply bool_irr.
+  - destruct MCProd.andb_and. destruct (a0 _). destruct a.      
+    destruct MCProd.andb_and. destruct (a _). rewrite <- app_comm_cons; repeat f_equal.
+    * apply bool_irr.
+    * assert (S (#|l| + n) = #|l| + S n) by lia. revert i''. rewrite H. apply IHl.
+  Qed.      
+    
   Lemma CoqType_to_camlType_oneind_nth mind Hparam x Hfo k l :
   nth_error (CoqType_to_camlType_oneind mind x Hparam Hfo) k = Some l
   -> exists l', nth_error (ind_ctors x) k = Some l' /\ #|l| = #|cstr_args l'|.
@@ -859,7 +871,7 @@ Lemma Forall2_Forall_mix {A B} {P : B -> Prop} {Q : A -> B -> Prop}
    {l : list A} {l' : list B} :
   Forall2 (fun x y => (P y -> Q x y)) l l' -> Forall P l' -> Forall2 Q l l'.
 Proof.
-  induction 1; simpl; intros; constructor; inversion H1; eauto. 
+  induction 1; simpl; intros; constructor; inversion H1; eauto.
 Qed.
 
   Lemma Forall2_and_inv {A B : Type} (R R' : A -> B -> Prop) (l : list A) (l' : list B) :
@@ -869,7 +881,107 @@ Qed.
     induction 1; split; eauto; econstructor; destruct H; now destruct IHForall2.
   Qed.
 
-  Definition camlValue_to_CoqValue_nil `{Heap} `{WcbvFlags} (cf:=config.extraction_checker_flags)
+  Inductive nonDepProd : term -> Type :=
+    | nonDepProd_tInd : forall i u, nonDepProd (tInd i u)
+    | nonDepProd_Prod : forall na A B, closed A -> nonDepProd B -> nonDepProd (tProd na A B).
+
+  Axiom todo : forall A, A.
+
+  Lemma nonDep_closed t : nonDepProd t -> closed t.  
+  Proof.
+    induction 1; cbn; eauto. 
+    rewrite i; cbn. eapply PCUICLiftSubst.closed_upwards; eauto.
+  Qed. 
+
+  Definition nonDep_decompose (t:term) : 
+    nonDepProd t -> 
+   list term * term.
+  Proof. 
+    intros HnonDep; induction HnonDep; intros.
+    - refine ([], _). exact (tInd i u).
+    - refine (A :: fst IHHnonDep, snd IHHnonDep).
+  Defined.
+  
+  Lemma nonDep_typing_spine (cf:=config.extraction_checker_flags) (Σ:global_env_ext) us u_ty s (nonDep : nonDepProd u_ty) :
+    PCUICTyping.wf Σ ->
+    Σ ;;; [] |- u_ty : tSort s -> 
+    All2 (fun u uty => Σ ;;; [] |- u : uty) us (fst (nonDep_decompose u_ty nonDep))  ->
+    PCUICGeneration.typing_spine Σ [] u_ty us (snd (nonDep_decompose u_ty nonDep)).
+  Proof.
+  revert s us. induction nonDep; cbn in *; intros s us wfΣ Hty; cbn.
+  - intro H; depelim H. econstructor; [|reflexivity]. eexists; eauto.
+  - set (PCUICInversion.inversion_Prod Σ wfΣ Hty) in *.
+    destruct s0 as [s1 [s2 [HA [HB ?]]]]; cbn. intro H; depelim H.
+    econstructor; try reflexivity; eauto.
+    eexists; eauto.   
+    rewrite /subst1 PCUICClosed.subst_closedn; [apply nonDep_closed; eauto|].
+    eapply (IHnonDep s2); eauto. clear IHnonDep H. eapply nonDep_closed in nonDep. clear - HB nonDep.
+    apply todo.
+  Qed.      
+
+Lemma tApp_fo Σb n k t1 t2 : firstorder_type (Σb := Σb) n k (tApp t1 t2) -> firstorder_type (Σb := Σb) n k t1.
+Proof.
+  unfold firstorder_type, PCUICAstUtils.decompose_app. cbn. rewrite PCUICAstUtils.fst_decompose_app_rec; eauto.
+Defined. 
+
+Lemma invert_Some {A} {a b:A} (e : Some a = Some b) : a = b.
+Proof.
+  now inversion e. 
+Defined.  
+
+Lemma firstorder_nonDepProd (cf:=config.extraction_checker_flags) Σ mind kn Eind cstr_args0 x lterm lind ind :
+  nth_error (ind_bodies mind) ind = Some Eind ->
+  let Ts := CoqType_to_camlType_ind_ctor (Σb := []) 0 #|ind_bodies mind| (rev cstr_args0) x in 
+  All2 (fun a b => ∥ Σ;;; [] |- a : tInd {| inductive_mind := kn; inductive_ind := b |} [] ∥) lterm lind ->
+  All2 (fun a b => 0 <= a /\ a < #|ind_bodies mind| /\ b = Rel a) lind Ts -> 
+  { nd : nonDepProd (subst0 (inds kn [] (ind_bodies mind))
+                     (it_mkProd_or_LetIn cstr_args0 (tRel (#|ind_bodies mind| - S ind + #|cstr_args0|)))@[[]]) &
+  (fst (nonDep_decompose _ nd) = map (fun b : nat => tInd {| inductive_mind := kn; inductive_ind := #|ind_bodies mind| - S b |} []) lind) /\
+  (snd (nonDep_decompose _ nd) = tInd {| inductive_mind := kn; inductive_ind := ind |} []) }.
+Proof.
+    intros Hind. 
+    set (X := (tRel (#|ind_bodies mind| - S ind + #|cstr_args0|))).
+    assert (Hmind: #|ind_bodies mind| > 0).
+    { destruct (ind_bodies mind); [|cbn; lia]. rewrite nth_error_nil in Hind. inversion Hind. }
+    assert (HX : {nd : nonDepProd (subst (inds kn [] (ind_bodies mind)) #|cstr_args0| X@[[]]) &
+      (fst (nonDep_decompose _ nd) = map (fun b : nat => tInd {| inductive_mind := kn; inductive_ind := #|ind_bodies mind| - S b |} []) []) /\ 
+      (snd (nonDep_decompose _ nd) = tInd {| inductive_mind := kn; inductive_ind := ind |} [])}).
+    { cbn.
+      assert (#|cstr_args0| <= #|ind_bodies mind| - S ind + #|cstr_args0|) by lia.
+      apply leb_correct in H. 
+      destruct (_ <=? _); [| lia]. 
+      assert (Heq : #|ind_bodies mind| - S ind + #|cstr_args0| - #|cstr_args0| < #|ind_bodies mind|) by lia. 
+      pose proof (@nth_error_inds kn [] _ _ Heq). revert H0. 
+      destruct (nth_error (inds _ _ _) _); [| inversion 1].
+      intro Hsome. rewrite (invert_Some Hsome). unshelve eexists. econstructor. cbn. split; [sq; eauto|].
+      repeat f_equal. destruct (ind_bodies _); [inversion Hmind|]. apply nth_error_Some_length in Hind. cbn in *. lia.  
+    }
+    clearbody X. intros Ts Htyp Hrel. rewrite <- (app_nil_r lind). revert HX Ts Htyp Hrel. generalize (@nil nat) as lind_done.
+    revert X lterm lind x. 
+    induction cstr_args0; intros X lterm lind x lind_done HX Ts Htyp Hrel; simpl in *; eauto.
+    1: { eapply All2_length in Hrel. eapply length_nil in Hrel. 
+         subst. cbn. eauto. }
+    unfold Ts in Hrel. edestruct (CoqType_to_camlType_ind_ctor_app (Σb := [])) as [? [? ->]] in Hrel.
+    apply All2_app_inv_r in Hrel as [lind' [lind'' [? [Hrel Ha]]]]. 
+    rewrite e in Htyp. apply All2_app_inv_r in Htyp as [lterm' [lterm'' [? [Htyp Htyp']]]]. subst.
+    rewrite <- app_assoc. unshelve eapply IHcstr_args0; try exact lterm'; eauto. 
+    destruct a. destruct decl_body.
+    + apply todo. (* letIn *)
+    + destruct HX as [ndX [Xfst Xsnd]]. cbn. 
+      unshelve econstructor. econstructor; eauto. apply todo.
+      split; eauto. 
+      rewrite map_app. cbn. set (subst _ _ _). set (fst _). change (t :: y) with ([t]++y). f_equal; eauto. 
+      unfold t. cbn in Ha. destruct MCProd.andb_and. destruct (a _). clear a i i1.
+      destruct decl_type; inversion i0.
+      * cbn. revert i0 Ha. rewrite rev_length. cbn.  intros. apply MCProd.andb_and in i0. destruct i0. rewrite <- plus_n_O in H.
+        inversion Ha. subst. apply All2_length in X0. apply length_nil in X0. subst. clear Ha. 
+        rewrite H.  rewrite nth_error_inds. { apply leb_complete in H1. lia. } 
+        cbn. repeat f_equal. destruct H4 as [? [? ?]]. now inversion H4.
+      * apply todo.
+      * cbn in H0. destruct ind0. inversion H0.
+  Qed. 
+
+   Lemma camlValue_to_CoqValue_nil `{Heap} `{WcbvFlags} (cf:=config.extraction_checker_flags)
     univ retro univ_decl kn mind
     (Hparam : ind_params mind = [])
     (Hindices : Forall (fun ind => ind_indices ind = []) (ind_bodies mind))
@@ -1038,7 +1150,8 @@ Qed.
               now cbn in *.
               unfold lookup_inductive, lookup_inductive_gen, lookup_minductive_gen, lookup_env. cbn.
               rewrite ReflectEq.eqb_refl. rewrite e; eauto.
-          - eapply IHHv'. }
+          - eapply IHHv'. 
+        }
         pose proof (Hv'Ts := Forall2_length H0).
         destruct (All_exists _ _ _ _ _ _ H0) as [lv' Hlv']. clear H0. 
         eapply Forall2_sym in Hlv'. cbn in Hlv'.
@@ -1048,8 +1161,8 @@ Qed.
         eapply Forall_Forall2_and_inv in Hlv'.
         destruct Hlv' as [Hlv' Hvallv'].
         apply Forall_All in Hvallv'.
-          split.
-          2: { rewrite (compile_pipeline_tConstruct_cons Σ). 
+        split.
+        2: { rewrite (compile_pipeline_tConstruct_cons Σ). 
             rewrite map_length. erewrite Forall2_length; eauto.
             pose proof (Forall2_length Hv').
             rewrite zip_length; try rewrite <- H0; cbn; lia.
@@ -1086,7 +1199,7 @@ Qed.
             eapply CoqType_to_camlType_oneind_nth in HTs.
             destruct HTs as [l' [HTs Hlength]].
             rewrite Hlength. eapply ctors_max_length; eauto.
-          }
+        }
         clear Hv'. 
         destruct Hwit as [Ts' [HTs'' [Hfilter _]]].
         unfold lookup_inductive, lookup_inductive_gen, lookup_minductive_gen in Hlookup.
@@ -1097,67 +1210,60 @@ Qed.
         assert (is_true (@firstorder_oneind [] mind Eind)).
         { clear - HEind Hfo; eapply forallb_nth_error in Hfo; erewrite HEind in Hfo; exact Hfo. }
         unshelve erewrite CoqType_to_camlType'_nth in Hfilter, HTs,HTs', HTs''; eauto.
-          2-5 : rewrite CoqType_to_camlType'_length in Hind; lia.
-          unfold CoqType_to_camlType_oneind in Hfilter, HTs, HTs', HTs''. remember Eind as o. destruct o. 
-          destruct MCProd.andb_and. destruct (a _).  
-          apply CoqType_to_camlType_ind_ctors_nth in HTs''.
-          destruct HTs'' as [a0 [? [? ?]]]. rewrite Nat.sub_0_r in HTs'. rewrite HTs' in Hfilter. 
-          inversion Hfilter. clear HTs HTs' Hfilter. rewrite H4 in Hlv', Hv'Ts. clear T Ts H4.   
-          eapply Forall2_and_inv in Hlv'. destruct Hlv' as [_ Hlv'].
-          set (P := (fun a b =>
+        2-5 : rewrite CoqType_to_camlType'_length in Hind; lia.
+        unfold CoqType_to_camlType_oneind in Hfilter, HTs, HTs', HTs''. remember Eind as o. destruct o. 
+        destruct MCProd.andb_and. destruct (a _).  
+        apply CoqType_to_camlType_ind_ctors_nth in HTs''.
+        destruct HTs'' as [a0 [? [? ?]]]. rewrite Nat.sub_0_r in HTs'. rewrite HTs' in Hfilter. 
+        inversion Hfilter. clear HTs HTs' Hfilter. rewrite H4 in Hlv', Hv'Ts. clear T Ts H4.  
+        eapply Forall2_and_inv in Hlv'. destruct Hlv' as [_ Hlv'].
+        set (P := (fun a b =>
           0 <= a /\ a < #|ind_bodies mind| /\ b = Rel a)). 
-          epose proof (Forall2_map_right (fun a => P (snd a)) snd). unfold P in H3.
-          rewrite <- H3 in Hlv'. clear H3.
-          epose proof (Forall2_map_left P snd). unfold P in H3.
-          rewrite <- H3 in Hlv'. clear H3 P. 
-          rewrite zip_snd in Hlv'; eauto. 
-          eapply Forall2_All2 in Hlv'.
-          assert (Hcstr_indices : cstr_indices a0 = []).
+        epose proof (Forall2_map_right (fun a => P (snd a)) snd). unfold P in H3.
+        rewrite <- H3 in Hlv'. clear H3.
+        epose proof (Forall2_map_left P snd). unfold P in H3.
+        rewrite <- H3 in Hlv'. clear H3 P. 
+        rewrite zip_snd in Hlv'; eauto. 
+        eapply Forall2_All2 in Hlv'.
+        assert (Hcstr_indices : cstr_indices a0 = []).
           { apply length_nil. erewrite @cstr_indices_length with (Σ:=Σ) (ind:=(mkInd kn ind,k')); eauto. 
             2: { repeat split. cbn. left. reflexivity. all:cbn; eauto. } cbn. eapply nth_error_forall in Hindices; eauto.
                  cbn in Hindices. now rewrite Hindices. }
-          sq. eapply PCUICGeneration.type_mkApps.
-          ++ eapply type_Construct; eauto. 
+        sq. eapply PCUICGeneration.type_mkApps.
+        ++ eapply type_Construct; eauto. 
           ** unfold declared_constructor, declared_inductive. now cbn.
           ** unfold consistent_instance_ext, consistent_instance; cbn.
              now rewrite Hmono. 
-          ++ unfold PCUICTyping.wf in wfΣ. inversion wfΣ as [_ wfΣ'].
-            cbn in wfΣ'. inversion wfΣ'. clear X. inversion X0. inversion on_global_decl_d. 
-            eapply Alli_nth_error in onInductives; eauto. cbn in onInductives.
-            inversion onInductives. unfold PCUICGlobalMaps.on_constructors in *. cbn in *.
-            unfold type_of_constructor. cbn.
-            eapply All2_nth_error_Some  in onConstructors; eauto. destruct onConstructors as [l' [? onConstructor]].
-            erewrite cstr_eq; eauto. 
-            revert Hlv'. induction Hvallv'; cbn; intro Hlv'.
-            ** inversion Hlv'. destruct a0, cstr_args0.
-            2:{ subst. cbn in *. set (CoqType_to_camlType_ind_ctor _ _ _ x) in H7.
-                assert (#|[]| = #|l|) by now f_equal.
-                unfold l in H2. rewrite CoqType_to_camlType_ind_ctors_length in H2.
-                rewrite app_length in H2. cbn in H2. clear -H2; lia. }
-                rewrite Hparam. cbn. unfold cstr_concl, cstr_concl_head; cbn.
-                cbn in Hcstr_indices. rewrite Hparam; cbn. rewrite Hcstr_indices.
-                cbn. rewrite nth_error_inds. 
-                { clear -Hlookup. destruct (ind_bodies mind); cbn in *; try lia.
-                rewrite nth_error_nil in Hlookup. inversion Hlookup. }
-                assert (#|ind_bodies mind| - S (#|ind_bodies mind| - S ind + 0 + 0 - 0) = ind).
-                { rewrite CoqType_to_camlType'_length in Hind. clear - Hind. lia. }
-                rewrite H3; clear H3. cbn. econstructor; try reflexivity.          
-            unfold isType, PCUICEnvTyping.infer_sort. exists (subst_instance_univ [] ind_sort0).
-            rewrite Hparam in ind_arity_eq. cbn in ind_arity_eq.
-            eapply nth_error_forall in Hindices; eauto. cbn in Hindices. rewrite Hindices in ind_arity_eq.                       
-            cbn in ind_arity_eq.  
-            unshelve epose proof (type_Ind (Σ,univ_decl) [] (mkInd kn ind) [] mind Eind _ _ _).
-            *** econstructor.
-            *** unfold declared_constructor, declared_inductive. subst. now cbn.
-            *** unfold consistent_instance_ext, consistent_instance; cbn.
-               now rewrite Hmono.
-            *** subst. cbn in *. destruct ind_sort0; eauto.
-          **  destruct a0, cstr_args0; subst; cbn in *. 
-           { eapply All2_length in Hlv'. rewrite CoqType_to_camlType_ind_ctors_length in Hlv'.
-           rewrite Hparam in Hlv'. inversion Hlv'. }
-           rewrite Hparam. cbn. unfold cstr_concl, cstr_concl_head; cbn.
-           admit. 
-  Admitted.
+        ++ unfold PCUICTyping.wf in wfΣ. inversion wfΣ as [_ wfΣ'].
+           cbn in wfΣ'. inversion wfΣ'. clear X. inversion X0. inversion on_global_decl_d. 
+           eapply Alli_nth_error in onInductives; eauto. cbn in onInductives.
+           inversion onInductives. unfold PCUICGlobalMaps.on_constructors in *. cbn in *.
+           unfold type_of_constructor. cbn.
+           eapply All2_nth_error_Some  in onConstructors; eauto. destruct onConstructors as [l' [? onConstructor]].
+           pose proof (Hctype := on_ctype onConstructor). destruct Hctype as [sctype Hctype]. 
+           revert Hctype. erewrite cstr_eq; eauto. rewrite Hparam. cbn. 
+           unfold cstr_concl, cstr_concl_head. 
+           rewrite Hparam Hcstr_indices. cbn. rewrite <- plus_n_O. intro.  
+           eapply @All_All2_refl with (R := fun a b: term * nat =>
+           ∥ (Σ, univ_decl);;; []
+             |- fst a : tInd {| inductive_mind := kn;
+             inductive_ind := snd b |} [] ∥) in Hvallv'.
+           eapply @All2_map_left with (P := fun a b =>
+           ∥ (Σ, univ_decl);;; []
+             |- a : tInd {| inductive_mind := kn;
+                   inductive_ind := snd b |} [] ∥) in Hvallv'.
+           eapply @All2_map_right with (P := fun a b =>
+                   ∥ (Σ, univ_decl);;; []
+                     |- a : tInd {| inductive_mind := kn; inductive_ind := b |} [] ∥) in Hvallv'.  
+           set (lind := map snd lv') in *. set (lterm := map fst lv') in *. clearbody lterm lind. clear lv'.
+           revert Hlv'; intro. rewrite H2 in Hlv'. clear H2. revert x Hlv'. rewrite Hparam app_nil_r. intros.
+           epose (Hnd := firstorder_nonDepProd). edestruct Hnd as [Hnd' [Hndfst Hndsnd]]; eauto.
+           eapply @All2_map_right with (P := fun a b => ∥ (Σ, univ_decl);;; [] |- a : b ∥) in Hvallv'.   
+           revert Hvallv'; intro.  
+           rewrite <- Hndsnd. eapply nonDep_typing_spine with (s:=sctype) ; eauto. 
+           { (* this should come from Hctype *) apply todo. }
+          rewrite Hndfst. apply todo.
+      Qed.
   
   Definition CoqValue_to_CamlValue `{Heap} `{WcbvFlags} (cf:=config.extraction_checker_flags)
     univ retro univ_decl kn mind
@@ -1330,19 +1436,23 @@ Qed.
 
 Axiom compile_pure : forall `{Heap} `{WcbvFlags} Σ t, is_true (isPure (compile_pipeline Σ t)).
 
-Axiom compile_compose : forall `{Heap} `{WcbvFlags} Σ h h' t u' u v w ,
-  eval [] (empty_locals _) h (compile_pipeline Σ u) h v ->
+Axiom compile_compose : forall `{Heap} `{WcbvFlags} (cf:=config.extraction_checker_flags) 
+  (Σ:global_env) univ_decl h h' t u' u v w na A B,
+  ∥ (Σ , univ_decl) ;;; [] |- t : tProd na A B ∥ ->
+  ~ ∥Extract.isErasable (Σ , univ_decl) [] t∥ -> 
+  eval [] (empty_locals _) h (compile_pipeline Σ.(declarations) u) h v ->
   eval [] (empty_locals _) h u' h' v ->
-  eval [] (empty_locals _) h (Mapply (compile_pipeline Σ t, [u'])) h' w ->
-  eval [] (empty_locals _) h (compile_pipeline Σ (tApp t u)) h w.
+  eval [] (empty_locals _) h (Mapply (compile_pipeline Σ.(declarations) t, [u'])) h' w ->
+  eval [] (empty_locals _) h (compile_pipeline Σ.(declarations) (tApp t u)) h w.
 
 Axiom compile_function : forall `{Heap} `{WcbvFlags} (cf:=config.extraction_checker_flags)
   Σ univ_decl h h' f v na A B,
   ∥ (Σ , univ_decl) ;;; [] |- f : tProd na A B ∥ ->
+  ~ ∥Extract.isErasable (Σ , univ_decl) [] f∥ ->
   eval [] (empty_locals _) h (compile_pipeline Σ.(declarations) f) h' v ->
   isFunction v = true.
 
-Definition CoqFunction_to_CamlFunction `{Heap} `{WcbvFlags} (cf:=config.extraction_checker_flags)
+Lemma CoqFunction_to_CamlFunction `{Heap} `{WcbvFlags} (cf:=config.extraction_checker_flags)
     univ retro univ_decl kn mind 
   (Hparam : ind_params mind = [])
   (Hindices : Forall (fun ind => ind_indices ind = []) (ind_bodies mind))
@@ -1371,7 +1481,45 @@ Proof.
   unfold lookup_inductive, lookup_inductive_gen, lookup_minductive_gen in Hlookup. cbn in Hlookup.
   rewrite ReflectEq.eqb_refl in Hlookup.
   assert (HEind : nth_error (ind_bodies mind) ind = Some Eind).
-  { destruct (nth_error (ind_bodies mind) ind); now inversion Hlookup. }          
+  { destruct (nth_error (ind_bodies mind) ind); now inversion Hlookup. }
+  assert (Htype_ind : (Σ, univ_decl);;; []
+  |- tInd {| inductive_mind := kn; inductive_ind := ind |}
+       [] : (tSort (ind_sort Eind))@[[]]).
+  {  unshelve epose proof (type_Ind (Σ,univ_decl) [] (mkInd kn ind) [] mind Eind _ _ _).
+  *** econstructor.
+  *** unfold declared_constructor, declared_inductive. subst. now cbn.
+  *** unfold consistent_instance_ext, consistent_instance; cbn.
+     now rewrite Hmono.
+  *** unfold ind_type in X. destruct Eind; cbn in *.
+      unfold PCUICTyping.wf in wfΣ. inversion wfΣ as [_ wfΣ'].
+      cbn in wfΣ'. inversion wfΣ'. clear X0. inversion X1. inversion on_global_decl_d.
+      eapply Alli_nth_error in onInductives; eauto. cbn in onInductives.
+      inversion onInductives. cbn in *.
+      eapply nth_error_forall in Hindices; eauto. cbn in Hindices. rewrite Hindices in ind_arity_eq.                       
+      cbn in ind_arity_eq. rewrite Hparam in ind_arity_eq. cbn in ind_arity_eq.
+      now rewrite ind_arity_eq in X. }     
+  assert (Htype_ind' : (Σ, univ_decl);;;
+  [],,
+  vass na
+    (tInd {| inductive_mind := kn; inductive_ind := ind |}
+       [])
+  |- tInd {| inductive_mind := kn; inductive_ind := ind |}
+       [] : tSort (subst_instance_univ [] (ind_sort Eind))).
+  {     unshelve epose proof (type_Ind (Σ,univ_decl) 
+  ([],,vass na (tInd {| inductive_mind := kn; inductive_ind := ind |} [])) (mkInd kn ind) [] mind Eind _ _ _).
+  *** econstructor. econstructor. cbn. unfold infer_sort.
+      eexists; eauto.   
+  *** unfold declared_constructor, declared_inductive. subst. now cbn.
+  *** unfold consistent_instance_ext, consistent_instance; cbn.
+      now rewrite Hmono.
+  *** unfold ind_type in X. destruct Eind; cbn in *.
+      unfold PCUICTyping.wf in wfΣ. inversion wfΣ as [_ wfΣ'].
+      cbn in wfΣ'. inversion wfΣ'. clear X0. inversion X1. inversion on_global_decl_d.
+      eapply Alli_nth_error in onInductives; eauto. cbn in onInductives.
+      inversion onInductives. cbn in *.
+      eapply nth_error_forall in Hindices; eauto. cbn in Hindices. rewrite Hindices in ind_arity_eq.                       
+      cbn in ind_arity_eq. rewrite Hparam in ind_arity_eq. cbn in ind_arity_eq.
+      now rewrite ind_arity_eq in X.  }      
   inversion Heval; subst.
   - specialize (Ht _ _ _ H8).
     unshelve eapply camlValue_to_CoqValue_nil in Ht; eauto; cbn.
@@ -1383,44 +1531,14 @@ Proof.
       eapply isPure_heap in Ht_eval; try eapply compile_pure; intros; cbn; eauto. now destruct Ht_typ. }
     subst. eapply isPure_heap in H6; try eapply compile_pure; intros; cbn; eauto.
     destruct H6 as [? ?]; subst.  
-    eapply compile_compose in H8; eauto. 
+    eapply compile_compose in H8; eauto.
+    2: {  } 
     2: { eapply isPure_heap_irr,  Ht_eval; try eapply compile_pure; intros; cbn; eauto. }
     unshelve eapply CoqValue_to_CamlValue; try exact H8; try rewrite int_to_of_nat; eauto.
     destruct H3, Ht_typ. sq. 
     unshelve epose proof (type_App _ _ _ _ _ _ _ _ _ X X0); try exact (subst_instance_univ [] (ind_sort Eind)); eauto.
     rewrite <- (sort_of_product_idem _).
-    assert ((Σ, univ_decl);;; []
-    |- tInd {| inductive_mind := kn; inductive_ind := ind |}
-         [] : (tSort (ind_sort Eind))@[[]]).
-    {  unshelve epose proof (type_Ind (Σ,univ_decl) [] (mkInd kn ind) [] mind Eind _ _ _).
-    *** econstructor.
-    *** unfold declared_constructor, declared_inductive. subst. now cbn.
-    *** unfold consistent_instance_ext, consistent_instance; cbn.
-       now rewrite Hmono.
-    *** unfold ind_type in X1. destruct Eind; cbn in *.
-        unfold PCUICTyping.wf in wfΣ. inversion wfΣ as [_ wfΣ'].
-        cbn in wfΣ'. inversion wfΣ'. clear X2. inversion X3. inversion on_global_decl_d.
-        eapply Alli_nth_error in onInductives; eauto. cbn in onInductives.
-        inversion onInductives. cbn in *.
-        eapply nth_error_forall in Hindices; eauto. cbn in Hindices. rewrite Hindices in ind_arity_eq.                       
-        cbn in ind_arity_eq. rewrite Hparam in ind_arity_eq. cbn in ind_arity_eq.
-        now rewrite ind_arity_eq in X1. }            
     eapply type_Prod; eauto.
-    unshelve epose proof (type_Ind (Σ,univ_decl) 
-          ([],,vass na (tInd {| inductive_mind := kn; inductive_ind := ind |} [])) (mkInd kn ind) [] mind Eind _ _ _).
-        *** econstructor. econstructor. cbn. unfold infer_sort.
-            eexists; eauto.   
-        *** unfold declared_constructor, declared_inductive. subst. now cbn.
-        *** unfold consistent_instance_ext, consistent_instance; cbn.
-           now rewrite Hmono.
-        *** unfold ind_type in X1. destruct Eind; cbn in *.
-            unfold PCUICTyping.wf in wfΣ. inversion wfΣ as [_ wfΣ'].
-            cbn in wfΣ'. inversion wfΣ'. clear X3. inversion X4. inversion on_global_decl_d.
-            eapply Alli_nth_error in onInductives; eauto. cbn in onInductives.
-            inversion onInductives. cbn in *.
-            eapply nth_error_forall in Hindices; eauto. cbn in Hindices. rewrite Hindices in ind_arity_eq.                       
-            cbn in ind_arity_eq. rewrite Hparam in ind_arity_eq. cbn in ind_arity_eq.
-            now rewrite ind_arity_eq in X2. 
   - specialize (Ht _ _ _ H7).
     eapply camlValue_to_CoqValue_nil in Ht; eauto; cbn.
     destruct Ht as [t_coq Ht].
@@ -1445,36 +1563,6 @@ Proof.
     destruct H3, Ht_typ. sq.
     unshelve epose proof (type_App _ _ _ _ _ _ _ _ _ t0 X); try exact (subst_instance_univ [] (ind_sort Eind)); eauto. 
     rewrite <- (sort_of_product_idem _).
-    assert ((Σ, univ_decl);;; []
-    |- tInd {| inductive_mind := kn; inductive_ind := ind |}
-         [] : (tSort (ind_sort Eind)@[[]])).
-    {  unshelve epose proof (type_Ind (Σ,univ_decl) [] (mkInd kn ind) [] mind Eind _ _ _).
-    *** econstructor.
-    *** unfold declared_constructor, declared_inductive. subst. now cbn.
-    *** unfold consistent_instance_ext, consistent_instance; cbn. now rewrite Hmono.
-    *** unfold ind_type in X0. destruct Eind; cbn in *.
-        unfold PCUICTyping.wf in wfΣ. inversion wfΣ as [_ wfΣ'].
-        cbn in wfΣ'. inversion wfΣ'. clear X1. inversion X2. inversion on_global_decl_d.
-        eapply Alli_nth_error in onInductives; eauto. cbn in onInductives.
-        inversion onInductives. cbn in *.
-        eapply nth_error_forall in Hindices; eauto. cbn in Hindices. rewrite Hindices in ind_arity_eq.                       
-        cbn in ind_arity_eq. rewrite Hparam in ind_arity_eq. cbn in ind_arity_eq.
-        now rewrite ind_arity_eq in X0. }            
     eapply type_Prod; eauto.
-    unshelve epose proof (type_Ind (Σ,univ_decl) 
-          ([],,vass na (tInd {| inductive_mind := kn; inductive_ind := ind |} [])) (mkInd kn ind) [] mind Eind _ _ _).
-        *** econstructor. econstructor. cbn. unfold infer_sort.
-            eexists; eauto.   
-        *** unfold declared_constructor, declared_inductive. subst. now cbn.
-        *** unfold consistent_instance_ext, consistent_instance; cbn.
-           now rewrite Hmono.
-        *** unfold ind_type in X1. destruct Eind; cbn in *.
-            unfold PCUICTyping.wf in wfΣ. inversion wfΣ as [_ wfΣ'].
-            cbn in wfΣ'. inversion wfΣ'. clear X2. inversion X3. inversion on_global_decl_d.
-            eapply Alli_nth_error in onInductives; eauto. cbn in onInductives.
-            inversion onInductives. cbn in *.
-            eapply nth_error_forall in Hindices; eauto. cbn in Hindices. rewrite Hindices in ind_arity_eq.                       
-            cbn in ind_arity_eq. rewrite Hparam in ind_arity_eq. cbn in ind_arity_eq.
-            now rewrite ind_arity_eq in X1. 
   - rewrite (compile_function _ _ _ _ _ _ _ _ _ H3 H7) in H10. inversion H10.
-  Qed.
+Qed.
