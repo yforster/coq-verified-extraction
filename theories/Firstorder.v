@@ -900,6 +900,11 @@ Qed.
     | nonDepProd_Prod na A B clA ndB => let IH := nonDep_decompose B ndB in (A :: fst IH, snd IH)
     end.
   
+  Lemma strengthening_type `{cf: checker_flags} {Σ : global_env_ext} {wfΣ : PCUICTyping.wf Σ} Γ Γ' Γ'' t s :
+    Σ ;;; Γ ,,, Γ' ,,, lift_context #|Γ'| 0 Γ'' |- lift #|Γ'| #|Γ''| t : tSort s -> 
+    { s' & Σ ;;; Γ ,,, Γ'' |- t : tSort s'}.
+  Admitted. 
+
   Lemma nonDep_typing_spine (cf:=config.extraction_checker_flags) (Σ:global_env_ext) us u_ty s (nonDep : nonDepProd u_ty) :
     PCUICTyping.wf Σ ->
     Σ ;;; [] |- u_ty : tSort s -> 
@@ -910,11 +915,12 @@ Qed.
   - intro H; depelim H. econstructor; [|reflexivity]. eexists; eauto.
   - set (PCUICInversion.inversion_Prod Σ wfΣ Hty) in *.
     destruct s0 as [s1 [s2 [HA [HB ?]]]]; cbn. intro H; depelim H.   
+    epose (strengthening_type [] ([],, vass na A) [] B s2).
+    pose proof (nonDep_closed _ nonDep).
+    edestruct s0 as [s' Hs]. cbn.  rewrite PCUICLiftSubst.lift_closed; eauto.
     econstructor; try reflexivity; eauto.
-    eexists; eauto.   
-    rewrite /subst1 PCUICClosed.subst_closedn; [apply nonDep_closed; eauto|].
-    eapply (IHnonDep s2); eauto. clear IHnonDep H. eapply nonDep_closed in nonDep. clear - HB nonDep.
-    apply todo.
+    + eexists; eauto.
+    + rewrite /subst1 PCUICClosed.subst_closedn; eauto.
   Qed.      
 
   Lemma firstorder_type_closed kn l k T :
@@ -961,8 +967,9 @@ Proof.
     unfold Ts in Hrel. edestruct (CoqType_to_camlType_ind_ctor_app (Σb := [])) as [? [? ->]] in Hrel.
     apply All2_app_inv_r in Hrel as [lind' [lind'' [? [Hrel Ha]]]]. subst.
     rewrite <- app_assoc. eapply IHcstr_args0; eauto.
+    { destruct decl_body;[inversion Hlets| eauto]. }
     destruct a. destruct decl_body.
-    + inversion Hlets. 
+    + inversion Hlets.
     + destruct HX as [ndX [Xfst Xsnd]]. cbn. 
       unshelve econstructor. econstructor; eauto.
       { clear - x1. cbn in *. apply MCProd.andb_and in x1; destruct x1 as [x1 _].
@@ -977,9 +984,10 @@ Proof.
         rewrite H. rewrite nth_error_inds. { apply leb_complete in H1. lia. } 
         cbn. repeat f_equal; eauto. destruct H4 as [? [? ?]]. inversion H4. 
         apply leb_complete in H1. lia.   
-      * apply todo.
+      * cbn in *. (* application case, not possible *) apply todo.
       * cbn in H0. destruct ind0. inversion H0.
   Qed. 
+
 
   Lemma camlValue_to_CoqValue_nil `{Heap} `{WcbvFlags} (cf:=config.extraction_checker_flags)
     univ retro univ_decl kn mind
@@ -1203,7 +1211,7 @@ Proof.
         }
         clear Hv' Heval.  
         destruct Hwit as [Ts' [HTs'' [Hfilter _]]].
-        unfold lookup_inductive, lookup_inductive_gen, lookup_minductive_gen in Hlookup.
+        pose proof (Hlookup':=Hlookup).
         unfold lookup_inductive, lookup_inductive_gen, lookup_minductive_gen in Hlookup.
         cbn in Hlookup. rewrite ReflectEq.eqb_refl in Hlookup.
         assert (HEind : nth_error (ind_bodies mind) ind = Some Eind).
@@ -1216,6 +1224,12 @@ Proof.
         destruct MCProd.andb_and. destruct (a _).  
         apply CoqType_to_camlType_ind_ctors_nth in HTs''.
         destruct HTs'' as [a0 [? [? ?]]]. rewrite Nat.sub_0_r in HTs'. rewrite HTs' in Hfilter. 
+        unshelve epose proof (PCUICInductiveInversion.declared_constructor_valid_ty (Σ, univ_decl) [] mind Eind  
+        {| inductive_mind := kn; inductive_ind := ind |} k' a0 [] _ _); eauto.
+        destruct X as [sctype Hctype].
+        { rewrite <- Heqo. cbn. econstructor; eauto. econstructor; eauto.
+          unfold declared_minductive. cbn. now left. }
+        { unfold consistent_instance_ext, consistent_instance; cbn. now rewrite Hmono. }
         inversion Hfilter. clear HTs HTs' Hfilter. rewrite H4 in Hlv', Hv'Ts. clear T Ts H4.  
         set (P := (fun a b => 0 <= a /\ a < #|ind_bodies mind| /\ b = Rel (#|ind_bodies mind| - S a))). 
         epose proof (Forall2_map_right (fun a => P (snd a)) snd). unfold P in H3.
@@ -1234,14 +1248,13 @@ Proof.
           ** unfold consistent_instance_ext, consistent_instance; cbn.
              now rewrite Hmono. 
         ++ unfold PCUICTyping.wf in wfΣ. inversion wfΣ as [_ wfΣ'].
-          cbn in wfΣ'. inversion wfΣ'. clear X. inversion X0. inversion on_global_decl_d. 
+          cbn in wfΣ'. inversion wfΣ'. clear X. inversion X0. inversion on_global_decl_d.
           eapply Alli_nth_error in onInductives; eauto. cbn in onInductives.
           inversion onInductives. unfold PCUICGlobalMaps.on_constructors in *. cbn in *.
           unfold type_of_constructor. cbn.
-          eapply All2_nth_error_Some  in onConstructors; eauto. destruct onConstructors as [l' [? onConstructor]].          
-          pose proof (Hctype := on_ctype onConstructor).
+          eapply All2_nth_error_Some  in onConstructors; eauto.
+          destruct onConstructors as [l' [? onConstructor]].          
           pose proof (Hlets := on_lets_in_type _ _ _ _ _ _ _ _ _ onConstructor). cbn in Hlets. 
-          destruct Hctype as [sctype Hctype]. 
           revert Hctype. erewrite cstr_eq; eauto. rewrite Hparam. cbn. 
           unfold cstr_concl, cstr_concl_head. 
           rewrite Hparam Hcstr_indices. cbn. rewrite <- plus_n_O. intro.  
@@ -1261,10 +1274,10 @@ Proof.
           revert Hlv'; intro. rewrite H2 in Hlv'. clear H2. revert x Hlv'. rewrite Hparam app_nil_r. intros.
           epose (Hnd := firstorder_nonDepProd). edestruct Hnd as [Hnd' [Hndfst Hndsnd]]; eauto.
           rewrite <- Hndsnd. eapply nonDep_typing_spine with (s:=sctype) ; eauto. 
-          { (* rewrite <- (app_context_nil_l (arities_context (ind_bodies mind))) in Hctype.
-            eapply (PCUICSubstitution.substitution (Γ := []) (Γ':=arities_context (ind_bodies mind)) (Δ:=[])) in Hctype. 
-            cbn in Hctype. rewrite app_context_nil_l in Hctype. *)
-            (* this should come from Hctype *) apply todo. }
+          { revert Hctype; intro. unfold type_of_constructor in Hctype. cbn in Hctype.
+            erewrite cstr_eq in Hctype; eauto. rewrite Hparam in Hctype. cbn in Hctype. 
+            unfold cstr_concl, cstr_concl_head in Hctype. rewrite Hparam Hcstr_indices app_nil_r in Hctype.
+            cbn in Hctype. rewrite <- plus_n_O in Hctype; eauto. }
           rewrite Hndfst. now apply All2_map_right.
   Qed.
   
