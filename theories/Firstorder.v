@@ -2,7 +2,7 @@ Require Import ssreflect ssrbool Eqdep_dec.
 From Equations Require Import Equations. 
 From MetaCoq.Utils Require Import All_Forall MCSquash MCList.
 From MetaCoq.Common Require Import Transform config Kernames.
-From MetaCoq.PCUIC Require Import PCUICAst PCUICTyping PCUICFirstorder PCUICCasesHelper BDStrengthening.
+From MetaCoq.PCUIC Require Import PCUICAst PCUICTyping PCUICFirstorder PCUICCasesHelper BDStrengthening PCUICCumulativity.
 From MetaCoq.Erasure Require Import EWcbvEval EWcbvEvalNamed.
 From MetaCoq.SafeChecker Require Import PCUICErrors PCUICWfEnv PCUICWfEnvImpl.
 
@@ -899,11 +899,11 @@ Qed.
     | nonDepProd_tInd i u => ([], tInd i u)
     | nonDepProd_Prod na A B clA ndB => let IH := nonDep_decompose B ndB in (A :: fst IH, snd IH)
     end.
-  
+ 
   Lemma strengthening_type `{cf: checker_flags} {Σ : global_env_ext} {wfΣ : PCUICTyping.wf Σ} Γ Γ' Γ'' t s :
     Σ ;;; Γ ,,, Γ' ,,, lift_context #|Γ'| 0 Γ'' |- lift #|Γ'| #|Γ''| t : tSort s -> 
-    { s' & Σ ;;; Γ ,,, Γ'' |- t : tSort s'}.
-  Admitted. 
+    { s' & ((Σ ;;; Γ ,,, Γ'' |- t : tSort s') * (compare_universe Cumul Σ s' s))%type}.
+  Admitted.
 
   Lemma nonDep_typing_spine (cf:=config.extraction_checker_flags) (Σ:global_env_ext) us u_ty s (nonDep : nonDepProd u_ty) :
     PCUICTyping.wf Σ ->
@@ -917,24 +917,68 @@ Qed.
     destruct s0 as [s1 [s2 [HA [HB ?]]]]; cbn. intro H; depelim H.   
     epose (strengthening_type [] ([],, vass na A) [] B s2).
     pose proof (nonDep_closed _ nonDep).
-    edestruct s0 as [s' Hs]. cbn.  rewrite PCUICLiftSubst.lift_closed; eauto.
+    edestruct s0 as [s' [Hs _]]. cbn.  rewrite PCUICLiftSubst.lift_closed; eauto.
     econstructor; try reflexivity; eauto.
     + eexists; eauto.
     + rewrite /subst1 PCUICClosed.subst_closedn; eauto.
   Qed.      
 
+  (*
+  Lemma firstorder_con_decompose_mkProd `{checker_flags} s mind ind Σ a kn :
+    Σ ;;; [] |- subst0 (inds kn [] (ind_bodies mind))
+                       (it_mkProd_or_LetIn (cstr_args a) (tRel (#|ind_bodies mind| - S ind + #|cstr_args a|)))@[[]] 
+                : tSort s ->
+    ind_params mind = [] -> 
+    is_assumption_context (cstr_args a) ->
+    firstorder_con (Σb := []) mind a -> 
+    All (fun decl => { s & Σ ;;; [] |- decl_type decl : tSort s}) (cstr_args a).
+  Proof.
+    destruct a; cbn. intros Htyp Hparam Hlets Hfo.
+    econstructor.
+    - apply todo.   
+    - rewrite alli_app in Hfo. apply MCProd.andb_and in Hfo; destruct Hfo as [Hfo ?]. 
+      eapply IHcstr_args0; eauto. 2: destruct (decl_body _); try solve [inversion Hlets]; eauto.
+*)
+
+  Lemma firstorder_con_notApp `{checker_flags} s mind ind Σ a kn :
+    Σ ;;; []
+    |- subst0 (inds kn [] (ind_bodies mind))
+              (it_mkProd_or_LetIn (cstr_args a) (tRel (#|ind_bodies mind| - S ind + #|cstr_args a|)))@[[]] : tSort s ->
+    ind_params mind = [] -> 
+    is_assumption_context (cstr_args a) ->
+    firstorder_con (Σb := []) mind a -> 
+    All (fun decl => ~ (isApp (decl_type decl))) (cstr_args a).
+  Proof.
+    intros Htyp Hparam Hlets Hfo. destruct a; cbn in *. induction cstr_args0; eauto.
+    cbn in Hfo. rewrite rev_app_distr Hparam in Hfo. cbn in Hfo.
+    rewrite alli_app in Hfo. rewrite <- plus_n_O in Hfo. apply MCProd.andb_and in Hfo. destruct Hfo as [? Hfo].
+    econstructor.
+    - clear H0 IHcstr_args0. destruct a. destruct decl_body; try solve [inversion Hlets].
+      cbn in *. apply MCProd.andb_and in Hfo. destruct Hfo as [Hfo _].
+      destruct decl_type; try solve [inversion Hfo]; cbn in *; eauto. intros _.
+
+      apply todo.        
+    - apply IHcstr_args0. 
+      3: now rewrite rev_app_distr Hparam. 
+      2: destruct a; destruct decl_body; try solve [inversion Hlets]; eauto.
+      apply todo. 
+  Qed. 
+
   Lemma firstorder_type_closed kn l k T :
-    firstorder_type (Σb := []) #|ind_bodies l| k T -> closed (subst (inds kn [] (ind_bodies l)) k T@[[]]).
+    ~ (isApp T) -> 
+    firstorder_type (Σb := []) #|ind_bodies l| k T -> 
+    closed (subst (inds kn [] (ind_bodies l)) k T@[[]]).
   Proof. 
-    destruct T; try solve [inversion 1]; cbn in *; eauto.  
+    intro nApp; destruct T; try solve [inversion 1]; cbn in *; eauto.  
     - intro H; apply MCProd.andb_and in H. destruct H. rewrite H.
       eapply leb_complete in H, H0. rewrite nth_error_inds; [lia|eauto].
-    - apply todo. (* application *)  
+    - now destruct nApp.
   Qed. 
 
   Lemma firstorder_nonDepProd mind kn Eind cstr_args0 x lind ind :
   nth_error (ind_bodies mind) ind = Some Eind ->
   is_assumption_context cstr_args0 ->
+  All (fun decl => ~ (isApp (decl_type decl))) cstr_args0 ->
   let Ts := CoqType_to_camlType_ind_ctor (Σb := []) 0 #|ind_bodies mind| (rev cstr_args0) x in 
   All2 (fun a b => 0 <= a /\ a < #|ind_bodies mind| /\ b = Rel (#|ind_bodies mind| - S a)) lind Ts -> 
   { nd : nonDepProd (subst0 (inds kn [] (ind_bodies mind))
@@ -942,7 +986,7 @@ Qed.
   (fst (nonDep_decompose _ nd) = map (fun b : nat => tInd {| inductive_mind := kn; inductive_ind := #|ind_bodies mind| - S b |} []) lind) /\
   (snd (nonDep_decompose _ nd) = tInd {| inductive_mind := kn; inductive_ind := ind |} []) }.
 Proof.
-    intros Hind Hlets. 
+    intros Hind Hlets Happ. 
     set (X := (tRel (#|ind_bodies mind| - S ind + #|cstr_args0|))).
     assert (Hmind: #|ind_bodies mind| > 0).
     { destruct (ind_bodies mind); [|cbn; lia]. rewrite nth_error_nil in Hind. inversion Hind. }
@@ -968,12 +1012,15 @@ Proof.
     apply All2_app_inv_r in Hrel as [lind' [lind'' [? [Hrel Ha]]]]. subst.
     rewrite <- app_assoc. eapply IHcstr_args0; eauto.
     { destruct decl_body;[inversion Hlets| eauto]. }
+    { inversion Happ; eauto. }
     destruct a. destruct decl_body.
     + inversion Hlets.
     + destruct HX as [ndX [Xfst Xsnd]]. cbn. 
       unshelve econstructor. econstructor; eauto.
-      { clear - x1. cbn in *. apply MCProd.andb_and in x1; destruct x1 as [x1 _].
-        rewrite <- plus_n_O in x1. rewrite rev_length in x1. now apply firstorder_type_closed. 
+      { cbn in *. clear -x1 Happ. 
+        apply MCProd.andb_and in x1; destruct x1 as [x1 _].
+        rewrite <- plus_n_O in x1. rewrite rev_length in x1. apply firstorder_type_closed; eauto.
+        inversion Happ; eauto.
       }
       split; eauto.
       rewrite map_app. cbn. set (subst _ _ _). set (fst _). change (t :: y) with ([t]++y). f_equal; eauto. 
@@ -984,10 +1031,9 @@ Proof.
         rewrite H. rewrite nth_error_inds. { apply leb_complete in H1. lia. } 
         cbn. repeat f_equal; eauto. destruct H4 as [? [? ?]]. inversion H4. 
         apply leb_complete in H1. lia.   
-      * cbn in *. (* application case, not possible *) apply todo.
+      * cbn in *. inversion Happ; subst. now cbn in H1. 
       * cbn in H0. destruct ind0. inversion H0.
   Qed. 
-
 
   Lemma camlValue_to_CoqValue_nil `{Heap} `{WcbvFlags} (cf:=config.extraction_checker_flags)
     univ retro univ_decl kn mind
@@ -1223,7 +1269,8 @@ Proof.
         unfold CoqType_to_camlType_oneind in Hfilter, HTs, HTs', HTs''. remember Eind as o. destruct o. 
         destruct MCProd.andb_and. destruct (a _).  
         apply CoqType_to_camlType_ind_ctors_nth in HTs''.
-        destruct HTs'' as [a0 [? [? ?]]]. rewrite Nat.sub_0_r in HTs'. rewrite HTs' in Hfilter. 
+        destruct HTs'' as [a0 [? [? ?]]]. rewrite Nat.sub_0_r in HTs'. rewrite HTs' in Hfilter.
+        pose proof (i0' := i0). unshelve eapply nth_error_forallb in i0'; eauto.    
         unshelve epose proof (PCUICInductiveInversion.declared_constructor_valid_ty (Σ, univ_decl) [] mind Eind  
         {| inductive_mind := kn; inductive_ind := ind |} k' a0 [] _ _); eauto.
         destruct X as [sctype Hctype].
@@ -1271,13 +1318,18 @@ Proof.
             (Σ, univ_decl);;; []
                      |- a : tInd {| inductive_mind := kn; inductive_ind := #|ind_bodies mind| - S b |} []) in Hvallv'.
           set (lind := map snd lv') in *. set (lterm := map fst lv') in *. clearbody lterm lind. clear lv'.
-          revert Hlv'; intro. rewrite H2 in Hlv'. clear H2. revert x Hlv'. rewrite Hparam app_nil_r. intros.
+          revert Hlv'; intro. rewrite H2 in Hlv'. clear H2. revert x Hlv'. rewrite Hparam app_nil_r. intros. 
           epose (Hnd := firstorder_nonDepProd). edestruct Hnd as [Hnd' [Hndfst Hndsnd]]; eauto.
+          1: eapply firstorder_type_notApp; eauto.
+          { revert Hctype; intro. unfold type_of_constructor in Hctype. cbn in Hctype.
+          erewrite cstr_eq in Hctype; eauto. rewrite Hparam in Hctype. cbn in Hctype. 
+          unfold cstr_concl, cstr_concl_head in Hctype. rewrite Hparam Hcstr_indices app_nil_r in Hctype.
+          cbn in Hctype. rewrite <- plus_n_O in Hctype. eauto. }
           rewrite <- Hndsnd. eapply nonDep_typing_spine with (s:=sctype) ; eauto. 
           { revert Hctype; intro. unfold type_of_constructor in Hctype. cbn in Hctype.
             erewrite cstr_eq in Hctype; eauto. rewrite Hparam in Hctype. cbn in Hctype. 
             unfold cstr_concl, cstr_concl_head in Hctype. rewrite Hparam Hcstr_indices app_nil_r in Hctype.
-            cbn in Hctype. rewrite <- plus_n_O in Hctype; eauto. }
+            cbn in Hctype. rewrite <- plus_n_O in Hctype. eauto. }
           rewrite Hndfst. now apply All2_map_right.
   Qed.
   
