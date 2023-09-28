@@ -20,7 +20,7 @@ Inductive camlType : Set :=
     Arrow : camlType -> camlType -> camlType
   | Rel : nat -> camlType
   | Adt : kername -> 
-            (* number of the ADT in the mutual definition *) int -> 
+            (* number of the ADT in the mutual definition *) nat -> 
             (* list of parameters *) list camlType -> 
             camlType.
 
@@ -29,7 +29,7 @@ forall P : camlType -> Type,
        (forall c : camlType,
         P c -> forall c0 : camlType, P c0 -> P (Arrow c c0)) ->
        (forall n : nat, P (Rel n)) ->
-       (forall (k : kername) (i : int) (l : list camlType), All P l -> P (Adt k i l)) ->
+       (forall (k : kername) i (l : list camlType), All P l -> P (Adt k i l)) ->
        forall c : camlType, P c. 
 Proof. 
   intros P X X0 X1. fix f 1. intros c; destruct c.
@@ -108,7 +108,7 @@ Section Realizability.
       - intros kn n params PAll.
         case (find (fun '(kn',_) => eq_kername kn kn') global_adt).
         + intros [_ Hrel]. 
-          refine (to_realize_term (Hrel params _ (int_to_nat n))).
+          refine (to_realize_term (Hrel params _ n)).
           induction PAll; econstructor; eauto. eapply to_realize_value; eassumption.
         + intros; exact False. 
     Defined.
@@ -172,7 +172,7 @@ Section firstorder.
     (* case of tRel with a valid index *)
     - intro; exact (Rel (n - S (n0-k))).  (* n0 - k *)  
     (* case of tInd where Σb is saying that inductive_mind is first order *)
-    - intro; destruct ind. exact (Adt inductive_mind (int_of_nat inductive_ind) []).
+    - intro; destruct ind. exact (Adt inductive_mind inductive_ind []).
   Defined.
   
 
@@ -614,10 +614,6 @@ ind_universes0 ind_variance0) x Hparam Hfo'); eauto.
   Axiom ind_ctors_wB : forall mind j ind,
     nth_error mind j = Some ind ->
     #|ind_ctors ind| <= Z.to_nat Uint63.wB.
-  Axiom ind_wB : forall mind retro kn univ (cf:=config.extraction_checker_flags),
-    let Σ := mk_global_env univ [(kn , InductiveDecl mind)] retro in
-    PCUICTyping.wf Σ ->
-    #|ind_bodies mind| <= Z.to_nat Uint63.wB.
 
   Axiom compile_pipeline : global_declarations -> term -> t.
 
@@ -923,45 +919,22 @@ Qed.
     + rewrite /subst1 PCUICClosed.subst_closedn; eauto.
   Qed.      
 
-  (*
-  Lemma firstorder_con_decompose_mkProd `{checker_flags} s mind ind Σ a kn :
-    Σ ;;; [] |- subst0 (inds kn [] (ind_bodies mind))
-                       (it_mkProd_or_LetIn (cstr_args a) (tRel (#|ind_bodies mind| - S ind + #|cstr_args a|)))@[[]] 
-                : tSort s ->
-    ind_params mind = [] -> 
-    is_assumption_context (cstr_args a) ->
-    firstorder_con (Σb := []) mind a -> 
-    All (fun decl => { s & Σ ;;; [] |- decl_type decl : tSort s}) (cstr_args a).
-  Proof.
-    destruct a; cbn. intros Htyp Hparam Hlets Hfo.
-    econstructor.
-    - apply todo.   
-    - rewrite alli_app in Hfo. apply MCProd.andb_and in Hfo; destruct Hfo as [Hfo ?]. 
-      eapply IHcstr_args0; eauto. 2: destruct (decl_body _); try solve [inversion Hlets]; eauto.
-*)
-
-  Lemma firstorder_con_notApp `{checker_flags} s mind ind Σ a kn :
-    Σ ;;; []
-    |- subst0 (inds kn [] (ind_bodies mind))
-              (it_mkProd_or_LetIn (cstr_args a) (tRel (#|ind_bodies mind| - S ind + #|cstr_args a|)))@[[]] : tSort s ->
-    ind_params mind = [] -> 
-    is_assumption_context (cstr_args a) ->
+  Lemma firstorder_con_notApp `{checker_flags} mind a :
     firstorder_con (Σb := []) mind a -> 
     All (fun decl => ~ (isApp (decl_type decl))) (cstr_args a).
   Proof.
-    intros Htyp Hparam Hlets Hfo. destruct a; cbn in *. induction cstr_args0; eauto.
-    cbn in Hfo. rewrite rev_app_distr Hparam in Hfo. cbn in Hfo.
+    intros Hfo. destruct a; cbn in *. induction cstr_args0; eauto.
+    cbn in Hfo. rewrite rev_app_distr in Hfo. cbn in Hfo.
     rewrite alli_app in Hfo. rewrite <- plus_n_O in Hfo. apply MCProd.andb_and in Hfo. destruct Hfo as [? Hfo].
     econstructor.
-    - clear H0 IHcstr_args0. destruct a. destruct decl_body; try solve [inversion Hlets].
-      cbn in *. apply MCProd.andb_and in Hfo. destruct Hfo as [Hfo _].
-      destruct decl_type; try solve [inversion Hfo]; cbn in *; eauto. intros _.
-
-      apply todo.        
-    - apply IHcstr_args0. 
-      3: now rewrite rev_app_distr Hparam. 
-      2: destruct a; destruct decl_body; try solve [inversion Hlets]; eauto.
-      apply todo. 
+    - clear H0 IHcstr_args0. destruct a.
+      simpl in *. apply MCProd.andb_and in Hfo. destruct Hfo as [Hfo _].
+      unfold firstorder_type in Hfo. cbn in Hfo. 
+      assert (snd (PCUICAstUtils.decompose_app decl_type) = []) by apply todo. 
+      destruct decl_type; try solve [inversion Hfo]; eauto. intros _.
+      cbn in H0. pose proof (PCUICInduction.decompose_app_rec_length decl_type1 [decl_type2]).
+      rewrite H0 in H1. cbn in H1. lia. 
+    - apply IHcstr_args0. now rewrite rev_app_distr. 
   Qed. 
 
   Lemma firstorder_type_closed kn l k T :
@@ -1320,11 +1293,7 @@ Proof.
           set (lind := map snd lv') in *. set (lterm := map fst lv') in *. clearbody lterm lind. clear lv'.
           revert Hlv'; intro. rewrite H2 in Hlv'. clear H2. revert x Hlv'. rewrite Hparam app_nil_r. intros. 
           epose (Hnd := firstorder_nonDepProd). edestruct Hnd as [Hnd' [Hndfst Hndsnd]]; eauto.
-          1: eapply firstorder_type_notApp; eauto.
-          { revert Hctype; intro. unfold type_of_constructor in Hctype. cbn in Hctype.
-          erewrite cstr_eq in Hctype; eauto. rewrite Hparam in Hctype. cbn in Hctype. 
-          unfold cstr_concl, cstr_concl_head in Hctype. rewrite Hparam Hcstr_indices app_nil_r in Hctype.
-          cbn in Hctype. rewrite <- plus_n_O in Hctype. eauto. }
+          1: eapply firstorder_con_notApp; eauto.
           rewrite <- Hndsnd. eapply nonDep_typing_spine with (s:=sctype) ; eauto. 
           { revert Hctype; intro. unfold type_of_constructor in Hctype. cbn in Hctype.
             erewrite cstr_eq in Hctype; eauto. rewrite Hparam in Hctype. cbn in Hctype. 
@@ -1536,15 +1505,11 @@ Lemma CoqFunction_to_CamlFunction `{Heap} `{WcbvFlags} (cf:=config.extraction_ch
   lookup_inductive Σ (mkInd kn ind) = Some (mind, Eind) ->
   ∥ (Σ , univ_decl) ;;; [] |- f : tProd na (tInd (mkInd kn ind) []) (tInd (mkInd kn ind) []) ∥ ->
   realize_term _ [] []
-        global_adt (Arrow (Adt kn (int_of_nat ind) []) (Adt kn (int_of_nat ind) [])) 
+        global_adt (Arrow (Adt kn ind []) (Adt kn ind [])) 
         (compile_pipeline Σ.(declarations)  f).
 Proof.
   intros ? ? ? wfΣ ? ? Hlookup. intros. cbn. rewrite ReflectEq.eqb_refl. cbn.
   intros t Ht. unfold to_realize_term in *. intros h h' v Heval.
-  assert (Hindmax : (Z.of_nat ind < Int63.wB)%Z).
-  { epose proof (ind_wB mind _ _ _ _); eauto.
-    cbn in H2. rewrite CoqType_to_camlType'_length in H2. lia. }
-  rewrite int_to_of_nat in Ht; eauto. rewrite int_to_of_nat; eauto.
   pose proof (Hlookup' := Hlookup).
   unfold lookup_inductive, lookup_inductive_gen, lookup_minductive_gen in Hlookup. cbn in Hlookup.
   rewrite ReflectEq.eqb_refl in Hlookup.
@@ -1600,9 +1565,9 @@ Proof.
     subst. eapply isPure_heap in H6; try eapply compile_pure; intros; cbn; eauto.
     destruct H6 as [? ?]; subst.  
     eapply compile_compose in H8; eauto.
-    2: { } 
+    2: { apply todo. } 
     2: { eapply isPure_heap_irr,  Ht_eval; try eapply compile_pure; intros; cbn; eauto. }
-    unshelve eapply CoqValue_to_CamlValue; try exact H8; try rewrite int_to_of_nat; eauto.
+    unshelve eapply CoqValue_to_CamlValue; try exact H8; eauto.
     destruct H3, Ht_typ. sq. 
     unshelve epose proof (type_App _ _ _ _ _ _ _ _ _ X X0); try exact (subst_instance_univ [] (ind_sort Eind)); eauto.
     rewrite <- (sort_of_product_idem _).
@@ -1625,12 +1590,13 @@ Proof.
       rewrite Nat.ltb_ge. intro neq. rewrite nth_overflow in H9; eauto. inversion H9. }
     subst. eapply isPure_heap in H6; try eapply compile_pure; intros; cbn; eauto. 
     destruct H6 as [? ?]; subst.  
-    eapply compile_compose in H7; eauto. 
+    eapply compile_compose in H7; eauto.
+    2: { apply todo. } 
     2: { eapply isPure_heap_irr,  Ht_eval; try eapply compile_pure; intros; cbn; eauto. }
-    unshelve eapply CoqValue_to_CamlValue; try exact H7; try rewrite int_to_of_nat; eauto.
+    unshelve eapply CoqValue_to_CamlValue; try exact H7; eauto.
     destruct H3, Ht_typ. sq.
     unshelve epose proof (type_App _ _ _ _ _ _ _ _ _ t0 X); try exact (subst_instance_univ [] (ind_sort Eind)); eauto. 
     rewrite <- (sort_of_product_idem _).
     eapply type_Prod; eauto.
-  - rewrite (compile_function _ _ _ _ _ _ _ _ _ H3 H7) in H10. inversion H10.
+  - rewrite (compile_function _ _ _ _ _ _ _ _ _ H3 _ H7) in H10. apply todo. inversion H10.
 Qed.
