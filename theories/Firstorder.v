@@ -743,12 +743,12 @@ Proof.
     forall v ind Eind, 
     ind < List.length (snd adt) ->
     lookup_inductive Σ (mkInd kn ind) = Some (mind, Eind) ->
-    realize_ADT _ [] [] adt [] All_nil ind v ->
+    realize_ADT _ _ [] [] adt [] All_nil ind v ->
     exists t, forall h,  
     ∥ (Σ , univ_decl) ;;; [] |- t : tInd (mkInd kn ind) [] ∥ /\ 
     eval [] (empty_locals _) h (compile_pipeline Σ.(declarations) t) h v.
   Proof. 
-    rename H into HHeap; rename H0 into H. 
+    rename H into HP; rename H0 into HHeap; rename H1 into H. 
     intros adt Σ wfΣ Hflag v ind Eind Hind Hlookup [step Hrel].
     revert kn mind Hparam Hindices Hnparam Hmono Hfo v ind Eind adt Σ wfΣ Hflag Hind Hlookup Hrel. 
     induction step; intros;  [inversion Hrel|].
@@ -936,7 +936,7 @@ Proof.
             rewrite <- (map_id v'). apply Forall2_map. 
             rewrite Forall2_map_left. 
             erewrite <- (Forall2_map_right (fun a b =>
-            eval [] (empty_locals HHeap) h
+            eval [] (empty_locals _) h
               (compile_pipeline [(kn, InductiveDecl mind)]
                  (fst a)) h b) fst) in Heval.
             rewrite zip_fst in Heval; eauto. 
@@ -1040,7 +1040,7 @@ Proof.
     ∥ (Σ , univ_decl) ;;; [] |- t : tInd (mkInd kn ind) [] ∥ ->
     forall h v, 
       eval [] (empty_locals _) h (compile_pipeline Σ.(declarations) t) h v
-      -> realize_ADT _ [] [] adt [] All_nil ind v.
+      -> realize_ADT _ _ [] [] adt [] All_nil ind v.
   Proof.
   Admitted.  
 
@@ -1072,6 +1072,7 @@ Lemma compile_compose `{Heap} `{WcbvFlags} (cf:=config.extraction_checker_flags)
   eval [] (empty_locals _) h (Mapply (compile_pipeline Σ.(declarations) t, [u'])) h' w ->
   eval [] (empty_locals _) h (compile_pipeline Σ.(declarations) (tApp t u)) h w.
 Proof.
+  rename H into HP; rename H0 into H; rename H1 into H0. 
   intros Htyp Herase Hu Hu' Happ.
   erewrite compile_app; eauto.
   inversion Happ; subst. 
@@ -1107,16 +1108,17 @@ Lemma CoqFunction_to_CamlFunction `{Heap} `{WcbvFlags} (cf:=config.extraction_ch
   (Hfo : is_true (forallb (@firstorder_oneind [] mind) (ind_bodies mind))) ind Eind f na:
   let adt := CoqType_to_camlType mind Hparam Hfo in
   let Σ := mk_global_env univ [(kn , InductiveDecl mind)] retro in
-  let global_adt := add_ADT _ [] [] kn adt in 
+  let global_adt := add_ADT _ _ [] [] kn adt in 
   PCUICTyping.wf Σ ->
   with_constructor_as_block = true ->
   ind < List.length (snd adt) ->
   lookup_inductive Σ (mkInd kn ind) = Some (mind, Eind) ->
   ∥ (Σ , univ_decl) ;;; [] |- f : tProd na (tInd (mkInd kn ind) []) (tInd (mkInd kn ind) []) ∥ ->
-  realize_term _ [] []
+  realize_term _ _ [] []
         global_adt (Arrow (Adt kn ind []) (Adt kn ind [])) 
         (compile_pipeline Σ.(declarations)  f).
 Proof.
+  rename H into HP; rename H0 into H; rename H1 into H0. 
   intros ? ? ? wfΣ ? ? Hlookup. intros. cbn. rewrite ReflectEq.eqb_refl. cbn.
   intros t Ht. unfold to_realize_term in *. intros h h' v Heval.
   pose proof (Hlookup' := Hlookup).

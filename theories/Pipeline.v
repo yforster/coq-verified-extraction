@@ -75,8 +75,8 @@ Next Obligation.
   - eapply pr.
 Qed.
 
-Program Definition compile_to_malfunction (efl : EWellformed.EEnvFlags) {hp : SemanticsSpec.Heap}:
-  Transform.t (list (Kernames.kername × EAst.global_decl)) _ _ _
+Program Definition compile_to_malfunction (efl : EWellformed.EEnvFlags) `{SemanticsSpec.Heap}:
+  Transform.t (list (Kernames.kername × EAst.global_decl) × EAst.term) Malfunction.program
     EWcbvEvalNamed.value SemanticsSpec.value
     (fun p v => ∥EWcbvEvalNamed.eval p.1 [] p.2 v∥) (fun _ _ => True) :=
   {| name := "compile to Malfunction";
@@ -86,6 +86,7 @@ Program Definition compile_to_malfunction (efl : EWellformed.EEnvFlags) {hp : Se
       obseq p _ p' v v' := v' = CompileCorrect.compile_value p.1 v
   |}.
 Next Obligation.
+  rename H into HP; rename H0 into HH. 
   red. intros. sq.
   eapply compile_correct in H.
   - eauto.
@@ -95,8 +96,9 @@ Next Obligation.
     Unshelve. all: todo "wf".
 Qed.
 
-Program Definition verified_malfunction_pipeline (efl := EWellformed.all_env_flags)  {hp : SemanticsSpec.Heap}:
- Transform.t global_env_ext_map _ _ _ _ SemanticsSpec.value
+Program Definition verified_malfunction_pipeline (efl := EWellformed.all_env_flags) `{SemanticsSpec.Heap}:
+ Transform.t pcuic_program Malfunction.program
+             PCUICAst.term SemanticsSpec.value
              PCUICTransform.eval_pcuic_program
              (fun _ _ => True) :=
   verified_erasure_pipeline ▷
@@ -125,6 +127,9 @@ Section malfunction_pipeline_theorem.
 
   Instance cf_ : checker_flags := extraction_checker_flags.
   Instance nf_ : PCUICSN.normalizing_flags := PCUICSN.extraction_normalizing.
+
+  Variable HP : SemanticsSpec.Pointer.
+  Variable HH : SemanticsSpec.Heap.
 
   Variable Σ : global_env_ext_map.
   Variable HΣ : PCUICTyping.wf_ext Σ.
@@ -193,23 +198,23 @@ End malfunction_pipeline_theorem.
 
 About verified_malfunction_pipeline_theorem.
 
-Program Definition malfunction_pipeline (efl := EWellformed.all_env_flags) {hp : SemanticsSpec.Heap}:
- Transform.t _ _ _ _ _ _ TemplateProgram.eval_template_program
+Program Definition malfunction_pipeline (efl := EWellformed.all_env_flags) `{SemanticsSpec.Heap}:
+ Transform.t TemplateProgram.template_program Malfunction.program
+             Ast.term SemanticsSpec.value
+             TemplateProgram.eval_template_program
              (fun _ _ => True) :=
   pre_erasure_pipeline ▷ verified_malfunction_pipeline.
 
 Local Existing Instance SemanticsSpec.CanonicalHeap.
 
-Definition compile_malfunction (cf := config.extraction_checker_flags) (p : Ast.Env.program)
+Definition compile_malfunction (cf := config.extraction_checker_flags) (p : Ast.Env.program) `{SemanticsSpec.Heap}
   : string :=
   let p' := run malfunction_pipeline p (MCUtils.todo "wf_env and welltyped term"%bs) in
   time "Pretty printing"%bs (fun p =>(@to_string _ Serialize_program p)) p'.
 
 About compile_malfunction.
 
-
-
-Definition compile_module_malfunction (cf := config.extraction_checker_flags) (p : Ast.Env.program)
+Definition compile_module_malfunction (cf := config.extraction_checker_flags) (p : Ast.Env.program) `{SemanticsSpec.Heap}
   : string :=
   let p' := run malfunction_pipeline p (MCUtils.todo "wf_env and welltyped term"%bs) in
   time "Pretty printing"%bs (fun p => (@to_string _ Serialize_module p)) p'.

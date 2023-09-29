@@ -11,79 +11,24 @@ Open Scope bs.
 
 From Coq Require Import Uint63.
 
-Class Heap := {
-  pointer : Type;
+Class Heap `{Pointer} := {
   heapGen : forall (value : Type), Type;
   fresh : forall {value : Type}, heapGen value -> pointer * heapGen value;
   deref : forall {value : Type}, heapGen value -> pointer -> array value;
   update : forall {value : Type}, heapGen value -> pointer -> array value -> heapGen value
 }.
 
-Definition CanonicalHeap : Heap := 
-{| pointer := int ;
-   heapGen := fun value => (int * (int -> array value))%type;
-   fresh :=  fun _ '(max_ptr , h) => let ptr := Int63.add max_ptr (int_of_nat 1) in (ptr ,(ptr, h));
+Definition CanonicalHeap : @Heap CanonicalPointer := 
+{| heapGen := fun value => (int * (int -> array value))%type;
+   fresh :=  fun _ '(max_ptr , h) => let ptr := Int63.add max_ptr (int_of_nat 1) : @pointer CanonicalPointer in (ptr ,(ptr, h));
    deref :=  fun _ '(_,h) ptr => h ptr;
    update := fun _ '(max_ptr , h) ptr arr => (max_ptr , fun ptr' => if Int63.eqb ptr ptr' then arr else h ptr) |}. 
-
-Inductive rec_value `{Heap} := 
-  | RFunc of Ident.t * t
-  | Bad_recursive_value.
  
-Inductive value `{Heap} :=
-  | Block of int * array value
-  | Vec of vector_type * pointer
-  | Func of @Ident.Map.t value * Ident.t *  t
-  | RClos of @Ident.Map.t value * list Ident.t * list rec_value * nat
-  | Lazy of @Ident.Map.t value * t
-  | value_Int of inttype * Z
-  | Float of float
-  | Thunk of pointer
-  | fail of string
-  | not_evaluated.
-
 Definition heap `{Heap} := heapGen value.
 
-Definition is_not_evaluated `{Heap} : value -> bool := 
+Definition is_not_evaluated `{Pointer} : value -> bool := 
   fun v => match v with | not_evaluated => true | _ => false end. 
 
-Definition add `{Heap} (x : string) (v : value) (locals : string -> value)  :=
-  fun y =>
-    if String.eqb y x then v else locals y.
-
-Definition as_ty `{Heap} ty := fun ty2 =>
-  match ty2 with
-  | value_Int (ty', n) => if inttype_eqb ty ty' then n else fail_Z "integer type missmatch"
-  | _ => fail_Z "expected integer"
-  end.
-
-Definition as_float `{Heap} x := match x with
-  | Float f => f
-  | _ => fail_float "expected float64"
-end.
-
-Definition RFunc_build `{Heap} recs := 
-    map (fun t =>
-      match t with 
-      Mlambda ([x], e) => RFunc (x , e)
-    | Mlambda (x :: xs , e) => RFunc (x , Mlambda (xs , e))
-    | _ => Bad_recursive_value
-    end) 
-    recs.
-
-Definition add_recs `{Heap} locals (self : list Ident.t) rfunc := 
-  List.mapi (fun n x => (x , RClos (locals, self, rfunc, n))) self.
-
-Definition add_self `{Heap} self rfunc locals := 
-  List.fold_right (fun '(x,t) l => Ident.Map.add x t l) locals (add_recs locals self rfunc).
-
-Definition cond `{Heap} scr case : bool := 
-    (match case, scr with
-      | Tag n, Block (n', _) => Int63.eqb n n'
-      | Deftag, Block _ => true
-      | Intrange (min, max), value_Int (Int, n) => Z.leb (Int63.to_Z min) n && Z.leb n (Int63.to_Z max)
-      | _, _ => false end).
-  
 Definition find_match `{Heap} (interpret : heap -> @Ident.Map.t value -> @Ident.Map.t value -> t -> heap * value)
 := fun h iglobals ilocals scr => fix find_match x := match x with
 | (cases, e) :: rest =>
@@ -93,37 +38,8 @@ Definition find_match `{Heap} (interpret : heap -> @Ident.Map.t value -> @Ident.
       find_match rest
 | [] => (h, fail "no case matches") end.
 
-Definition truncate `{Heap} ty n :=
-  value_Int (ty, match ty with
-                 | Bigint => n
-                 | ty =>
-                     let width := bitwidth ty in
-                     let range := Z.shiftl (Z.of_nat 1) width in
-                     let masked := Z.land n (Z.sub range (Z.of_nat 1)) in
-                     let min_int := Z.shiftr range 1 in
-                     if Z.ltb masked min_int then masked else
-                       Z.sub masked range
-                 end).
-
-
-(*                 
 #[bypass_check(guard)]
-Fixpoint to_sexp_value (a : value) : sexp :=
-  match a with
-  | Block (i, a) => @Serialize_product _ _ _ (@Serialize_list _ to_sexp_value) (i, List.map (fun j => a.[int_of_nat j]) (seq 0 (int_to_nat (PArray.length a))))
-  | Vec x => Atom "TODO VEC"
-  | Func x => Atom "FUNC"
-  | value_Int x => Atom "TODO INT"
-  | Float x => Atom "TODO FLOAT"
-  | Thunk x => Atom "THUNK"
-  | fail x => Atom ("fail" ++ String.to_string x)
-  end%string.
-
-#[export] Instance Serialize_value : Serialize value := to_sexp_value.
-*)
-
-#[bypass_check(guard)]
-Fixpoint interpret `{Heap} (h : heap)
+Fixpoint interpret `{Pointer} `{Heap} (h : heap)
          (globals : @Ident.Map.t value)
          (locals : @Ident.Map.t value)
          (x : t) {struct x} : heap * value :=
@@ -153,7 +69,7 @@ Fixpoint interpret `{Heap} (h : heap)
       (interpret h globals locals f_)
    | Mlet (bindings, body) =>
      let bind :=
-        fix bind (h : heap) (locals : @Ident.Map.t value) (bindings : list binding) : heap * value :=
+        fix bind (h : heap) (locals : @Ident.Map.t value) (bindings : list binding) {struct bindings}: heap * value :=
         match bindings with
         | [] => interpret h globals locals body
         | Unnamed e :: bindings => 
@@ -326,12 +242,12 @@ Fixpoint interpret `{Heap} (h : heap)
   | Mblock (tag, vals) =>
       let (h',vals') := map_acc (fun h e => interpret h globals locals e) h vals in
       (h', if (int_of_nat (Datatypes.length vals) ≤? max_length)%uint63 
-           then Block (tag, Array_of_list (fail "") vals')
+           then Block (tag, vals')
            else fail "vals is a too big array")
   | Mfield (idx, b) =>
       let (h',b') := interpret h globals locals b in
       (h', match b' with
-      | Block (_, vals) => PArray.get vals idx
+      | Block (_, vals) => nth (int_to_nat idx) vals (fail "")
       | _ => fail "not a block"
       end)
   | Mlazy e => 
@@ -358,11 +274,11 @@ Fixpoint interpret `{Heap} (h : heap)
   | _ => (h , fail "assert todo")
 end. 
 
-Class CompatiblePtr `{SemanticsSpec.Heap} `{Heap} :=  
-{ R_ptr : SemanticsSpec.pointer -> pointer -> Prop }.
+Class CompatiblePtr (P P' : Pointer) :=  
+{ R_ptr : P.(pointer) -> P'.(pointer) -> Prop }.
 
-Inductive vrel `{CompatiblePtr} : SemanticsSpec.value -> value -> Prop :=
-  | vBlock : forall tag vals vals', Forall2Array vrel vals vals' (SemanticsSpec.fail "") ->
+Inductive vrel {P P' : Pointer} {H : CompatiblePtr P P'} : @value P -> @value P' -> Prop :=
+  | vBlock : forall tag vals vals', Forall2 vrel vals vals' ->
       vrel (SemanticsSpec.Block (tag, vals)) (Block (tag, vals'))
   | vVec : forall ty ptr ptr', R_ptr ptr ptr' -> vrel (SemanticsSpec.Vec (ty, ptr)) (Vec (ty, ptr'))
   | vFunc : forall x locals locals' e,  
@@ -371,28 +287,28 @@ Inductive vrel `{CompatiblePtr} : SemanticsSpec.value -> value -> Prop :=
   | vRClos : forall self mfix mfix' n locals locals',  
     (forall x, vrel (locals x) (locals' x)) ->
     (forall n y e,
-      (nth n mfix SemanticsSpec.Bad_recursive_value = SemanticsSpec.RFunc (y, e)) 
+      (nth n mfix Bad_recursive_value = RFunc (y, e)) 
       <-> 
       (nth n mfix' Bad_recursive_value = RFunc (y, e))) ->
-    (*  (forall h v, interpret h globals (Ident.Map.add x v (add_all mfix E locals') locals') e = f h v) -> *)
-    vrel (SemanticsSpec.RClos (locals,self,mfix,n)) (RClos (locals',self,mfix',n))
+    vrel (RClos (locals,self,mfix,n)) (RClos (locals',self,mfix',n))
   | vInt : forall ty i , 
-      vrel (SemanticsSpec.value_Int (ty, i)) (value_Int (ty, i))
+      vrel (value_Int (ty, i)) (value_Int (ty, i))
   | vFloat : forall f, 
-      vrel (SemanticsSpec.Float f) (Float f)
+      vrel (Float f) (Float f)
   | vThunk : forall ptr ptr', R_ptr ptr ptr' -> 
-      vrel (SemanticsSpec.Thunk ptr) (Interpreter.Thunk ptr')
+      vrel (Thunk ptr) (Thunk ptr')
   | vLazy : forall e locals locals',  
     (forall x, vrel (locals x) (locals' x)) ->
     vrel (SemanticsSpec.Lazy (locals, e)) (Lazy (locals' , e))
   | vFail : forall s, 
-      vrel (SemanticsSpec.fail s) (Interpreter.fail s)
-  | vNot_evaluated : vrel SemanticsSpec.not_evaluated Interpreter.not_evaluated.
+      vrel (SemanticsSpec.fail s) (fail s)
+  | vNot_evaluated : vrel SemanticsSpec.not_evaluated not_evaluated.
 
 Definition vrel_locals `{CompatiblePtr} 
   : Ident.Map.t -> Ident.Map.t -> Prop := fun locals ilocals => forall x, vrel (locals x) (ilocals x).
 
-Class CompatibleHeap `{CompatiblePtr} :=  
+Class CompatibleHeap {P P' : Pointer} {H : CompatiblePtr P P'} 
+                     {HP : @SemanticsSpec.Heap P} {HP' : @Heap P'} :=  
   { R_heap : SemanticsSpec.heap -> heap -> Prop;
     fresh_compat : forall h ptr h' ih, 
       R_heap h ih -> SemanticsSpec.fresh h ptr h' -> 
@@ -410,7 +326,7 @@ Class CompatibleHeap `{CompatiblePtr} :=
 
 Lemma cond_correct  `{CompatiblePtr} 
   scr scr' x : vrel scr scr' -> 
-  SemanticsSpec.cond scr x = Interpreter.cond scr' x.
+  cond scr x = cond scr' x.
 Proof.
   now destruct x as [ | | [] ]; destruct 1. 
 Qed.
@@ -422,7 +338,8 @@ Proof.
   intros H; induction l; cbn; congruence.
 Qed.
 
-Lemma find_match_correct `{CompatiblePtr}  scr scr' cases e h iglobals ilocals :
+Lemma find_match_correct `{CompatibleHeap}
+  scr scr' cases e h iglobals ilocals :
   vrel scr scr' ->
   SemanticsSpec.find_match scr cases = Some e ->
   Interpreter.find_match Interpreter.interpret h iglobals ilocals scr' cases = interpret h iglobals ilocals e.
@@ -446,7 +363,7 @@ Proof.
   intros Hv Hlocals nm. unfold Ident.Map.add. now destruct Ident.eqb.
 Qed.
 
-Lemma isNotEvaluated_vrel `{CompatiblePtr} v v' b : 
+Lemma isNotEvaluated_vrel `{CompatibleHeap} v v' b : 
   vrel v v' -> isNotEvaluated v = b <-> is_not_evaluated v' = b.
 Proof.
   now destruct 1.
@@ -456,7 +373,7 @@ Ltac fail_case IHeval Hloc Hheap Heq :=
   let Hv := fresh "iv1" in cbn; specialize (IHeval _ _ Hloc Hheap); destruct interpret as [? ?];
   destruct IHeval as [? Hv]; destruct Hv; inversion Heq; split;eauto; econstructor.
 
-Lemma vrel_locals_add_self `{CompatiblePtr}  locals' locals'0 mfix mfix' self :
+Lemma vrel_locals_add_self `{CompatiblePtr} locals' locals'0 mfix mfix' self :
   (forall x : Ident.t, vrel (locals' x) (locals'0 x)) ->
   (forall (n : nat) (y : Ident.t) (e : t),
      nth n mfix SemanticsSpec.Bad_recursive_value = SemanticsSpec.RFunc (y, e) <->
@@ -476,22 +393,19 @@ Proof.
   - apply IHself; eauto.  
 Qed. 
 
-
-Lemma as_ty_vrel `{CompatibleHeap} ty v v' : 
-  vrel v v' -> 
-  SemanticsSpec.as_ty ty v = as_ty ty v'.
+Lemma as_ty_vrel `{CompatiblePtr} ty v v' : 
+  vrel v v' -> as_ty ty v = as_ty ty v'.
 Proof. 
   inversion 1; destruct ty; cbn; try reflexivity.
 Defined.
 
-Lemma as_float_vrel `{CompatibleHeap} v v' : 
-  vrel v v' -> 
-  SemanticsSpec.as_float v = as_float v'.
+Lemma as_float_vrel `{CompatiblePtr} v v' : 
+  vrel v v' -> as_float v = as_float v'.
 Proof. 
   inversion 1; cbn; try reflexivity.
 Defined.
 
-Lemma truncate_vrel `{CompatibleHeap} ty z : 
+Lemma truncate_vrel `{CompatiblePtr} ty z : 
   vrel (SemanticsSpec.truncate ty z) (truncate ty z).
   destruct ty; econstructor.
 Qed. 
@@ -501,10 +415,10 @@ Lemma eval_correct `{CompatibleHeap}
   (forall nm val, In (nm, val) globals -> vrel val (iglobals nm)) ->
   vrel_locals locals ilocals ->
   R_heap h ih ->
-  eval _ globals locals h e h' v -> 
+  eval _ _ globals locals h e h' v -> 
   let (ih',iv) := interpret ih iglobals ilocals e in R_heap h' ih' /\ vrel v iv.  
 Proof.
-  rename H into _Heap; rename H0 into _iHeap; rename H1 into _CPtr; rename H2 into _CHeap. 
+  rename H into _CPtr; rename H0 into _CHeap. 
   intros Hglob Hloc Hheap.
   induction 1 as [ (* lambda_sing *) locals h x e
                  | (* lambda *) locals h x ids e H
@@ -575,8 +489,7 @@ Proof.
     erewrite find_match_correct; eauto. now apply IHeval2.
   (* eval_block *)
   - cbn. clear H. revert ih Hheap. induction H1. 
-    + intros ih Hheap. split ; eauto. econstructor.
-      split; [ reflexivity|]. cbn. lia.
+    + intros ih Hheap. split ; eauto. econstructor. econstructor.
     + intros ih Hheap. simpl. 
       specialize (H _ _ Hloc Hheap). destruct interpret as [ih1 iv1]; destruct H as [Hheap1  Hiv1]. 
       assert (Hlength: Datatypes.length l' < int_to_nat max_length) by (cbn in *; lia). 
@@ -594,28 +507,11 @@ Proof.
       { apply leb_spec. rewrite Int63.of_Z_spec. rewrite (Forall2_acc_length H1). 
         rewrite Z.mod_small; lia_max_length. }
       rewrite Hl in IHForall2_acc. rewrite Hl'. inversion IHForall2_acc; subst. clear IHForall2_acc.  
-      econstructor. destruct H3. split.
-      * simpl. rewrite Array_of_list_length.
-        { cbn. rewrite <- (Forall2_length Hl0). clear - H0; cbn in *; lia. }
-        now rewrite (Forall2_length Hl0).
-      * intros idx Hidx. rewrite <- (int_of_to_nat idx) at 2.
-        pose proof (Hbounded := to_Z_bounded idx).
-        destruct (int_to_nat idx).
-        ** simpl. pose Int63.wB_pos. rewrite Array_of_list_get; try (cbn; lia).
-        ++ cbn in H0. rewrite (Forall2_length Hl0) in H0. clear - H0; lia_max_length. 
-        ++ cbn in H0. rewrite (Forall2_length Hl0) in H0. clear - H0; lia_max_length. 
-        ++ eauto.
-           ** simpl. rewrite Array_of_list_S. 
-        ++ cbn; cbn in Hidx. rewrite <- (Forall2_length Hl0). lia.
-        ++ cbn; cbn in H0. rewrite <- (Forall2_length Hl0). lia.
-        ++ specialize (H3 (int_of_nat n)). 
-           rewrite int_to_of_nat in H3.
-           { clear -Hidx H0; lia_max_length. }
-           eapply H3. cbn in Hidx; lia.  
+      econstructor. econstructor; eauto. 
   (* eval_field *)    
   - cbn. specialize (IHeval _ _ Hloc Hheap). destruct interpret as [ih1 iv1]; destruct IHeval as [Hheap1  Hiv1].
-    split; eauto. inversion Hiv1; subst. clear Hiv1. destruct H5 as [? H5]. 
-    now eapply (H5 idx).  
+    split; eauto. inversion Hiv1; subst. clear Hiv1.
+    eapply All_Forall.Forall2_nth; eauto. econstructor. 
   (* eval_field_fail *)    
   - fail_case IHeval Hloc Hheap H0.
   (* eval_lazy *)  
@@ -687,8 +583,8 @@ Proof.
       specialize (IHeval1 _ _ Hloc Hheap); destruct interpret as [ih1 iv1]; destruct IHeval1 as [Hheap1  Hiv1];
       specialize (IHeval2 _ _ Hloc Hheap1); destruct interpret as [ih2 iv2]; destruct IHeval2 as [Hheap2  Hiv2];
       split; eauto.
-    1-2: destruct b; repeat erewrite <- as_ty_vrel; eauto; eapply truncate_vrel.
-    destruct b; repeat erewrite <- as_ty_vrel; eauto; econstructor. 
+    1-2: destruct b; repeat erewrite <- (@as_ty_vrel P P'); eauto; eapply truncate_vrel.
+    destruct b; repeat erewrite <- (@as_ty_vrel P P'); eauto; econstructor. 
   (* eval_numop1_neg *)
   - cbn [interpret].
     specialize (IHeval _ _ Hloc Hheap); destruct interpret as [ih1 iv1]; destruct IHeval as [Hheap1  Hiv1].
@@ -701,24 +597,24 @@ Proof.
   - cbn [interpret]; destruct op; cbn [interpret];
       specialize (IHeval1 _ _ Hloc Hheap); destruct interpret as [ih1 iv1]; destruct IHeval1 as [Hheap1  Hiv1];
       specialize (IHeval2 _ _ Hloc Hheap1); destruct interpret as [ih2 iv2]; destruct IHeval2 as [Hheap2  Hiv2];
-      split; eauto;cbn; repeat erewrite <- as_float_vrel; eauto; econstructor.
+      split; eauto;cbn; repeat erewrite <- (@as_float_vrel P P'); eauto; econstructor.
   (* eval_numop2_embed_float *)  
   - cbn [interpret]; destruct op; cbn [interpret];
       specialize (IHeval1 _ _ Hloc Hheap); destruct interpret as [ih1 iv1]; destruct IHeval1 as [Hheap1  Hiv1];
       specialize (IHeval2 _ _ Hloc Hheap1); destruct interpret as [ih2 iv2]; destruct IHeval2 as [Hheap2  Hiv2];
-      split; eauto;cbn; repeat erewrite <- as_float_vrel; eauto; econstructor.
+      split; eauto;cbn; repeat erewrite <- (@as_float_vrel P P'); eauto; econstructor.
   (* eval_convert_int *)
   - cbn [interpret].
     specialize (IHeval _ _ Hloc Hheap); destruct interpret as [ih1 iv1]; destruct IHeval as [Hheap1  Hiv1].
-    split; eauto. erewrite <- as_ty_vrel; eauto; eapply truncate_vrel.
+    split; eauto. erewrite <- (@as_ty_vrel P P'); eauto; eapply truncate_vrel.
   (* eval_convert_float *)
   - cbn [interpret].
     specialize (IHeval _ _ Hloc Hheap); destruct interpret as [ih1 iv1]; destruct IHeval as [Hheap1  Hiv1].
-    split; eauto. erewrite <- as_ty_vrel; eauto; econstructor.
+    split; eauto. erewrite <- (@as_ty_vrel P P'); eauto; econstructor.
   (* eval_convert_float_float *) 
   - cbn [interpret].
     specialize (IHeval _ _ Hloc Hheap); destruct interpret as [ih1 iv1]; destruct IHeval as [Hheap1  Hiv1].
-    split; eauto. erewrite <- as_float_vrel; eauto; econstructor.
+    split; eauto. erewrite <- (@as_float_vrel P P'); eauto; econstructor.
   (* eval_vecnew_array *)
   - cbn [interpret];
       specialize (IHeval1 _ _ Hloc Hheap); destruct interpret as [ih1 iv1]; destruct IHeval1 as [Hheap1  Hiv1];

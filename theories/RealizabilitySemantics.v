@@ -65,8 +65,9 @@ Proof.
     now rewrite H0. 
 Defined. 
 
-Section Realizability. 
+Section Realizability.
 
+  Variable _Ptr:Pointer. 
   Variable _Heap:Heap.
 
   Definition realize_adt_type := 
@@ -90,11 +91,11 @@ Section Realizability.
 
     Definition to_realize_term (realize_val : value -> Prop) 
       : t -> Prop := fun t => forall h h' v, 
-      eval _ globals empty_locals h t h' v -> realize_val v.
+      eval _ _ globals empty_locals h t h' v -> realize_val v.
 
     Definition to_realize_value (realize_term : t -> Prop) 
       : value -> Prop := fun v => exists t h h', 
-        eval _ globals empty_locals h t h' v /\ realize_term t.
+        eval _ _ globals empty_locals h t h' v /\ realize_term t.
 
     Definition realize_term (A:camlType) : t -> Prop.
     Proof.
@@ -159,7 +160,7 @@ Section Realizability.
 End Realizability.
 
 
-  Definition empty_heap : CanonicalHeap.(heapGen) (@SemanticsSpec.value CanonicalHeap) :=
+  Definition empty_heap : CanonicalHeap.(heapGen) (@SemanticsSpec.value CanonicalPointer) :=
     (int_of_nat 0 , fun _ => []).
 
   Lemma lookup_inductive_env Σ kn Emind Eind ind :
@@ -356,19 +357,20 @@ Lemma isPure_heap `{Heap} `{WcbvFlags} locals h h' t v :
   (forall s, isPure_value (locals s)) -> 
   eval [] locals h t h' v -> isPure_value v /\ h = h'.
 Proof.
+  rename H into HP. rename H0 into HH. rename H1 into HWF. 
   intros Hpure Hlocals. induction 1; try solve [inversion Hpure]; cbn in Hpure;
   repeat rewrite MCProd.andb_and in Hpure; try solve [cbn; repeat split; eauto]; eauto. 
   - cbn in *. destruct Hpure as [? [? ?]].
     try (destruct IHeval1; eauto);
      try (destruct IHeval2; eauto); try (destruct IHeval3; eauto); try now eauto.
-    destruct H4. intros s. unfold Ident.Map.add. destruct (Ident.eqb s x); eauto.
+    destruct H5. intros s. unfold Ident.Map.add. destruct (Ident.eqb s x); eauto.
   - destruct Hpure as [? [? ?]].
     try (destruct IHeval1; eauto);
      try (destruct IHeval2; eauto); try (destruct IHeval3; eauto); try now eauto.
-    destruct H5. pose proof (proj1 (Forall_nth _ _) H9 n Bad_recursive_value). rewrite H1 in H10.
-    eapply H10. case_eq (Nat.ltb n #|mfix|); try rewrite Nat.ltb_lt; eauto.
+    destruct H6. pose proof (proj1 (Forall_nth _ _) H10 n Bad_recursive_value). rewrite H1 in H11.
+    eapply H11. case_eq (Nat.ltb n #|mfix|); try rewrite Nat.ltb_lt; eauto.
     rewrite Nat.ltb_ge. intro neq.  rewrite nth_overflow in H1; eauto. inversion H1.  
-    destruct H5. intros s. unfold Ident.Map.add. destruct (Ident.eqb s y); eauto.
+    destruct H6. intros s. unfold Ident.Map.add. destruct (Ident.eqb s y); eauto.
     eapply isPure_add_self; eauto. 
   - cbn in *. destruct Hpure as [? [? ?]]; try (destruct IHeval1; eauto); now eauto.
   - destruct Hpure as [? [? [? ?]]]. repeat rewrite MCProd.andb_and in IHeval.
@@ -377,18 +379,18 @@ Proof.
   - cbn in *. destruct Hpure as [[? ?] ?]; try (destruct IHeval1; eauto); try (destruct IHeval2; eauto); try now eauto.
     intros s. unfold Ident.Map.add. destruct (Ident.eqb s x); eauto.
   - cbn in *. destruct Hpure as [[? ?] ?]; try (destruct IHeval; eauto); try now eauto.
-    intros s. rewrite H1. eapply isPure_add_self; eauto. unfold rfunc, RFunc_build.
-    eapply forallb_Forall in H3. clear -H3. induction recs; eauto; cbn. destruct a; cbn in *. inversion H3; subst.
+    intros s. rewrite H. eapply isPure_add_self; eauto. unfold rfunc, RFunc_build.
+    eapply forallb_Forall in H1. clear -H1. induction recs; eauto; cbn. destruct a; cbn in *. inversion H1; subst.
     econstructor; eauto. destruct t0; cbn; eauto. destruct p. cbn in H2. destruct l; cbn ; eauto.
     destruct l; cbn ; eauto.
   - cbn in *. destruct Hpure as [? ?]; try (destruct IHeval1; eauto); try (destruct IHeval2; eauto); try now eauto.
-    induction cases; cbn in *. inversion H1. repeat rewrite MCProd.andb_and in H3. destruct H3.   
-    destruct a. destruct (existsb _ _); [inversion H1; subst; eauto|]. now eapply IHcases.
-  - cbn in *. clear H1 H2. induction H3; [now eauto|]. repeat rewrite MCProd.andb_and in Hpure.
-    destruct Hpure. destruct IHForall2_acc; eauto. destruct H1; eauto. cbn; split; now eauto.
-  - cbn in *. destruct IHeval; eauto. split; eauto. eapply Forall_nth; eauto. now eapply Forall_map_inv in H4.
+    induction cases; cbn in *. inversion H0. repeat rewrite MCProd.andb_and in H3. destruct H3.   
+    destruct a. destruct (existsb _ _); [inversion H0; subst; eauto|]. now eapply IHcases.
+  - cbn in *. clear H H0. induction H1; [now eauto|]. repeat rewrite MCProd.andb_and in Hpure.
+    destruct Hpure. destruct IHForall2_acc; eauto. cbn. destruct H; eauto. cbn; split; now eauto.
+  - cbn in *. destruct IHeval; eauto. split; eauto. eapply Forall_nth; eauto. now eapply Forall_map_inv in H2.
   - cbn in *. now eauto.
-  - cbn in *. inversion H1.
+  - cbn in *. inversion H.
   - cbn in *. destruct IHeval; eauto.
   - cbn. destruct Hpure. destruct IHeval1; eauto. destruct IHeval2; eauto. now destruct op.
   - cbn; now eauto.   
@@ -404,6 +406,7 @@ Lemma isPure_heap_irr `{Heap} `{WcbvFlags} h h' locals t v :
   (forall s, isPure_value (locals s)) -> 
   eval [] locals h t h' v -> forall h'', eval [] locals h'' t h'' v.
 Proof.
+  rename H into HP; rename H0 into H; rename H1 into H0. 
   intros Hpure Hlocals. induction 1; try solve [inversion Hpure]; cbn in Hpure;
   repeat rewrite MCProd.andb_and in Hpure; try solve [cbn; destruct Hpure; econstructor; eauto]; 
   try solve [cbn; econstructor; eauto].
@@ -437,3 +440,4 @@ Proof.
   - econstructor; eauto. clear H1 H2. induction H3; [econstructor; eauto|].
     cbn in Hpure. rewrite MCProd.andb_and in Hpure. destruct Hpure. econstructor; eauto.
 Qed.
+
