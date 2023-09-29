@@ -1,0 +1,2 @@
+metacoq_verified_malfunction_plugin.cmx: compile_malfunction.cmx g_metacoq_verified_malfunction.cmx
+		ocamlfind opt ${OCAMLOPTS} -pack -o $@ $+
