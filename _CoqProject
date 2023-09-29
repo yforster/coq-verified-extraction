@@ -22,6 +22,9 @@ theories/Pipeline.v
 
 theories/CompileCorrect.v
 
+theories/RealizabilitySemantics.v
+theories/Firstorder.v
+
 theories/Tests.v
 
 theories/Extraction.v
