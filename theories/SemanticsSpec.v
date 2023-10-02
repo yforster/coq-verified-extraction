@@ -557,9 +557,8 @@ forall P : Ident.Map.t -> heap -> t -> heap -> value -> Prop,
         P locals h1 e h2 v -> P locals h (Mswitch (scr, cases)) h2 v) ->
        (forall (locals : Ident.Map.t) (tag : Malfunction.int) 
           (h h' : heap) (es : list t) (vals : list value),
-        Forall2_acc (eval locals) h es h' vals ->
         Datatypes.length vals < int_to_nat max_length ->
-        Forall2_acc (P locals) h es h' vals ->
+        Forall2_acc (fun a b c d => eval locals a b c d /\ P locals a b c d) h es h' vals ->
         P locals h (Mblock (tag, es)) h' (Block (tag, vals))) ->
        (forall (locals : Ident.Map.t) (h h' : heap) 
           (idx : Malfunction.int) (b : t) (vals : list value)
