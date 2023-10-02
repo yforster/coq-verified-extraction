@@ -429,6 +429,17 @@ Proof.
   rewrite map_length seq_length; lia.
 Qed. 
 
+
+Lemma Forall2_init {A B:Type} (R : A -> B -> Prop) n f g :
+   (forall k, k < n ->  R (f k) (g k)) ->
+   Forall2 R (List.init n f) (List.init n g).
+Proof.
+  unfold List.init. intro Hfg. assert (0 + n <= n) by lia. revert H. generalize 0. generalize n at 1 3 4.   
+  induction n0; cbn; intros; econstructor; eauto.
+  - eapply Hfg. lia.
+  - eapply IHn0. lia.
+Qed. 
+
 Lemma Forall2Array_cst {A B:Type} (R : A -> B -> Prop) n v v'
    default :
    n <= int_to_nat max_length ->
