@@ -488,25 +488,24 @@ Proof.
     specialize (IHeval1 _ _ Hloc Hheap). destruct interpret as [ih1 iv1]; destruct IHeval1 as [Hheap1  Hiv1].
     erewrite find_match_correct; eauto. now apply IHeval2.
   (* eval_block *)
-  - cbn. clear H. revert ih Hheap. induction H1. 
+  - cbn. revert ih Hheap H. induction H0. 
     + intros ih Hheap. split ; eauto. econstructor. econstructor.
-    + intros ih Hheap. simpl. 
+    + intros ih Hheap. simpl. destruct H as [Heval H].  
       specialize (H _ _ Hloc Hheap). destruct interpret as [ih1 iv1]; destruct H as [Hheap1  Hiv1]. 
-      assert (Hlength: Datatypes.length l' < int_to_nat max_length) by (cbn in *; lia). 
-      specialize (IHForall2_acc Hlength ih1 Hheap1).     
+      specialize (IHForall2_acc ih1 Hheap1).     
       unshelve epose proof (Forall2_acc_map R_heap vrel
-                              (fun (h : Interpreter.heap) (e : t) => interpret h iglobals ilocals e) _ _ _ _ _ _ H1 _ Hheap1).
-      { clear -Hloc. intros. cbn in *. specialize (H0 ilocals x'). destruct interpret. apply H0; eauto. }
+                              (fun (h : Interpreter.heap) (e : t) => interpret h iglobals ilocals e) _ _ _ _ _ _ H0 _ Hheap1).
+      { clear -Hloc. intros. cbn in *. destruct H0 as [? H0]. specialize (H0 ilocals x'). destruct interpret. apply H0; eauto. }
       set (p := map_acc _ ih1 l) in *. destruct p. destruct H as [Heahp2 Hl0]. split; eauto. 
-      destruct IHForall2_acc as [? IHForall2_acc]. 
+      destruct IHForall2_acc as [? IHForall2_acc]. lia. inversion IHForall2_acc; clear IHForall2_acc.
       assert (Hl: (int_of_nat (Datatypes.length l) ≤? max_length)%uint63 = true).
       { apply leb_spec. rewrite Int63.of_Z_spec.
-        rewrite (Forall2_acc_length H1). rewrite Z.mod_small; [lia_max_length |].
+        rewrite (Forall2_acc_length H0). rewrite Z.mod_small; [lia_max_length |].
         unfold max_length in *. cbn in *. lia. }
       assert (Hl': (int_of_nat (S (Datatypes.length l)) ≤? max_length)%uint63 = true).
-      { apply leb_spec. rewrite Int63.of_Z_spec. rewrite (Forall2_acc_length H1). 
+      { apply leb_spec. rewrite Int63.of_Z_spec. rewrite (Forall2_acc_length H0). 
         rewrite Z.mod_small; lia_max_length. }
-      rewrite Hl in IHForall2_acc. rewrite Hl'. inversion IHForall2_acc; subst. clear IHForall2_acc.  
+      rewrite Hl in H5. rewrite Hl'. inversion H5; subst. clear H5.  
       econstructor. econstructor; eauto. 
   (* eval_field *)    
   - cbn. specialize (IHeval _ _ Hloc Hheap). destruct interpret as [ih1 iv1]; destruct IHeval as [Hheap1  Hiv1].
@@ -514,7 +513,7 @@ Proof.
     eapply All_Forall.Forall2_nth; eauto. econstructor. 
   (* eval_field_fail *)    
   - fail_case IHeval Hloc Hheap H0.
-  (* eval_lazy *)  
+  (* eval_thunk *)  
   - cbn. pose proof (fresh_compat _ _ _ _ Hheap H).
     set (Interpreter.fresh ih) in *. destruct p.
     destruct H1; split; [| now econstructor].
