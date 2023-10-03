@@ -319,14 +319,14 @@ Qed.
          | Recursive recs => forallb (fun '(id,x) => isPure x) recs
          end.
 
-  Definition isPure_rec_value `{Heap} (v : rec_value) :=
+  Definition isPure_rec_value `{Pointer} (v : rec_value) :=
     match v with 
     | RFunc (_ , t) => is_true (isPure t)
     | Bad_recursive_value => True
     | _ => False
     end. 
 
-  Fixpoint isPure_value `{Heap} (v : value) {struct v} :=
+  Fixpoint isPure_value `{Pointer} (v : value) {struct v} :=
     match v with
     | Block (_,vs) => Forall (fun p => p) (map isPure_value vs)
     | Func (locals,_,t) => (forall s, isPure_value (locals s)) /\ is_true (isPure t)    
@@ -338,6 +338,71 @@ Qed.
     end.
 
 End Pure.
+
+Axiom funext : forall A B (f g: A -> B), (forall x, f x = g x) -> f = g. 
+
+Lemma isPure_value_vrel_eq {P : Pointer} `{@CompatiblePtr P P} v v' : 
+  isPure_value v -> vrel v v' -> v = v'.
+Proof.
+  intros Hpure Hrel. induction Hrel; cbn in *; try solve [inversion Hpure]; eauto; repeat f_equal.
+  - induction H1; f_equal; inversion Hpure; subst; eauto.
+    eapply IHForall2; eauto. inversion H0; eauto. 
+  - destruct Hpure. apply funext; eauto.
+  - destruct Hpure. apply funext; eauto.
+  - destruct Hpure. clear -H4 H2. induction H2; f_equal; eauto.
+    + inversion H4; subst; clear H4. destruct H0 as [? [? ?]]. destruct x. 
+      * destruct p. symmetry;  destruct (H0 t t0); eauto.
+      * inversion H5.
+      * symmetry; eapply H3; eauto.
+    + inversion H4; eauto.
+Qed. 
+
+Lemma isPure_value_vrel_eq' {P : Pointer} `{@CompatiblePtr P P} v v' : 
+  isPure_value v' -> vrel v v' -> v = v'.
+Proof.
+  intros Hpure Hrel. induction Hrel; cbn in *; try solve [inversion Hpure]; eauto; repeat f_equal.
+  - induction H1; f_equal; inversion Hpure; subst; eauto.
+    eapply IHForall2; eauto. inversion H0; eauto. 
+  - destruct Hpure. apply funext; eauto.
+  - destruct Hpure. apply funext; eauto.
+  - destruct Hpure. clear -H4 H2. induction H2; f_equal; eauto.
+    + inversion H4; subst; clear H4. destruct H0 as [? [? ?]]. destruct y. 
+      * destruct p. destruct (H0 t t0); eauto.
+      * inversion H5.
+      * eapply H3; eauto.
+    + inversion H4; eauto.
+Qed. 
+
+Lemma isPure_value_vrel {P P' : Pointer} `{@CompatiblePtr P P'} v v' : 
+  isPure_value v -> vrel v v' -> isPure_value v'.
+Proof.
+  intros Hpure Hrel. induction Hrel; cbn in *; try solve [inversion Hpure]; eauto. 
+  - induction H1; econstructor; inversion Hpure; subst; eauto.
+    eapply IHForall2; eauto. inversion H0; eauto.      
+  - destruct Hpure; split; eauto.
+  - destruct Hpure; split; eauto. revert H4. clear -H2.  
+    induction H2; econstructor; inversion H4; subst; eauto.
+    clear - H0 H5. destruct H0 as [? [? ?]]. destruct y; cbn; eauto. 
+    + destruct p. destruct (H0 t t0). rewrite (H4 eq_refl) in H5. eauto.
+    + destruct x; try inversion H5. destruct p0. destruct (H0 t t0).
+      specialize (H3 eq_refl). inversion H3.
+      destruct H2. specialize (H2 eq_refl). inversion H2.
+Qed.
+
+Lemma isPure_value_vrel' {P P' : Pointer} `{@CompatiblePtr P P'} v v' : 
+  isPure_value v' -> vrel v v' -> isPure_value v.
+Proof.
+  intros Hpure Hrel. induction Hrel; cbn in *; try solve [inversion Hpure]; eauto. 
+  - induction H1; econstructor; inversion Hpure; subst; eauto.
+    eapply IHForall2; eauto. inversion H0; eauto.      
+  - destruct Hpure; split; eauto.
+  - destruct Hpure; split; eauto. revert H4. clear -H2.  
+    induction H2; econstructor; inversion H4; subst; eauto.
+    clear - H0 H5. destruct H0 as [? [? ?]]. destruct y; cbn; eauto. 
+    + destruct p. destruct (H0 t t0). rewrite (H4 eq_refl). eauto.
+    + destruct x; try inversion H5.
+    + destruct H2. rewrite (H3 eq_refl); eauto.   
+Qed.
 
 From Malfunction Require Import CompileCorrect Pipeline.
 
@@ -474,7 +539,7 @@ Proof.
       rewrite E. eauto.
 Qed.
 
-Lemma eval_rel {P : Pointer} {H : CompatiblePtr P P} 
+Lemma eval_det {P : Pointer} {H : CompatiblePtr P P} 
                {HP : @Heap P} `{@CompatibleHeap P P _ _ _} 
   globals locals ilocals iglobals e h h' ih ih' v iv :
   (forall nm val val', In (nm, val) globals -> In (nm, val') iglobals -> 
@@ -482,8 +547,8 @@ Lemma eval_rel {P : Pointer} {H : CompatiblePtr P P}
   vrel_locals locals ilocals ->
   R_heap h ih ->
   eval globals locals h e h' v -> 
-  eval iglobals ilocals ih e ih' iv -> 
-  R_heap h' ih' /\ vrel v iv.  
+  eval iglobals ilocals ih e ih' iv ->
+  R_heap h' ih' /\ vrel v iv.
 Proof. 
   rename H into _CPtr; rename H0 into _CHeap. 
   intros Hglob Hloc Hheap Heval. revert ih' iv. 
@@ -523,7 +588,10 @@ Proof.
     + eapply IHeval1 in H5 as [? ?]; eauto. inversion H4. 
     + eapply IHeval1 in H5 as [? ?]; eauto.
       eapply IHeval2 in H6 as [? ?]; eauto.
-      inversion H4. subst. eapply H18 in H8.
+      inversion H4. subst. pose proof (H18':=H18). 
+      eapply (Forall2_nth _ _ _ mfix mfix0 n0 Bad_recursive_value Bad_recursive_value) 
+        in H18 as [? ?]; [|now split]. 
+      eapply H7 in H8.
       rewrite Hnth in H8; inversion H8; subst.    
       eapply IHeval3 in H11 as [? ?]; eauto. 
       intro. eapply vrel_add; eauto. eapply vrel_locals_add_self; eauto.  
@@ -547,8 +615,14 @@ Proof.
     intro. eapply vrel_add; eauto. 
   (* eval_let_rec *)
   - inversion 1; subst. eapply IHHeval in H7 as [? ?]; eauto. intro. 
-    apply vrel_locals_add_self; eauto.
-    intros. unfold rfunc, rfunc0. now split.
+    apply vrel_locals_add_self; eauto; unfold rfunc, rfunc0; intros. 
+    clear. induction recs; intros; cbn; econstructor; eauto. repeat split.
+    1-2: intro H; destruct a, t0; try solve [inversion H]; destruct p;
+         destruct l; [inversion H|]; cbn in *; eauto.
+    1: { intros. destruct a, t0; try solve [inversion H]; destruct p.
+         destruct l; [inversion H|]; cbn in *; eauto.
+         destruct l; [inversion H|]. inversion H. }
+    1-2: intro H; destruct a, t0; cbn; eauto.
   (* eval_switch *)
   - inversion 1; subst. eapply IHHeval1 in H3 as [? ?]; eauto. eapply find_match_vrel in H; eauto.
     rewrite H5 in H; inversion H; subst. eapply IHHeval2 in H8; eauto.
@@ -562,6 +636,220 @@ Proof.
       3: exact H3. 3: exact H10. 1-2: lia. split; eauto. 
   (* eval_field *)    
   - inversion 1; subst.
+    + eapply IHeval in H5 as [? ?]; eauto. split; eauto. inversion H4; subst. eapply Forall2_nth; eauto. econstructor.
+    + eapply IHeval in H6 as [? ?]; eauto. split; eauto. inversion H4; subst. inversion H9.
+  (* eval_field_fail *)    
+  - inversion 1; subst. 
+    + eapply IHHeval in H3 as [? ?]; eauto. split; eauto. inversion H2; subst. inversion H.
+    + eapply IHHeval in H4 as [? ?]; eauto. split; eauto. econstructor.
+  (* eval_thunk *)  
+  - inversion 1; subst. 
+    pose proof (fresh_compat _ _ _ _ _ _ Hheap H H3) as [? ?].
+    eapply update_compat in H5; eauto; try split; repeat econstructor; eauto.   
+  (* eval_force_done *)  
+  - inversion 1; subst.
+    + eapply IHHeval in H5 as [? ?]; eauto. split; eauto. inversion H4; subst. eapply deref_compat in H6; eauto.
+      eapply Forall2_nth; eauto. econstructor.
+    + eapply IHHeval in H5 as [? ?]; eauto. inversion H4; subst. eapply deref_compat in H6; eauto.
+      unshelve epose proof (Forall2_nth _ _ _ _ _ 0 (fail "") (fail "") H6 _); [econstructor|].
+      inversion H5; subst; try rewrite <- H14 in H8; try inversion H8.    
+      all: try rewrite <- H15 in H8; try inversion H8. rewrite <- H14 in H2. inversion H2.
+    + eapply IHHeval in H5 as [? ?]; eauto. inversion H4; subst. inversion H7.
+  (* eval_force *)  
+  - inversion 1; subst.
+    + eapply IHHeval1 in H6 as [? ?]; eauto. inversion H6; subst. eapply deref_compat in H12; eauto.
+      unshelve epose proof (Forall2_nth _ _ _ _ _ 0 (fail "") (fail "") H12 _); [econstructor|].
+      inversion H9; subst. all: try rewrite <- H10 in H1; try inversion H1.    
+      all: try rewrite <- H13 in H1; try inversion H1. rewrite <- H14 in H11. inversion H11.
+    + eapply IHHeval1 in H6 as [? ?]; eauto. inversion H6; subst. pose proof (Hptr:=H15). eapply deref_compat in H15; eauto.
+      eapply IHHeval2 in H11 as [? ?]; eauto. eapply update_compat in H13; try exact Hptr; eauto. 
+      repeat econstructor; eauto.  
+      unshelve epose proof (Forall2_nth _ _ _ _ _ 1 (fail "") (fail "") H15 _); [econstructor|].
+      rewrite H2 H10 in H14. inversion H14; subst; eauto.    
+      unshelve epose proof (Forall2_nth _ _ _ _ _ 1 (fail "") (fail "") H15 _); [econstructor|].
+      rewrite H2 H10 in H12. inversion H12; subst; eauto.  
+    + eapply IHHeval1 in H6 as [? ?]; eauto. inversion H6; subst. inversion H8.
+  (* eval_force_fail *)  
+  - inversion 1; subst.
+    + eapply IHHeval in H2 as [? ?]; eauto. inversion H2; subst. inversion H.
+    + eapply IHHeval in H2 as [? ?]; eauto. inversion H2; subst. inversion H.
+    + eapply IHHeval in H2 as [? ?]; eauto. split; eauto; constructor.
+  (* eval_global *)  
+  - inversion 1; subst. split; eauto.
+  (* eval_num_int *)
+  - inversion 1; subst. split; eauto; econstructor. 
+  (* eval_num_bigint *)
+  - inversion 1; subst. split; eauto; econstructor. 
+  (* eval_num_float *)
+  - inversion 1; subst. split; eauto; econstructor. 
+  (* eval_string *)
+  - inversion 1; subst. eapply fresh_compat in H5 as [? ?]; eauto.
+    eapply update_compat in H7; eauto. split; try econstructor; eauto.
+    apply Forall2_init; eauto; econstructor.
+  (* eval_numop1 *)
+  - inversion 1; subst.
+    eapply IHHeval in H6 as [? ?]; eauto. split; eauto. destruct op;
+    unfold n; erewrite as_ty_vrel; eauto; eapply truncate_vrel. 
+  (* eval_numop2 *)
+  - inversion 1; subst.
+    eapply IHHeval1 in H7 as [? ?]; eauto. eapply IHHeval2 in H8 as [? ?]; eauto.
+    split; eauto. destruct op; destruct b; cbn.
+    all : erewrite as_ty_vrel; eauto; erewrite (as_ty_vrel _ v2); eauto ; try eapply truncate_vrel; econstructor.
+  (* eval_numop1_neg *)
+  - inversion 1; subst.
+    eapply IHHeval in H2 as [? ?]; eauto. split; eauto. erewrite as_float_vrel; eauto; econstructor.
+  (* eval_numop1_float_fail *)
+  - inversion 1; subst. split; eauto; econstructor.
+  (* eval__float_fail *)
+  - inversion 1; subst. split; eauto; econstructor.
+  (* eval__float *)
+  - inversion 1; subst. 
+    eapply IHHeval1 in H6 as [? ?]; eauto. eapply IHHeval2 in H7 as [? ?]; eauto. split; eauto. unfold v1'0, v2'0, v1', v2'. 
+    cbn. erewrite as_float_vrel; eauto. erewrite (as_float_vrel v2); eauto. econstructor.
+  (* eval__embed_float *)  
+  - inversion 1; subst. 
+    eapply IHHeval1 in H6 as [? ?]; eauto. eapply IHHeval2 in H7 as [? ?]; eauto. split; eauto.
+    unfold res, res0. cbn. unfold v1'0, v2'0, v1', v2'. 
+    erewrite as_float_vrel; eauto. erewrite (as_float_vrel v2); eauto. econstructor.
+  (* eval_convert_int *)
+  - inversion 1; subst. 
+    eapply IHHeval in H6 as [? ?]; eauto. split; eauto. erewrite as_ty_vrel; eauto ; eapply truncate_vrel. 
+  (* eval_convert_float *)
+  - inversion 1; subst. 
+    eapply IHHeval in H5 as [? ?]; eauto. split; eauto. erewrite as_ty_vrel; eauto; econstructor.
+  (* eval_convert_float_float *) 
+  - inversion 1; subst. 
+    eapply IHHeval in H2 as [? ?]; eauto. split; eauto. erewrite as_float_vrel; eauto; econstructor.
+  (* eval_vecnew_array *)
+  - inversion 1; subst. 
+    eapply IHHeval1 in H6 as [? ?]; eauto. eapply IHHeval2 in H9 as [? ?]; eauto.
+    eapply fresh_compat in H11 as [? ?]; eauto. eapply update_compat in H14; eauto. 
+    + split; eauto. econstructor; eauto.
+    + inversion H5; subst; clear H5. eapply Forall2_init; eauto.      
+  (* eval_vecnew_bytevec *)
+  - inversion 1; subst. 
+    eapply IHHeval1 in H7 as [? ?]; eauto. eapply IHHeval2 in H10 as [? ?]; eauto.
+    eapply fresh_compat in H13 as [? ?]; eauto. inversion H10; inversion H6; subst. eapply update_compat in H16; eauto. 
+    + split; eauto. destruct (_&&_); econstructor; eauto.
+    + eapply Forall2_init; eauto.
+  (* eval_vecget *)
+  - inversion 1; subst.
+    eapply IHHeval1 in H5 as [? ?]; eauto. eapply IHHeval2 in H8 as [? ?]; eauto.
+    split; eauto. inversion H2; subst; clear H2.  destruct idx', idx'0; inversion H4; try econstructor; eauto; subst. 
+    destruct ty0; try econstructor; eauto. destruct (vector_type_eqb _ _); try econstructor.
+    eapply deref_compat in H9; eauto. erewrite Forall2_length; eauto. destruct (_ && _); try econstructor.
+    apply Forall2_nth; eauto; econstructor.
+  (* eval_vecset *)
+  - inversion 1; subst.
+    eapply IHHeval1 in H6 as [? ?]; eauto. eapply IHHeval2 in H8 as [? ?]; eauto. eapply IHHeval3 in H11 as [? ?]; eauto.
+    inversion H5; subst; clear H5. inversion H3; subst; clear H3.  
+    eapply deref_compat in H12; eauto. eapply update_compat in H13; eauto. erewrite Forall2_length; eauto. 
+    destruct (vector_type_eqb _ _). 2: split; eauto; econstructor.
+    2: { clear - H12 H7. set (Z.to_nat _). clearbody n; revert n. induction H12; cbn; try econstructor. destruct n; econstructor; eauto. }
+    destruct (_&&_); [|split; try econstructor; eauto].
+    destruct ty; [split; try econstructor; eauto|]. destruct v, v0; inversion H7; split; eauto; try econstructor.
+    destruct ty; eauto. destruct (_&&_); eauto.     
+    destruct ty; try econstructor. destruct (_&&_); econstructor. 
+  (* eval_vec_length *)     
+  - inversion 1; subst.
+    eapply IHHeval in H4 as [? ?]; eauto. split; eauto. inversion H2; subst; clear H2.
+    destruct (vector_type_eqb _ _); try econstructor; eauto. eapply deref_compat in H7; eauto.
+    erewrite Forall2_length; eauto. econstructor.
+Qed.      
+
+Lemma eval_sim {P : Pointer} {H : CompatiblePtr P P} 
+               {HP : @Heap P} `{@CompatibleHeap P P _ _ _} 
+  globals locals ilocals iglobals e h h' ih v :
+  (forall nm val val', In (nm, val) globals -> In (nm, val') iglobals -> 
+    vrel val val') ->
+  vrel_locals locals ilocals ->
+  R_heap h ih ->
+  eval globals locals h e h' v -> 
+  ∥{ ih' & { iv & eval iglobals ilocals ih e ih' iv /\  R_heap h' ih' /\ vrel v iv}}∥.
+  rename H into _CPtr; rename H0 into _CHeap. 
+  intros Hglob Hloc Hheap Heval.
+  induction Heval as [ (* lambda_sing *) locals h x e
+                 | (* lambda *) locals h x ids e H
+                 | (* app_sing *) locals h1 h2 h3 h4 x locals' e e2 v2 e1 v H IHeval1 H0 IHeval2 H1 IHeval3
+                 | (* app_sing_Rec *) locals h1 h2 h3 h4 mfix n y e locals' self e2 v2 e1 v H IHeval1 H0 IHeval2 Hnth H1 IHeval3
+                 | (* app_fail *) locals h h' e2 e v Heval IHeval Heq
+                 | (* app *) locals h h' e3 e2 e1 v vals tag IHeval 
+                 | (* var *) 
+                 | (* let_body *) | (* let_unnamed *) | (* let_named *) | (* let_rec *)
+                 | (* switch *) 
+                 | (* block *)  
+                 | (* field *) locals h h' idx b vals tag H IHeval | | | | | | 
+                 | | | | | | | | | | | | | | | | | | | ]
+    in ih, Hheap, ilocals, Hloc |- *.
+  (* eval_lambda_sing *) 
+  - sq. exists ih. exists (Func (ilocals, x , e)). repeat split; eauto; econstructor; eauto.  
+  (* eval_lambda *)
+  - sq. exists ih. exists (Func (ilocals, x, Mlambda (ids, e))). repeat split; eauto; econstructor; eauto.
+  (* eval_app_sing *)
+  - specialize (IHeval1 _ _ Hloc Hheap) as [[ih1 [iv1 [? [Hheap1 ?]]]]]. inversion H3; subst; clear H3. 
+    specialize (IHeval2 _ _ Hloc Hheap1) as [[ih2 [iv2 [? [Hheap2 ?]]]]].
+    assert (Hloc' : vrel_locals (Ident.Map.add x v2 locals') (Ident.Map.add x iv2 locals'0)).
+    { intro. eapply vrel_add; eauto. }
+    specialize (IHeval3 _ _ Hloc' Hheap2) as [[ih3 [iv3 [? [Hheap3 ?]]]]]. sq.
+    exists ih3. exists iv3; repeat split; eauto. econstructor; eauto.
+  (* eval_app_sing_rec *)
+  - specialize (IHeval1 _ _ Hloc Hheap) as [[ih1 [iv1 [? [Hheap1 ?]]]]]. inversion H3; subst; clear H3. 
+    specialize (IHeval2 _ _ Hloc Hheap1) as [[ih2 [iv2 [? [Hheap2 ?]]]]].
+    assert (Hloc' : vrel_locals (Ident.Map.add y v2 (add_self self mfix locals')) (Ident.Map.add y iv2 (add_self self mfix' locals'0))).
+    { intro. eapply vrel_add; eauto. eapply vrel_locals_add_self; eauto. }
+    specialize (IHeval3 _ _ Hloc' Hheap2) as [[ih3 [iv3 [? [Hheap3 ?]]]]]. sq.
+    exists ih3. exists iv3; repeat split; eauto. econstructor 4; eauto.
+    eapply (Forall2_nth _ _ _ mfix mfix' n Bad_recursive_value Bad_recursive_value) 
+        in H10 as [? ?]; [|now split]. 
+    eapply H7; eauto. 
+  (* eval_app_fail *)
+  - specialize (IHeval _ _ Hloc Hheap) as [[ih1 [iv1 [? [Hheap1 ?]]]]]. sq. 
+    exists ih1. eexists. repeat split; eauto. econstructor 5; eauto. inversion H0; subst; try econstructor; try inversion Heq. econstructor.
+  (* eval_app *)
+  - specialize (IHeval _ _ Hloc Hheap) as [[ih1 [iv1 [? [Hheap1 ?]]]]]. sq. 
+    exists ih1. eexists. repeat split; eauto. econstructor 6; eauto.
+  (* eval_var *)
+  - sq. exists ih; eexists; repeat split; eauto. econstructor 7; eauto. 
+  (* eval_let_body *)
+  - specialize (IHHeval _ _ Hloc Hheap) as [[ih1 [iv1 [? [Hheap1 ?]]]]]. sq.
+    exists ih1; eexists; repeat split; eauto. econstructor 8; eauto. 
+  (* eval_let_unnamed *)
+  - specialize (IHHeval1 _ _ Hloc Hheap) as [[ih1 [iv1 [? [Hheap1 ?]]]]].
+    specialize (IHHeval2 _ _ Hloc Hheap1) as [[ih2 [iv2 [? [Hheap2 ?]]]]]. sq.
+    exists ih2; eexists; repeat split; eauto. econstructor 9; eauto. 
+  (* eval_let_named *)
+  - specialize (IHHeval1 _ _ Hloc Hheap) as [[ih1 [iv1 [? [Hheap1 ?]]]]].
+    assert (Hloc' : vrel_locals (Ident.Map.add x v1 locals) (Ident.Map.add x iv1 ilocals)).
+    { intro. eapply vrel_add; eauto. }
+    specialize (IHHeval2 _ _ Hloc' Hheap1) as [[ih2 [iv2 [? [Hheap2 ?]]]]]. sq.
+    exists ih2; eexists; repeat split; eauto. econstructor 10; eauto. 
+  (* eval_let_rec *)
+  - assert (Hloc' : vrel_locals newlocals (add_self self rfunc ilocals)). 
+    { intro. rewrite H. eapply vrel_locals_add_self; eauto.
+      unfold rfunc. clear. induction recs; econstructor; eauto.
+      split; intros; [|split; intros].
+      - split; intro H; destruct a, t0; try solve [inversion H];
+        destruct p; destruct l; try solve [inversion H]; cbn in *; eauto.
+      - destruct a, t0; try solve [inversion H];
+        destruct p; destruct l; try solve [inversion H]; cbn in *; eauto. 
+        destruct l; inversion H. 
+      - split; intro H; destruct a, t0; eauto. }
+    specialize (IHHeval _ _ Hloc' Hheap) as [[ih1 [iv1 [? [Hheap1 ?]]]]]. sq.
+    exists ih1; eexists; repeat split; eauto. econstructor 11; eauto. 
+  (* eval_switch *)
+  - specialize (IHHeval1 _ _ Hloc Hheap) as [[ih1 [iv1 [? [Hheap1 ?]]]]].
+    specialize (IHHeval2 _ _ Hloc Hheap1) as [[ih2 [iv2 [? [Hheap2 ?]]]]]. sq.
+    exists ih2; eexists; repeat split; eauto. econstructor 12; eauto. eapply find_match_vrel; eauto.
+  (* eval_block *)
+  - enough (∥ {ih' : heap & {ivals & Forall2_acc (eval iglobals ilocals) ih es ih' ivals /\ R_heap h' ih' /\ Forall2 vrel vals ivals}}∥).
+    { sq. destruct H1 as [ih1 [iv1 [? [? ?]]]]. exists ih1; exists (Block (tag, iv1)). repeat split; try econstructor; eauto. erewrite <- Forall2_length; eauto. }
+    revert ih Hheap. induction H0; intros.  
+    + sq. exists ih; eexists; repeat split; eauto; try econstructor; eauto.
+    + destruct H0. eapply H2 in Hheap as [[ih1 [iv1 [? [Hheap1 ?]]]]]; eauto.
+      eapply IHForall2_acc in Hheap1 as [[? [? [? [? ?]]]]]. sq. repeat eexists; repeat split; eauto. 
+      econstructor; eauto. cbn in H; lia. 
+  (* eval_field *)    
+(*  - inversion 1; subst.
     + eapply IHeval in H5 as [? ?]; eauto. split; eauto. inversion H4; subst. eapply Forall2_nth; eauto. econstructor.
     + eapply IHeval in H6 as [? ?]; eauto. split; eauto. inversion H4; subst. inversion H9.
   (* eval_field_fail *)    
@@ -682,9 +970,8 @@ Proof.
     destruct (vector_type_eqb _ _); try econstructor; eauto. eapply deref_compat in H7; eauto.
     erewrite Forall2_length; eauto. econstructor.
 Qed.      
-
-
-
+*)
+Admitted. 
    
   
 

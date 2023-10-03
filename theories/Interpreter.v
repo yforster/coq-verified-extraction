@@ -277,19 +277,21 @@ end.
 Class CompatiblePtr (P P' : Pointer) :=  
 { R_ptr : P.(pointer) -> P'.(pointer) -> Prop }.
 
+Unset Elimination Schemes.
+
 Inductive vrel {P P' : Pointer} {H : CompatiblePtr P P'} : @value P -> @value P' -> Prop :=
   | vBlock : forall tag vals vals', Forall2 vrel vals vals' ->
-      vrel (SemanticsSpec.Block (tag, vals)) (Block (tag, vals'))
-  | vVec : forall ty ptr ptr', R_ptr ptr ptr' -> vrel (SemanticsSpec.Vec (ty, ptr)) (Vec (ty, ptr'))
+      vrel (Block (tag, vals)) (Block (tag, vals'))
+  | vVec : forall ty ptr ptr', R_ptr ptr ptr' -> vrel (Vec (ty, ptr)) (Vec (ty, ptr'))
   | vFunc : forall x locals locals' e,  
     (forall x, vrel (locals x) (locals' x)) ->
-    vrel (SemanticsSpec.Func (locals,x,e)) (Func (locals',x,e))
+    vrel (Func (locals,x,e)) (Func (locals',x,e))
   | vRClos : forall self mfix mfix' n locals locals',  
     (forall x, vrel (locals x) (locals' x)) ->
-    (forall n y e,
-      (nth n mfix Bad_recursive_value = RFunc (y, e)) 
-      <-> 
-      (nth n mfix' Bad_recursive_value = RFunc (y, e))) ->
+    Forall2 (fun a b => 
+      (forall y e, (a = RFunc (y, e)) <-> (b = RFunc (y, e))) /\
+      (forall ptr ptr', a = RThunk ptr -> b = RThunk ptr' -> R_ptr ptr ptr') /\
+      (a = Bad_recursive_value <-> b = Bad_recursive_value)) mfix mfix' ->
     vrel (RClos (locals,self,mfix,n)) (RClos (locals',self,mfix',n))
   | vInt : forall ty i , 
       vrel (value_Int (ty, i)) (value_Int (ty, i))
@@ -299,10 +301,67 @@ Inductive vrel {P P' : Pointer} {H : CompatiblePtr P P'} : @value P -> @value P'
       vrel (Thunk ptr) (Thunk ptr')
   | vLazy : forall e locals locals',  
     (forall x, vrel (locals x) (locals' x)) ->
-    vrel (SemanticsSpec.Lazy (locals, e)) (Lazy (locals' , e))
-  | vFail : forall s, 
-      vrel (SemanticsSpec.fail s) (fail s)
-  | vNot_evaluated : vrel SemanticsSpec.not_evaluated not_evaluated.
+    vrel (Lazy (locals, e)) (Lazy (locals' , e))
+  | vFail : forall s, vrel (fail s) (fail s)
+  | vNot_evaluated : vrel not_evaluated not_evaluated.
+
+Lemma vrel_ind : forall (P P' : Pointer) (H : CompatiblePtr P P')
+    (P0 : value -> value -> Prop),
+  (forall (tag : Malfunction.int) (vals vals' : list value),
+   Forall2 vrel vals vals' ->
+   Forall2 P0 vals vals' ->
+   P0 (Block (tag, vals)) (Block (tag, vals'))) ->
+  (forall (ty : vector_type) (ptr ptr' : pointer),
+   R_ptr ptr ptr' -> P0 (Vec (ty, ptr)) (Vec (ty, ptr'))) ->
+  (forall (x : Ident.t) (locals locals' : Ident.t -> value) (e : t),
+   (forall x0 : Ident.t, vrel (locals x0) (locals' x0)) ->
+   (forall x0 : Ident.t, P0 (locals x0) (locals' x0)) ->
+   P0 (Func (locals, x, e)) (Func (locals', x, e))) ->
+  (forall (self : list Ident.t) (mfix mfix' : list rec_value) 
+          (n : nat) (locals locals' : Ident.t -> value),
+        (forall x : Ident.t, vrel (locals x) (locals' x)) ->
+        (forall x : Ident.t, P0 (locals x) (locals' x)) ->
+        Forall2
+          (fun a b : rec_value =>
+           (forall y e, a = RFunc (y, e) <-> b = RFunc (y, e)) /\
+           (forall ptr ptr', a = RThunk ptr -> b = RThunk ptr' -> R_ptr ptr ptr') /\
+           (a = Bad_recursive_value <-> b = Bad_recursive_value)) mfix mfix' ->
+        P0 (RClos (locals, self, mfix, n)) (RClos (locals', self, mfix', n))) ->
+  (forall (ty : inttype) (i : Z),
+   P0 (value_Int (ty, i)) (value_Int (ty, i))) ->
+  (forall f4 : float, P0 (Float f4) (Float f4)) ->
+  (forall ptr ptr' : pointer,
+   R_ptr ptr ptr' -> P0 (Thunk ptr) (Thunk ptr')) ->
+  (forall (e : t) (locals locals' : Ident.t -> value),
+   (forall x : Ident.t, vrel (locals x) (locals' x)) ->
+   (forall x : Ident.t, P0 (locals x) (locals' x)) ->
+   P0 (Lazy (locals, e)) (Lazy (locals', e))) ->
+  (forall s : string, P0 (fail s) (fail s)) ->
+  P0 not_evaluated not_evaluated ->
+  forall v v0 : value, vrel v v0 -> P0 v v0.
+Proof.
+  intros. 
+  revert v v0 H10.
+  fix f 3. intros v V0 [| | | | | | | | | ].
+  2-10:eauto.
+  - eapply H0; eauto. induction H10; try econstructor; eauto.
+Qed.
+Set Elimination Schemes.
+
+Definition CompatiblePtr_sym {P P' : Pointer} `{@CompatiblePtr P P'} : @CompatiblePtr P' P 
+   := {| R_ptr := fun p' p => R_ptr p p' |}.
+
+Lemma vrel_sym {P P' : Pointer} `{@CompatiblePtr P P'} v v' :
+  vrel v v' -> @vrel _ _ CompatiblePtr_sym v' v.
+Proof.
+  induction 1; econstructor; eauto.
+  - induction H1; econstructor; try inversion H0; eauto.
+  - clear - H2; induction H2; econstructor; eauto. clear -H0.
+    destruct H0 as [? [? [? ?]]]. repeat split; eauto.
+    + eapply H0.
+    + eapply H0.
+    + intros. eapply H1; eauto.
+Qed.
 
 Definition vrel_locals `{CompatiblePtr} 
   : Ident.Map.t -> Ident.Map.t -> Prop := fun locals ilocals => forall x, vrel (locals x) (ilocals x).
@@ -375,9 +434,10 @@ Ltac fail_case IHeval Hloc Hheap Heq :=
 
 Lemma vrel_locals_add_self `{CompatiblePtr} locals' locals'0 mfix mfix' self :
   (forall x : Ident.t, vrel (locals' x) (locals'0 x)) ->
-  (forall (n : nat) (y : Ident.t) (e : t),
-     nth n mfix SemanticsSpec.Bad_recursive_value = SemanticsSpec.RFunc (y, e) <->
-    nth n mfix' Bad_recursive_value = RFunc (y, e)) ->
+  Forall2 (fun a b => 
+  (forall y e, (a = RFunc (y, e)) <-> (b = RFunc (y, e))) /\
+  (forall ptr ptr', a = RThunk ptr -> b = RThunk ptr' -> R_ptr ptr ptr') /\
+  (a = Bad_recursive_value <-> b = Bad_recursive_value)) mfix mfix' ->
   vrel_locals (SemanticsSpec.add_self self mfix locals') (add_self self mfix' locals'0).
 Proof. 
   intros Hloc ?.
@@ -389,7 +449,7 @@ Proof.
   revert locals' locals'0 Hloc.     
   induction self; eauto; cbn; intros. 
   intro. unfold Ident.Map.add. case_eq (Ident.eqb x a); intro; eauto. 
-  - now econstructor.
+  - econstructor; eauto.   
   - apply IHself; eauto.  
 Qed. 
 
@@ -449,12 +509,14 @@ Proof.
   (* eval_app_sing_rec *)
   - cbn; specialize (IHeval1 _ _ Hloc Hheap). destruct interpret as [ih1 iv1]; destruct IHeval1 as [Hheap1  Hiv1].
     specialize (IHeval2 _ _ Hloc Hheap1). destruct interpret as [ih2 iv2]; destruct IHeval2 as [Hheap2  Hiv2].
-    inversion Hiv1 ; subst.
-    edestruct H8. specialize (H2 Hnth). rewrite H2.
+    inversion Hiv1 ; subst. clear -H8 Hiv2 H7 Hheap2 Hnth IHeval3. 
+    pose proof (Hmfix := H8).
+    eapply (All_Forall.Forall2_nth _ _ _ mfix mfix' n Bad_recursive_value Bad_recursive_value) in H8 as [? ?].
+    edestruct H. specialize (H1 Hnth). rewrite H1.
     specialize (IHeval3 (Ident.Map.add y iv2 (add_self self mfix' locals'0)) ih2). 
     destruct interpret as [ih3 iv3]; cbn in *.
     apply IHeval3; eauto. apply vrel_add; eauto.
-    now apply vrel_locals_add_self. 
+    apply vrel_locals_add_self; eauto. split; now intros.  
   (* eval_app_fail *)
   - fail_case IHeval Hloc Hheap Heq.
   (* eval_app *)
@@ -472,17 +534,18 @@ Proof.
   (* eval_let_rec *)
   - cbn; eapply IHeval; eauto. intros x. clear IHeval. subst.
     apply vrel_locals_add_self; eauto.
-    intros. unfold rfunc. set (l := map snd recs). clearbody self l. split. 
-    + revert n. induction l; cbn.
-      * intros n H; destruct n; eauto; cbn in *; inversion H.
-      * intros n H. destruct n; eauto. 
-        destruct a; inversion H. destruct p. destruct l0 ; inversion H.
-        destruct l0 ; now inversion H. 
-    + revert n. induction l; cbn.
-      * intros n H; destruct n; eauto; cbn in *; inversion H.
-      * intros n H. destruct n; eauto. 
-        destruct a; inversion H. destruct p. destruct l0 ; inversion H.
-        destruct l0 ; now inversion H. 
+    intros. unfold rfunc. set (l := map snd recs). clearbody self l. 
+    induction l; econstructor; eauto. repeat split. 
+    + intro H. destruct a; inversion H. destruct p. destruct l0 ; inversion H.
+      destruct l0 ; now inversion H.
+    + intro H;  destruct a; inversion H. destruct p. destruct l0 ; inversion H.
+      destruct l0 ; now inversion H.
+    + intros. destruct a; inversion H. destruct p. destruct l0 ; inversion H.
+      destruct l0 ; now inversion H.
+    + destruct a; eauto. destruct p. destruct l0 ; eauto.
+      destruct l0; inversion 1.
+    + destruct a; eauto. destruct p. destruct l0 ; eauto.
+      destruct l0; inversion 1.
   (* eval_switch *)
   - cbn.
     specialize (IHeval1 _ _ Hloc Hheap). destruct interpret as [ih1 iv1]; destruct IHeval1 as [Hheap1  Hiv1].

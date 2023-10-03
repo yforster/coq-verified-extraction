@@ -6,7 +6,8 @@ From MetaCoq.PCUIC Require Import PCUICAst PCUICTyping PCUICFirstorder PCUICCase
 From MetaCoq.Erasure Require Import EWcbvEval EWcbvEvalNamed.
 From MetaCoq.SafeChecker Require Import PCUICErrors PCUICWfEnv PCUICWfEnvImpl.
 
-From Malfunction Require Import Malfunction SemanticsSpec utils_array Compile RealizabilitySemantics.
+From Malfunction Require Import Malfunction Interpreter SemanticsSpec utils_array 
+  Compile RealizabilitySemantics.
 
 Require Import ZArith Array.PArray List String Floats Lia Bool.
 Import ListNotations.
@@ -1063,43 +1064,101 @@ Axiom compile_function : forall `{Heap} `{WcbvFlags} (cf:=config.extraction_chec
   eval [] (empty_locals _) h (compile_pipeline Σ.(declarations) f) h' v ->
   isFunction v = true.
 
-Lemma compile_compose `{Heap} `{WcbvFlags} (cf:=config.extraction_checker_flags) 
+Lemma compile_compose {P:Pointer} {H:Heap} {HP : @CompatiblePtr P P}
+  {HH : @CompatibleHeap _ _ _ H H} 
+  (Hvrel_refl : forall v, vrel v v)
+  (Hheap_refl : forall h, R_heap h h)
+  `{WcbvFlags} (cf:=config.extraction_checker_flags) 
   (Σ:global_env) univ_decl h h' t u' u v w na A B :
   ∥ (Σ , univ_decl) ;;; [] |- t : tProd na A B ∥ ->
   ~ ∥Extract.isErasable (Σ , univ_decl) [] t∥ -> 
   eval [] (empty_locals _) h (compile_pipeline Σ.(declarations) u) h v ->
   eval [] (empty_locals _) h u' h' v ->
   eval [] (empty_locals _) h (Mapply (compile_pipeline Σ.(declarations) t, [u'])) h' w ->
-  eval [] (empty_locals _) h (compile_pipeline Σ.(declarations) (tApp t u)) h w.
+  ∥{w' & vrel w w' /\ 
+        eval [] (empty_locals _) h (compile_pipeline Σ.(declarations) (tApp t u)) h w'}∥.
 Proof.
-  rename H into HP; rename H0 into H; rename H1 into H0. 
   intros Htyp Herase Hu Hu' Happ.
   erewrite compile_app; eauto.
   inversion Happ; subst. 
   - epose proof (compile_pure _ t).
     eapply isPure_heap in H1 as [Hfpure heq]; eauto.
-    2: intros; cbn; eauto. symmetry in heq; subst. 
-    econstructor 3; eauto.
-    assert (v = v2) by apply todo. symmetry in H1; subst.
-    eapply isPure_heap in Hu as [Hvpure _]; try eapply compile_pure; intros; cbn; eauto.
-    destruct Hfpure as [? Hepure]. eapply isPure_heap_irr; eauto.
-    intro. unfold Ident.Map.add. destruct (Ident.eqb s x); eauto.
+    2: intros; cbn; eauto. symmetry in heq; subst. pose proof (Hu_copy := Hu).
+    eapply isPure_heap in Hu as [Hvpure _]; try eapply compile_pure; intros; cbn in *; eauto.
+    eapply eval_det in Hu' as [? ?]; eauto. 3: econstructor.
+    2: intros ? ? ? Hempty; inversion Hempty.
+    destruct Hfpure as [? Hepure]. eapply isPure_heap_irr with (h'':=h) in H8; eauto.
+    2: { intro; cbn. unfold Ident.Map.add. destruct Ident.eqb; eauto. 
+         eapply isPure_value_vrel'; eauto. }
+    eapply eval_sim with (iglobals := []) in H8 as [[h'' [w' [? [? ?]]]]]; eauto.
+    3: { eapply vrel_add; eauto. intro. eauto. }
+    2: intros ? ? ? Hempty; inversion Hempty.
+    sq. exists w'. split; eauto. econstructor 3; eauto. 
+    eapply isPure_heap_irr; eauto. 
+    { intro; cbn. unfold Ident.Map.add. destruct Ident.eqb; eauto. }
   - epose proof (compile_pure _ t).
     eapply isPure_heap in H1 as [Hfpure heq]; eauto.
-    2: intros; cbn; eauto. symmetry in heq; subst.  
-    econstructor 4; eauto.
-    assert (v = v2) by apply todo. symmetry in H1; subst.
-    eapply isPure_heap in Hu as [Hvpure _]; try eapply compile_pure; intros; cbn; eauto.
-    destruct Hfpure as [? Hepure]. eapply isPure_heap_irr; eauto.
-    2: { intro. unfold Ident.Map.add. destruct (Ident.eqb s y); eauto. 
+    2: intros; cbn; eauto. symmetry in heq; subst. pose proof (Hu_copy := Hu).
+    eapply isPure_heap in Hu as [Hvpure _]; try eapply compile_pure; intros; cbn in *; eauto.
+    eapply eval_det in Hu' as [? ?]; eauto. 3: econstructor.
+    2: intros ? ? ? Hempty; inversion Hempty.
+    destruct Hfpure as [? Hepure]. 
+    assert (isPure e).
+    { rewrite nth_nth_error in H6. 
+      eapply (nth_error_forall (n := n)) in Hepure; cbn in *; eauto.
+      2: destruct nth_error; inversion H6; subst; eauto.
+      eauto. }
+    eapply isPure_heap_irr with (h'':=h) in H9; eauto.
+    2: { intro; cbn. unfold Ident.Map.add. destruct Ident.eqb; eauto. 
+         eapply isPure_value_vrel'; eauto.
          eapply isPure_add_self; eauto. }
-    rewrite nth_nth_error in H6.
-    eapply (nth_error_forall (n:=n) (x:=RFunc (y, e))) in Hepure; eauto.  
-    destruct nth_error; [now f_equal |inversion H6].
+    eapply eval_sim with (iglobals := []) in H9 as [[h'' [w' [? [? ?]]]]]; eauto.
+    3: { eapply vrel_add; eauto. intro. eauto. }
+    2: intros ? ? ? Hempty; inversion Hempty.
+    sq. exists w'. split; eauto. econstructor 4; eauto. 
+    eapply isPure_heap_irr; eauto.
+    { intro; cbn. unfold Ident.Map.add. destruct Ident.eqb; eauto.
+      eapply isPure_add_self; eauto.
+     }
   - erewrite compile_function in H7; eauto. inversion H7.
 Qed.  
 
-Lemma CoqFunction_to_CamlFunction `{Heap} `{WcbvFlags} (cf:=config.extraction_checker_flags)
+(*
+Lemma realize_ADT_vrel {P:Pointer} {H:Heap} {HP : @CompatiblePtr P P} 
+  ind adt v v' : 
+  vrel v v' ->
+  realize_ADT _ _ [] [] adt [] All_nil ind v ->
+  realize_ADT _ _ [] [] adt [] All_nil ind v'.
+Proof.
+  intros Hrel [n Hreal]. destruct adt as [nadt adt]. 
+  exists n; cbn in *. revert v v' Hrel nadt adt Hreal. 
+  induction n; intros.
+  - destruct (nadt =?_);inversion Hreal.
+  - destruct (nadt =?_);[cbn in *|inversion Hreal].
+    destruct (ind <? _); [cbn in *|inversion Hreal].
+    destruct Hreal.   
+    + left. clear IHn. induction H0.
+      * econstructor 1. subst. inversion Hrel; subst; eauto.
+      * econstructor 2; eauto. 
+    + right. induction H0.
+      * econstructor 1. subst. destruct H0 as [vs [? ?]].
+        subst. inversion Hrel; subst; eauto.
+        eexists; split; eauto.  
+        induction H4; inversion H1; subst; econstructor.
+        unfold realize_value. destruct H6.  cbn. 
+      * cbn in H6.   
+     
+    + econstructor 2; eauto.
+  unfold 
+  destruct (n0 =? _).
+  2: { inversion Hreal.  }  
+  induction 1. 
+  *)
+
+Lemma CoqFunction_to_CamlFunction {P:Pointer} {H:Heap} {HP : @CompatiblePtr P P}
+  {HH : @CompatibleHeap _ _ _ H H} 
+  (Hvrel_refl : forall v, vrel v v)
+  (Hheap_refl : forall h, R_heap h h) `{WcbvFlags} (cf:=config.extraction_checker_flags)
     univ retro univ_decl kn mind 
   (Hparam : ind_params mind = [])
   (Hindices : Forall (fun ind => ind_indices ind = []) (ind_bodies mind))
@@ -1118,7 +1177,6 @@ Lemma CoqFunction_to_CamlFunction `{Heap} `{WcbvFlags} (cf:=config.extraction_ch
         global_adt (Arrow (Adt kn ind []) (Adt kn ind [])) 
         (compile_pipeline Σ.(declarations)  f).
 Proof.
-  rename H into HP; rename H0 into H; rename H1 into H0. 
   intros ? ? ? wfΣ ? ? Hlookup. intros. cbn. rewrite ReflectEq.eqb_refl. cbn.
   intros t Ht. unfold to_realize_term in *. intros h h' v Heval.
   pose proof (Hlookup' := Hlookup).
@@ -1168,46 +1226,36 @@ Proof.
   - specialize (Ht _ _ _ H8).
     unshelve eapply camlValue_to_CoqValue_nil in Ht; eauto; cbn.
     destruct Ht as [t_coq Ht]. specialize (Ht h2). destruct Ht as [Ht_typ Ht_eval].
-    assert (h2 = h').
-    { eapply isPure_heap in H6; try eapply compile_pure; intros; cbn; eauto. cbn in H6.
-      destruct H6 as [[? ? ] ?]. 
-      eapply isPure_heap; try apply H11; intros; cbn; eauto.
-      unfold Ident.Map.add. destruct (Ident.eqb s x); eauto.
-      eapply isPure_heap in Ht_eval; try eapply compile_pure; intros; cbn; eauto. now destruct Ht_typ. }
-    subst. eapply isPure_heap in H6; try eapply compile_pure; intros; cbn; eauto.
-    destruct H6 as [? ?]; subst.  
-    eapply compile_compose in H8; eauto.
-    2: { apply todo. } 
+    eapply isPure_heap in H6; try eapply compile_pure; intros; cbn; eauto. cbn in H6.
+    destruct H6 as [[? ? ] ?]. eapply isPure_heap in H11 as [? ?]; eauto.
+    2: { unfold Ident.Map.add; intro. destruct (Ident.eqb s x); eauto.
+      eapply isPure_heap in Ht_eval; try eapply compile_pure; intros; cbn; eauto. now destruct Ht_eval. } 
+    subst. eapply compile_compose in H8 as [[? [? ?]]]; eauto.
+    2: { apply todo. }
     2: { eapply isPure_heap_irr,  Ht_eval; try eapply compile_pure; intros; cbn; eauto. }
-    unshelve eapply CoqValue_to_CamlValue; try exact H8; eauto.
-    destruct H3, Ht_typ. sq. 
-    unshelve epose proof (type_App _ _ _ _ _ _ _ _ _ X X0); try exact (subst_instance_univ [] (ind_sort Eind)); eauto.
-    rewrite <- (sort_of_product_idem _).
-    eapply type_Prod; eauto.
+    assert (v = x0). { apply isPure_value_vrel_eq; eauto. }
+    subst. unshelve eapply CoqValue_to_CamlValue; try exact H8; eauto.
+    sq. unshelve epose proof (type_App _ _ _ _ _ _ _ _ _ H3 Ht_typ); try exact (subst_instance_univ [] (ind_sort Eind)); eauto.
+    rewrite <- (sort_of_product_idem _). eapply type_Prod; eauto.
   - specialize (Ht _ _ _ H7).
     eapply camlValue_to_CoqValue_nil in Ht; eauto; cbn.
     destruct Ht as [t_coq Ht].
     specialize (Ht h2).  destruct Ht as [Ht_typ Ht_eval].
-    assert (h2 = h').
-    { eapply isPure_heap in H6; try eapply compile_pure; intros; cbn; eauto.
-      cbn in H6. destruct H6 as [[? ? ] ?].
-      pose proof (proj1 (Forall_nth _ _) H5 n Bad_recursive_value).
-      rewrite H9 in H8. cbn in H8.
-      eapply isPure_heap in Ht_eval; try eapply compile_pure; intros; cbn; eauto. 
-      destruct Ht_eval as [? _].
-      case_eq (Nat.ltb n #|mfix|); try rewrite Nat.ltb_lt; eauto.
-      intro; eapply isPure_heap; try apply H12; intros; cbn; eauto.
-      unfold Ident.Map.add. destruct (Ident.eqb s y); eauto.
-      cbn. eapply isPure_add_self; eauto.
-      rewrite Nat.ltb_ge. intro neq. rewrite nth_overflow in H9; eauto. inversion H9. }
-    subst. eapply isPure_heap in H6; try eapply compile_pure; intros; cbn; eauto. 
-    destruct H6 as [? ?]; subst.  
-    eapply compile_compose in H7; eauto.
+    eapply isPure_heap in H6; try eapply compile_pure; intros; cbn; eauto.
+    cbn in H6. destruct H6 as [[? ? ] ?]. rewrite nth_nth_error in H9. 
+    case_eq (nth_error mfix n); intros;  [|rewrite H8 in H9; inversion H9].
+    pose proof (H5_copy := H5). eapply (nth_error_forall (n:=n)) in H5; eauto.
+    rewrite H8 in H9. subst. 
+    eapply isPure_heap in H12 as [? ?]; eauto.
+    2: { unfold Ident.Map.add; intro; destruct (Ident.eqb s y); eauto.
+         eapply isPure_heap in Ht_eval; try eapply compile_pure; intros; cbn; eauto. 
+         now destruct Ht_eval as [? _]. eapply isPure_add_self; eauto. }
+    cbn in H5. subst. eapply compile_compose in H7 as [[? [? ?]]]; eauto.
     2: { apply todo. } 
     2: { eapply isPure_heap_irr,  Ht_eval; try eapply compile_pure; intros; cbn; eauto. }
-    unshelve eapply CoqValue_to_CamlValue; try exact H7; eauto.
-    destruct H3, Ht_typ. sq.
-    unshelve epose proof (type_App _ _ _ _ _ _ _ _ _ t0 X); try exact (subst_instance_univ [] (ind_sort Eind)); eauto. 
+    assert (v = x). { apply isPure_value_vrel_eq; eauto. }
+    subst. unshelve eapply CoqValue_to_CamlValue; try exact H9; eauto.
+    sq. unshelve epose proof (type_App _ _ _ _ _ _ _ _ _ H3 Ht_typ); try exact (subst_instance_univ [] (ind_sort Eind)); eauto. 
     rewrite <- (sort_of_product_idem _).
     eapply type_Prod; eauto.
   - rewrite (compile_function _ _ _ _ _ _ _ _ _ H3 _ H7) in H10. apply todo. inversion H10.
