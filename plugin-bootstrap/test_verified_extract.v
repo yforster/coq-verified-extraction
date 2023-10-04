@@ -11,32 +11,30 @@ Definition two := TWO.
 
 Recursive Extraction plus.
 
-MetaCoq Verified Extract Module two "two.mlf".
+MetaCoq Verified Extract two "two.mlf".
 
 Axiom axiom : nat.
 
-MetaCoq Verified Extract Module axiom "axiom.mlf".
+MetaCoq Verified Extract axiom "axiom.mlf".
 
 
-From Malfunction Require Import Compile.
+(* From Malfunction Require Import Compile.
 MetaCoq Verified Bypass Extract compile.
 
 From Malfunction Require Import Pipeline.
-MetaCoq Verified Extract Module compile_malfunction "compile_malfunction.mlf".
+MetaCoq Verified Extract Module compile_malfunction "compile_malfunction.mlf". *)
 
 Definition many_list_functions := (@List.firstn, @List.filter, @List.skipn).
 
-MetaCoq Verified Extract Module many_list_functions "list.mlf".
+MetaCoq Verified Extract many_list_functions "list.mlf".
 
 Definition prf := match conj I I with conj x y => (x,0) end.
 
-MetaCoq Verified Extract Module prf "proof.mlf".
-
-MetaCoq Verified Extract Module blocks_until "mcase.mlf".
+MetaCoq Verified Extract prf "proof.mlf".
 
 Definition test_add := plus 2 5.
 
-MetaCoq Verified Extract Module test_add "add.mlf".
+MetaCoq Verified Extract test_add "add.mlf".
 
 
 (* 

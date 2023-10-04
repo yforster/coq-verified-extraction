@@ -177,3 +177,4 @@ g_metacoq_verified_malfunction.mlg
 metacoq_verified_malfunction_plugin.mlpack
 
 Loader.v
+test_verified_extract.v
