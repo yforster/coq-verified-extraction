@@ -74,6 +74,4 @@ Serialize
 SemanticsSpec
 Pipeline
 
-Compile_malfunction
-
 G_metacoq_verified_malfunction
