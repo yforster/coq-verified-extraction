@@ -158,7 +158,7 @@ let extract ~bypass ?(emodule=false) env evm c dest =
   let prog = FixProgram.fix_quoted_program prog in
   let eprog = time (str"Extraction") 
     (if emodule then Pipeline.compile_module_malfunction
-    else Compile_malfunction.compile_malfunction) prog
+    else Compile_malfunction.malfunction_Pipeline_compile_malfunction) prog
   in
   match dest with
   | None -> Feedback.msg_info (pr_char_list eprog)
