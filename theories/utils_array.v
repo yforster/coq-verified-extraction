@@ -317,21 +317,19 @@ Qed.
 
 Lemma Array_of_list_get {A} (a : A) l i :
   (i < Z.to_nat Int63.wB) ->
-  (List.length l < Z.to_nat Int63.wB) ->
   List.length l <= int_to_nat max_length ->
   i < List.length l ->
   (Array_of_list a l).[int_of_nat i] = nth i l a.
-
 Proof.
-  unfold Array_of_list. intros Hs Hl1 Hl Hi.
+  unfold Array_of_list. intros Hs Hl Hi.
   rewrite Array_of_list'_get.
   + assumption.
-  + lia. 
+  + pose proof wb_max_length; lia.
   + rewrite PArray.length_make.
     fold (int_of_nat (Datatypes.length l)).
     destruct (Int63.lebP (int_of_nat (Datatypes.length l)) max_length) as [ | n ].
     * rewrite int_to_of_nat.
-      1:eapply Z2Nat.inj_lt. all: lia. 
+      1:eapply Z2Nat.inj_lt. all: pose proof wb_max_length; lia.
     * destruct n.
       epose proof (int_to_of_nat (Datatypes.length l) _) as H.
       eapply Z2Nat.inj_le.
@@ -339,7 +337,7 @@ Proof.
       1:eapply Int63.to_Z_bounded.
       unfold int_to_nat in H. rewrite H.
       unfold int_to_nat in Hl. exact Hl.
-      Unshelve. all:lia.
+      Unshelve. all:try pose proof wb_max_length; lia.
   + destruct (Nat.ltb_spec i 0); try lia.
     rewrite Nat.sub_0_r.
     eapply nth_indep. lia.
@@ -347,27 +345,23 @@ Qed.
 
 Lemma Array_of_list_get_again {A : Set} i s (l : list A) a :
   i >= s + List.length l ->
-  s + List.length l < Z.to_nat Int63.wB ->
   i < Z.to_nat Int63.wB ->
   (Array_of_List' s l a).[int_of_nat i]  = PArray.get a (int_of_nat i).
 Proof.
-  induction l as [ | ? l IHl ] in s, i, a |- *; intros Hi Hs Ha.
+  induction l as [ | ? l IHl ] in s, i, a |- *; intros Hi Ha.
   - cbn. reflexivity.
   - cbn. rewrite IHl. 
     + cbn in Hi. lia.
-    + cbn [List.length] in Hs. lia. 
-    + cbn [List.length] in Hs. lia.
+    + eauto.
     + rewrite get_set_other. 2:reflexivity.
       fold (int_of_nat s).
       intros H. eapply (f_equal int_to_nat) in H.
       rewrite !int_to_of_nat in H.
-      * eapply inj_lt in Hs.
-        rewrite Z2Nat.id in Hs. 1:cbn; lia.
-        rewrite <- Hs.
-        eapply inj_lt. cbn. lia.
+      * eapply inj_ge in Hi. cbn in Hi. 
+        rewrite Nat2Z.inj_add in Hi. cbn; lia.
       * eapply inj_lt in Ha.
-        rewrite Z2Nat.id in Ha. 1:cbn; lia.
-        lia.
+        rewrite Z2Nat.id in Ha; eauto.  
+        unfold Int63.wB. cbn; lia.  
       * subst. cbn in Hi. lia.
 Qed.
 
@@ -419,7 +413,7 @@ Proof.
   intros i Hi. pose (HR (int_to_nat i) Hi). 
   unfold Array_init. rewrite <- (int_of_to_nat i). 
   rewrite Array_of_list_get; try lia.
-  1-3: rewrite map_length seq_length; pose (e := int_to_of_nat n HwB);
+  1-2: rewrite map_length seq_length; pose (e := int_to_of_nat n HwB);
        unfold int_to_nat in e; rewrite e; lia.
   rewrite int_of_to_nat. unfold List.init.  
   set (k := int_to_nat i) in *. clearbody k; clear i.
