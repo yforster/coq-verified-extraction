@@ -505,10 +505,12 @@ Proof.
 unfold CoqType_to_camlType_oneind_type.
 unfold firstorder_type in Hfo.
 set (fst (PCUICAstUtils.decompose_app decl_type)) in *.
-destruct t; inversion Hfo; cbn; eauto.
+set (snd (PCUICAstUtils.decompose_app decl_type)) in *.
+destruct t; destruct l; inversion Hfo; cbn; eauto.
 - apply MCProd.andb_and in H0. destruct H0. apply leb_complete in H, H0.
   exists n0; repeat split; eauto.
-- destruct ind. inversion Hfo.
+- destruct ind; inversion Hfo.
+- destruct ind; inversion Hfo.
 Qed.   
 
 Lemma CoqType_to_camlType_oneind_Rel mind ind Hparam Hfo larg T k : 
@@ -629,11 +631,6 @@ Qed.
     | nonDepProd_tInd i u => ([], tInd i u)
     | nonDepProd_Prod na A B clA ndB => let IH := nonDep_decompose B ndB in (A :: fst IH, snd IH)
     end.
- 
-  Lemma strengthening_type `{cf: checker_flags} {Σ : global_env_ext} {wfΣ : PCUICTyping.wf Σ} Γ Γ' Γ'' t s :
-    Σ ;;; Γ ,,, Γ' ,,, lift_context #|Γ'| 0 Γ'' |- lift #|Γ'| #|Γ''| t : tSort s -> 
-    { s' & ((Σ ;;; Γ ,,, Γ'' |- t : tSort s') * (compare_universe Cumul Σ s' s))%type}.
-  Admitted.
 
   Lemma nonDep_typing_spine (cf:=config.extraction_checker_flags) (Σ:global_env_ext) us u_ty s (nonDep : nonDepProd u_ty) :
     PCUICTyping.wf Σ ->
@@ -653,8 +650,6 @@ Qed.
     + rewrite /subst1 PCUICClosed.subst_closedn; eauto.
   Qed.      
 
-  Axiom todo : forall A, A.
-
   Lemma firstorder_con_notApp `{checker_flags} mind a :
     firstorder_con (Σb := []) mind a -> 
     All (fun decl => ~ (isApp (decl_type decl))) (cstr_args a).
@@ -666,11 +661,12 @@ Qed.
     - clear H0 IHcstr_args0. destruct a.
       simpl in *. apply MCProd.andb_and in Hfo. destruct Hfo as [Hfo _].
       unfold firstorder_type in Hfo. cbn in Hfo. 
-      assert (snd (PCUICAstUtils.decompose_app decl_type) = []) by apply todo. 
+      assert (snd (PCUICAstUtils.decompose_app decl_type) = []).
+      { destruct snd; eauto. destruct fst; try destruct ind; inversion Hfo. } 
       destruct decl_type; try solve [inversion Hfo]; eauto. intros _.
       cbn in H0. pose proof (PCUICInduction.decompose_app_rec_length decl_type1 [decl_type2]).
       rewrite H0 in H1. cbn in H1. lia. 
-    - apply IHcstr_args0. now rewrite rev_app_distr. 
+    - apply IHcstr_args0. now rewrite rev_app_distr.
   Qed. 
 
   Lemma firstorder_type_closed kn l k T :
@@ -1120,60 +1116,7 @@ Proof.
   - erewrite compile_function in H7; eauto. inversion H7.
 Qed.  
 
-(*
-Lemma realize_ADT_vrel {P:Pointer} {H:Heap} {HP : @CompatiblePtr P P} 
-  ind adt v v' : 
-  vrel v v' ->
-  realize_ADT _ _ [] [] adt [] All_nil ind v ->
-  realize_ADT _ _ [] [] adt [] All_nil ind v'.
-Proof.
-  intros Hrel [n Hreal]. destruct adt as [nadt adt]. 
-  exists n; cbn in *. revert v v' Hrel nadt adt Hreal. 
-  induction n; intros.
-  - destruct (nadt =?_);inversion Hreal.
-  - destruct (nadt =?_);[cbn in *|inversion Hreal].
-    destruct (ind <? _); [cbn in *|inversion Hreal].
-    destruct Hreal.   
-    + left. clear IHn. induction H0.
-      * econstructor 1. subst. inversion Hrel; subst; eauto.
-      * econstructor 2; eauto. 
-    + right. induction H0.
-      * econstructor 1. subst. destruct H0 as [vs [? ?]].
-        subst. inversion Hrel; subst; eauto.
-        eexists; split; eauto.  
-        induction H4; inversion H1; subst; econstructor.
-        unfold realize_value. destruct H6.  cbn. 
-      * cbn in H6.   
-     
-    + econstructor 2; eauto.
-  unfold 
-  destruct (n0 =? _).
-  2: { inversion Hreal.  }  
-  induction 1. 
-  *)
-
 From MetaCoq.PCUIC Require Import PCUICWellScopedCumulativity. 
-
-Lemma not_isErasable (cf:=config.extraction_checker_flags) Σ Γ f A u : 
-  wf_ext Σ -> wf_local Σ Γ ->
-  ∥ Σ;;; Γ |- f : A ∥ ->
-  (forall B, ∥Σ;;; Γ ⊢ A ⇝ B∥ -> A = B) ->
-  (forall B, Σ ;;; Γ |- f : B -> Σ ;;; Γ ⊢ A ≤ B) ->
-  ~ ∥ isArity A ∥ ->
-  ∥ Σ;;; Γ |- A : tSort u ∥ -> 
-  ~ is_propositional u ->
-  ~ ∥ Extract.isErasable Σ Γ f ∥.
-Proof.
-  intros wfΣ Hlocal Hf Hnf Hprinc Harity Hfu Hu  [[T [HT []]]]; sq.
-  - eapply Harity; sq. 
-    eapply EArities.arity_type_inv in i as [T' [? ?]]; eauto.
-    eapply Hnf in H. subst; eauto.
-  - destruct s as [s [? ?]]. eapply Hu. 
-    specialize (Hprinc _ HT).
-    pose proof (Hs := i). 
-    eapply PCUICElimination.unique_sorting_equality_propositional in Hprinc; eauto.
-    rewrite Hprinc; eauto.   
-Qed. 
 
 Lemma Prod_ind_irred `{checker_flags} Σ Γ f na kn ind X :
   let PiType := tProd na (tInd (mkInd kn ind) []) (tInd (mkInd kn ind) []) in
@@ -1289,9 +1232,9 @@ Proof.
       cbn in ind_arity_eq. rewrite Hparam in ind_arity_eq. cbn in ind_arity_eq.
       now rewrite ind_arity_eq in X.  }      
   assert (Herase: ~ ∥ Extract.isErasable (Σ, univ_decl) [] f ∥).
-  { sq. eapply not_isErasable with (u := subst_instance_univ [] (ind_sort Eind)) ; cbn; eauto; intros. 
+  { sq. eapply EArities.not_isErasable with (u := subst_instance_univ [] (ind_sort Eind)) ; cbn; eauto; intros. 
     - sq. eapply Prod_ind_irred; eauto.
-    - eapply Prod_ind_principal; eauto. 
+    - sq. eapply Prod_ind_principal; eauto. 
     - intro; sq; eauto.
     - sq. rewrite <- (sort_of_product_idem (subst_instance_univ [] (ind_sort Eind))). eapply type_Prod; eauto.
     - unfold subst_instance_univ. now rewrite Hind_sort. }
