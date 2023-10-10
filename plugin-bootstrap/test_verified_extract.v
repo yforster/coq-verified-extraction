@@ -58,6 +58,35 @@ Fixpoint ack (n m:nat) {struct n} : nat :=
 
 MetaCoq Verified Extract (ack 3 5).
 
+Definition bla {A} (a : A) (b : bool) : b = true -> A :=
+  match b with
+  | true => fun _ => a
+  | false => fun E => match E with end
+  end.
+
+MetaCoq Verified Extract @Vector.nil.
+
+MetaCoq Verified Extract @Vector.cons.
+
+Definition vtest :=
+  fun (A : Type) (P : Vector.t A 0 -> Type) (H : P (Vector.nil A)) (v : Vector.t A 0) =>
+match
+  v as v0 in (Vector.t _ n)
+  return (match n as x return (Vector.t A x -> Type) with
+          | 0 => fun v1 : Vector.t A 0 => P v1
+          | S n0 => fun _ : Vector.t A (S n0) => False -> IDProp
+          end v0)
+with
+| @Vector.nil _ => H
+| @Vector.cons _ _ _ _ => fun devil : False => False_ind IDProp devil
+end.
+
+MetaCoq Verified Extract vtest.
+
+Arguments Vector.case0 : clear implicits.
+
+MetaCoq Verified Extract @Vector.map.
+
 MetaCoq Verified Extract (@exist nat (fun x => x = 0) 0 (@eq_refl _ 0)).
 
 Definition vplus {n:nat} :
@@ -68,7 +97,7 @@ Definition v23 : Vector.t nat 2 :=
   (Vector.cons nat 2 1 (Vector.cons nat 3 0 (Vector.nil nat))).
 Definition vplus0123 := Vector.hd (vplus v01 v23).
 
-MetaCoq Verified Extract vplus0123.
+MetaCoq Verified Extract @Vector.hd.
 
 Inductive tree (A:Set) : Set :=
   node : A -> forest A -> tree A
