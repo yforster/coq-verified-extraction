@@ -68,5 +68,5 @@ plugin/Makefile.conf
 plugin/Makefile
 plugin/g_metacoq_malfunction.ml
 plugin/*.mlf
-plugin-bootstrap/Makefile
-plugin-bootstrap/Makefile.conf
+plugin-bootstrap/Makefile.coq
+plugin-bootstrap/Makefile.coq.conf

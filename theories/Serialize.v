@@ -208,11 +208,12 @@ Definition exports (m : list (Ident.t * option t)) : list (Ident.t * option t) :
 Definition global_serializer : Serialize (Ident.t * option t) :=
   fun '(i, b) => match b with
               | Some x => to_sexp (i, x)
-              | None => let both := split_dot "" "" (bytestring.String.to_string i) in
-                       let name := snd both in
-                       let module := snd (split_dot "" "" (fst both)) in
-                       List ( Atom (Raw ("$" ++ bytestring.String.to_string i)) ::
-                                [Atom "global" ; Atom (Raw ("$" ++ module)) ; Atom (Raw ("$" ++ name))   ]
+              | None => (* let both := split_dot "" "" (bytestring.String.to_string i) in *)
+                       (* let name := snd both in *)
+                       (* let module := snd (split_dot "" "" (fst both)) in *)
+                       let na := bytestring.String.to_string i in
+                       List ( Atom (Raw ("$" :: na)) ::
+                                [Atom "global" ; Atom (Raw ("$Axioms")) ; Atom (Raw ("$" :: encode_name na))   ]
                                 :: nil)
               end.
 

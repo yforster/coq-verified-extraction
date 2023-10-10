@@ -10,6 +10,7 @@ compile_malfunction.cmx:
 	cp ../plugin/compile_malfunction.mlf compile_malfunction.mlf
 	malfunction fmt compile_malfunction.mlf > compile_malfunction_fmt.mlf
 	yes | mv  compile_malfunction_fmt.mlf compile_malfunction.mlf
-	./fix_primitives.sh compile_malfunction.mlf
+#	ocamlfind opt ${CAMLFLAGS} ${FINDLIBPKGS} -for-pack Metacoq_verified_malfunction_plugin axioms.mli
+	ocamlfind opt -thread -package coq-metacoq-template-ocaml.plugin,stdlib-shims,coq-core.kernel -c axioms.ml
 	ocamlfind opt ${CAMLFLAGS} ${FINDLIBPKGS} -for-pack Metacoq_verified_malfunction_plugin compile_malfunction.mli
 	malfunction cmx -shared ${FINDLIBPKGS} -for-pack Metacoq_verified_malfunction_plugin compile_malfunction.mlf
