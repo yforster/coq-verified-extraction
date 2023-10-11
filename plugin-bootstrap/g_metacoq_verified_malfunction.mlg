@@ -71,8 +71,7 @@ module FixProgram = struct
     let open List in
     let rec aux p = 
     match p with
-    | Coq_tRel _ | Coq_tVar _ | Coq_tInd _ | Coq_tConstruct _ -> p
-    | Coq_tConst (na, univs) -> Coq_tConst (na, univs)
+    | Coq_tRel _ | Coq_tVar _ | Coq_tInd _ | Coq_tConst _ | Coq_tConstruct _ -> p
     | Coq_tEvar (k, l) -> Coq_tEvar (k, map aux l)
     | Coq_tSort u -> Coq_tSort (fix_universe u)
     | Coq_tCast (t, k, t') -> Coq_tCast (aux t, k, aux t')
@@ -158,7 +157,7 @@ let extract ~bypass env evm c dest =
   let prog = time (str"Quoting") (Ast_quoter.quote_term_rec ~bypass env) evm (EConstr.to_constr evm c) in
   let prog = FixProgram.fix_quoted_program prog in
   let eprog = time (str"Extraction") 
-    Compile_malfunction.def_Malfunction_Pipeline_compile_malfunction prog
+    Compile_malfunction.compile_malfunction prog
   in
   match dest with
   | None -> Feedback.msg_info (pr_char_list eprog)
