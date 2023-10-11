@@ -40,5 +40,6 @@ jobs:
               opam list
             endGroup
             startGroup "run tests"
+              make bootstrap
               make -C benchmarks
             endGroup

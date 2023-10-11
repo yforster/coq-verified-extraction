@@ -153,13 +153,12 @@ module FixProgram = struct
     { Ast0.Env.universes = universes; declarations; retroknowledge = retro }, term
 end
 
-let extract ~bypass ?(emodule=false) env evm c dest =
+let extract ~bypass env evm c dest =
   debug (fun () -> str"Quoting");
   let prog = time (str"Quoting") (Ast_quoter.quote_term_rec ~bypass env) evm (EConstr.to_constr evm c) in
   let prog = FixProgram.fix_quoted_program prog in
   let eprog = time (str"Extraction") 
-    (if emodule then Pipeline.compile_module_malfunction
-    else Compile_malfunction.def_Malfunction_Pipeline_compile_malfunction) prog
+    Compile_malfunction.def_Malfunction_Pipeline_compile_malfunction prog
   in
   match dest with
   | None -> Feedback.msg_info (pr_char_list eprog)
@@ -173,7 +172,7 @@ let extract ~bypass ?(emodule=false) env evm c dest =
 
 VERNAC COMMAND EXTEND MetaCoqVerifiedExtract CLASSIFIED AS QUERY
 | [ "MetaCoq" "Verified" "Extract" "-help" ] -> {
-  let usage = "MetaCoq (Bypass)? Extract (Module)? [term] [output_file]?" in
+  let usage = "MetaCoq (Bypass)? Extract [term] [output_file]?" in
   Feedback.msg_notice (str usage)
   }
 | [ "MetaCoq" "Verified" "Bypass" "Extract" constr(c) string_opt(dest) ] -> {
@@ -187,11 +186,5 @@ VERNAC COMMAND EXTEND MetaCoqVerifiedExtract CLASSIFIED AS QUERY
     let evm = Evd.from_env env in
     let (c, _) = Constrintern.interp_constr env evm c in
     extract ~bypass:false env evm c dest
-  }
-| [ "MetaCoq" "Verified" "Extract" "Module" constr(c) string_opt(dest) ] -> {
-    let env = Global.env () in
-    let evm = Evd.from_env env in
-    let (c, _) = Constrintern.interp_constr env evm c in
-    extract ~bypass:false ~emodule:true env evm c dest
   }
 END
