@@ -151,7 +151,7 @@ Fixpoint to_sexp_t (a : t) : sexp :=
   | Mlet (binds, x) => List (Atom "let" :: List.map to_sexp_binding binds ++ (to_sexp_t x :: nil))
   | Mnum x => to_sexp x
   | Mstring x => Atom (Str (bytestring.String.to_string x))
-  | Mglobal x => (* [Atom "global" ; Atom ("$Top") ; *) to_sexp x  (* ] *)
+  | Mglobal x => (* [Atom "global" ; Atom ("$Top") ; *) to_sexp ("def_" ++ x)%bs  (* ] *)
   | Mswitch (x, sels) => Cons (Atom "switch") (Cons (to_sexp_t x) (@Serialize_list _ (@Serialize_product _ _ (@Serialize_singleton_list _ _) to_sexp_t) sels))
   | Mnumop1 (op, num, x) => [ rawapp (to_sexp op) (numtype_to_string num) ; to_sexp_t x ]
   | Mnumop2 (op, num, x1, x2) => [ rawapp (to_sexp op) (numtype_to_string num) ; to_sexp_t x1 ; to_sexp_t x2 ]
@@ -209,7 +209,7 @@ Definition exports (m : list (Ident.t * option t)) : list (Ident.t * option t) :
 
 Definition global_serializer : Serialize (Ident.t * option t) :=
   fun '(i, b) => match b with
-              | Some x => to_sexp (i, x)
+              | Some x => to_sexp ("def_" ++ i, x)%bs
               | None => (* let both := split_dot "" "" (bytestring.String.to_string i) in *)
                        (* let name := snd both in *)
                        (* let module := snd (split_dot "" "" (fst both)) in *)
@@ -234,7 +234,7 @@ Definition Serialize_module : Serialize program :=
       Cons (Atom "module") (@Serialize_list _ global_serializer (List.rev m)%list)
     with
       List l =>
-        let exports := List.rev (List.map (fun x => Serialize_Ident (fst x)) m) in
+        let exports := List.rev (List.map (fun x => Serialize_Ident ("def_" ++ fst x)) m)%bs in
         List (l ++ (Cons (Atom "export") (List exports) :: nil))
     | x => x
     end.

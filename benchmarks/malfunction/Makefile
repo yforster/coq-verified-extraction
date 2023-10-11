@@ -6,7 +6,6 @@ TESTS=$(shell cat TESTS)
 # Names of the generated cfiles
 MLFFILES=$(patsubst %,%.mlf, $(TESTS))
 MLIFILES=$(patsubst %,%.mli, $(TESTS))
-CMOFILES=$(patsubst %,%.cmo, $(TESTS))
 CMXFILES=$(patsubst %,%.cmx, $(TESTS))
 
 default: tests run
@@ -15,7 +14,6 @@ all: tests main mainopt
 .PHONY: run clean cleanml
 
 $(MLFILES): tests
-$(CMOFILES): $(TESTS)
 $(CMXFILES): $(TESTS)
 exec: $(TESTS)
 
@@ -36,7 +34,7 @@ $(TESTS): $(MLFFILES)
 	if [ -a $@.mli ]; then ocamlc -c $@.mli ; fi;
 	malfunction cmx $@.mlf
 
-mainopt: $(MLFFILES) $(CMOFILES) $(CMXFILES)
+mainopt: $(MLFFILES) $(CMXFILES)
 	ocamlopt -c main.ml
 	ocamlopt -o mainopt unix.cmxa $(CMXFILES) main.cmx
 
