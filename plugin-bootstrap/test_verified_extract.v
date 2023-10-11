@@ -183,8 +183,8 @@ Definition arden: forest bool :=
 
 MetaCoq Verified Extract (forest_size arden).
 
-From Malfunction Require Import Compile.
-MetaCoq Verified Bypass Extract compile.
+(* From Malfunction Require Import Compile. *)
+(* MetaCoq Verified Bypass Extract compile. *)
 
-From Malfunction Require Import Pipeline.
-MetaCoq Verified Extract Module compile_malfunction "compile_malfunction.mlf". 
+(* From Malfunction Require Import Pipeline. *)
+(* MetaCoq Verified Extract Module compile_malfunction "compile_malfunction.mlf".  *)

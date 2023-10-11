@@ -21,4 +21,4 @@ tests: lib
 run:
 	$(MAKE) -C ocaml run
 	$(MAKE) -C malfunction run
-	$(MAKE) -C malfunction run
+	$(MAKE) -C ocaml-noopt run

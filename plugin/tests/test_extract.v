@@ -8,9 +8,6 @@ Inductive three := ZERO | ONE | TWO | THREE.
 
 Definition two := TWO.
 
-
-Recursive Extraction plus.
-
 MetaCoq Extract Module two "two.mlf".
 
 Axiom axiom : nat.

@@ -9,7 +9,7 @@ MLIFILES=$(patsubst %,%.mli, $(TESTS))
 CMXFILES=$(patsubst %,%.cmx, $(TESTS))
 
 default: tests run
-all: tests main mainopt
+all: tests mainopt
 
 .PHONY: run clean cleanml
 
@@ -31,7 +31,7 @@ cleanml :
 	rm -f $(MLFFILES) $(MLIFILES)
 
 $(TESTS): $(MLFFILES)
-	if [ -a $@.mli ]; then ocamlc -c $@.mli ; fi;
+	ocamlc -c $@.mli 
 	malfunction cmx $@.mlf
 
 mainopt: $(MLFFILES) $(CMXFILES)

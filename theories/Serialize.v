@@ -230,22 +230,29 @@ Definition Serialize_program : Serialize program :=
 
 Fixpoint thename a (s : bytestring.String.t) :=
   match s with
-  | String.EmptyString => string_of_list_byte (List.rev a)
-  | String.String b s => if b == "_"%byte
+  | String.EmptyString => bytestring.String.of_string (string_of_list_byte (List.rev a))
+  | String.String b s => if b == "."%byte
                         then thename nil s
                         else thename (b :: a)%list s
   end.
 
-Definition Serialize_module : Serialize program :=
+Program Definition Serialize_module : Serialize program :=
   fun '(m, x) =>
+    let name : Ident.t  := match m with
+                           | (x :: l)%list => fst x
+                           | nil => ""%bs
+                           end in
+    let shortname : Ident.t := uncapitalize (thename nil name) in
+    let longname : list sexp := (to_sexp ("def_" ++ name)%bs :: nil)%list in
+    let exports : list sexp := (Atom ("$" ++ String.to_string shortname)%string :: nil)%list in
     match
-      Cons (Atom "module") (@Serialize_list _ global_serializer (List.rev m)%list)
+      Cons (Atom "module") (@Serialize_list _ global_serializer (List.rev m))
     with
       List l =>
-        let exports : list sexp := match m with
-                       | (x :: l)%list => (Atom (thename nil (fst x))%bs :: nil)%list
-                       | nil => nil
-                       end in
-        List (l ++ (Cons (Atom "export") (List exports) :: nil))
+        List (l                 (* the extracted function *)
+              ++  (Cons (Atom ("$" ++ String.to_string shortname)%string)
+                         (List longname) :: nil)%list
+              ++ (Cons (Atom "export") (List exports) :: nil))%list (* export *)
     | x => x
     end.
+

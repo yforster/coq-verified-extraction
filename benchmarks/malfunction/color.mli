@@ -11,4 +11,4 @@ type z =
 | Zpos of positive
 | Zneg of positive
 
-val def_MetaCoq_VerifiedExtraction_Benchmarks_lib_tests_color : unit -> (z, z) prod
+val color : unit -> (z, z) prod

@@ -4,4 +4,4 @@ type nat =
 
 type key = nat
 
-val def_MetaCoq_VerifiedExtraction_Benchmarks_lib_tests_binom : unit -> key
+val binom : unit -> key

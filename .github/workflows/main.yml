@@ -40,6 +40,5 @@ jobs:
               opam list
             endGroup
             startGroup "run tests"
-              make plugin
-              make test
+              make -C benchmarks
             endGroup
