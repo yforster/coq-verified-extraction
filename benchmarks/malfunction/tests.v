@@ -4,13 +4,17 @@ From MetaCoq.Utils Require Import bytestring.
 
 Open Scope bs.
 
+Eval compute in "Compiling demo0".
+
+MetaCoq Extract Module demo0 "demo0.mlf".
+
 Eval compute in "Compiling demo1".
 
 MetaCoq Extract Module demo1 "demo1.mlf".
 
 Eval compute in "Compiling demo2".
 
-MetaCoq Extract Module demo3 "demo2.mlf".
+MetaCoq Extract Module demo2 "demo2.mlf".
 
 Eval compute in "Compiling demo3".
 

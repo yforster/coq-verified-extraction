@@ -10,6 +10,8 @@ Definition foo := 0.
 Import ListNotations.
 Import VeriStar.
 
+Definition demo0 (u : unit) := [tt;tt;tt].
+
 (* Demo 1 *)
 
 Definition demo1 (u : unit) := List.app (List.repeat true 500) (List.repeat false 300).

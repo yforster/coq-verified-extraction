@@ -33,19 +33,16 @@ cleanml :
 	rm -f $(MLFFILES) $(MLIFILES)
 
 $(TESTS): $(MLFFILES)
-#	ocamlc -c $@.mli
+	if [ -a $@.mli ]; then ocamlc -c $@.mli ; fi;
 	malfunction cmx $@.mlf
 
-main: $(CMOFILES) $(CMXFILES)
-#	ocamlc -c main.ml
+mainopt: $(MLFFILES) $(CMOFILES) $(CMXFILES)
 	ocamlopt -c main.ml
-	# ocamlc -o main unix.cma $(CMOFILES) main.cmo 
-#	ocamlopt -o mainopt unix.cmxa $(CMXFILES) main.cmx
-	ocamlopt -o mainopt unix.cmxa demo1.cmx main.cmx
+	ocamlopt -o mainopt unix.cmxa $(CMXFILES) main.cmx
 
 tests: tests.v
 	coqc $(COQOPTS) tests.v
 
-run: mainopt
+run: $(TESTS) mainopt 
 #	./main 10
 	./mainopt 10
