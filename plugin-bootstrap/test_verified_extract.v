@@ -18,9 +18,6 @@ Inductive three := ZERO | ONE | TWO | THREE.
 
 Definition two := TWO.
 
-
-Recursive Extraction plus.
-
 Open Scope bs.
 
 (* MetaCoq Extract (MetaCoq.Common.Kernames.Kername.OT.compare (MPfile nil, "prefix") (MPfile nil, "prefixsuffix")). *)
