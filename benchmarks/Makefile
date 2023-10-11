@@ -7,10 +7,7 @@ all: lib tests run
 
 .PHONY: all default clean lib cleanlib tests run copy $(TESTS)
 
-lib/Makefile:
-	cd lib; coq_makefile -f _CoqProject -o Makefile
-
-lib: lib/Makefile
+lib: 
 	$(MAKE) -C lib
 
 cleanlib:
@@ -23,4 +20,5 @@ tests: lib
 
 run:
 	$(MAKE) -C ocaml run
+	$(MAKE) -C malfunction run
 	$(MAKE) -C malfunction run
