@@ -228,6 +228,14 @@ Definition Serialize_program : Serialize program :=
     | x => x
     end.
 
+Fixpoint thename a (s : bytestring.String.t) :=
+  match s with
+  | String.EmptyString => string_of_list_byte (List.rev a)
+  | String.String b s => if b == "_"%byte
+                        then thename nil s
+                        else thename (b :: a)%list s
+  end.
+
 Definition Serialize_module : Serialize program :=
   fun '(m, x) =>
     match
@@ -235,7 +243,7 @@ Definition Serialize_module : Serialize program :=
     with
       List l =>
         let exports : list sexp := match m with
-                       | (x :: l)%list => (Serialize_Ident ("def_" ++ fst x)%bs :: nil)%list
+                       | (x :: l)%list => (Atom (thename nil (fst x))%bs :: nil)%list
                        | nil => nil
                        end in
         List (l ++ (Cons (Atom "export") (List exports) :: nil))
