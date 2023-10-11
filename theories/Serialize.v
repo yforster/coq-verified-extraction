@@ -9,11 +9,13 @@ Require Import Malfunction.Ceres.CeresFormat Malfunction.Ceres.CeresSerialize.
 Local Open Scope sexp.
 Local Open Scope string.
 
+Compute match "'"%bs with bytestring.String.String b _ => b | _ => Byte.x00 end.
+
 Fixpoint _escape_ident (_end s : String.t) : String.t :=
   match s with
   | ""%bs => _end
   |  String.String c s' =>
-       if (c == byte_of_ascii "'") || (c == byte_of_ascii " ") then String.String "_" (_escape_ident _end s') 
+       if (c == "'"%byte) || (c == " "%byte) || (c == "."%byte) then String.String "_" (_escape_ident _end s') 
        else match s' with
             | String.String c2 s'' =>
                 if (String.String c (String.String c2 String.EmptyString)) == "Γ"%bs
@@ -175,35 +177,35 @@ to_sexp_binding (a : binding) : sexp :=
 #[export] Instance Serialize_t : Serialize t := to_sexp_t.
 #[export] Instance Serialize_binding : Serialize binding := to_sexp_binding.
 
-Fixpoint string_map (f : ascii -> ascii) (s : string) : string :=
-  match s with
-  | EmptyString => EmptyString
-  | String c s => String (f c) (string_map f s)
-  end.
+(* Fixpoint string_map (f : ascii -> ascii) (s : string) : string := *)
+(*   match s with *)
+(*   | EmptyString => EmptyString *)
+(*   | String c s => String (f c)< (string_map f s) *)
+(*   end. *)
 
-Definition dot_to_underscore (id : string) :=
-  string_map (fun c => 
-    match c with
-    | "."%char => "_"%char
-    | _ => c
-    end) id.
+(* Definition dot_to_underscore (id : string) := *)
+(*   string_map (fun c =>  *)
+(*     match c with *)
+(*     | "."%char => "_"%char *)
+(*     | _ => c *)
+(*     end) id. *)
 
-Definition uncapitalize_char (c : ascii) : ascii :=
-  let n := nat_of_ascii c in
-  if (65 <=? n)%nat && (n <=? 90)%nat then ascii_of_nat (n + 32)
+Definition uncapitalize_char (c : Byte.byte) : Byte.byte :=
+  let n := Byte.to_nat c in
+  if (65 <=? n)%nat && (n <=? 90)%nat then match Byte.of_nat (n + 32) with Some c => c | _ => c end
   else c.
 
-Definition uncapitalize (s : string) : string :=
+Definition uncapitalize (s : bytestring.string) : bytestring.string :=
   match s with 
-  | EmptyString => EmptyString
-  | String c s => String (uncapitalize_char c) s
+  | bytestring.String.EmptyString => bytestring.String.EmptyString
+  | bytestring.String.String c s => bytestring.String.String (uncapitalize_char c) s
   end.
 
-Definition encode_name (s : string) : string :=
-  uncapitalize (dot_to_underscore s).
+Definition encode_name (s : bytestring.string) : bytestring.string :=
+  _escape_ident ""%bs (uncapitalize s).
 
 Definition exports (m : list (Ident.t * option t)) : list (Ident.t * option t) :=
-  List.map (fun '(x, v) => (bytestring.String.of_string (encode_name (bytestring.String.to_string x)), Some (Mglobal x))) m.
+  List.map (fun '(x, v) => (encode_name x, Some (Mglobal x))) m.
 
 Definition global_serializer : Serialize (Ident.t * option t) :=
   fun '(i, b) => match b with
@@ -213,7 +215,7 @@ Definition global_serializer : Serialize (Ident.t * option t) :=
                        (* let module := snd (split_dot "" "" (fst both)) in *)
                        let na := bytestring.String.to_string i in
                        List ( Atom (Raw ("$" :: na)) ::
-                                [Atom "global" ; Atom (Raw ("$Axioms")) ; Atom (Raw ("$" :: encode_name na))   ]
+                                [Atom "global" ; Atom (Raw ("$Axioms")) ; Atom (Raw ("$" :: bytestring.String.to_string (encode_name i)))   ]
                                 :: nil)
               end.
 
