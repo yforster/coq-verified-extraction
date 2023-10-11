@@ -505,7 +505,7 @@ let uncapitalize = function
 (** val encode_name : String.t -> String.t **)
 
 let encode_name s =
-  _escape_ident String.EmptyString (uncapitalize s)
+  _escape_ident String.EmptyString s
 
 (** val global_serializer : (Ident.t * t option) coq_Serialize **)
 
@@ -518,7 +518,13 @@ let global_serializer = function
           (String.String (Coq_x66, (String.String (Coq_x5f,
           String.EmptyString)))))))) i), x)
    | None ->
-     let na = String.to_string i in
+     let na =
+       String.to_string
+         (uncapitalize
+           (String.append (String.String (Coq_x64, (String.String (Coq_x65,
+             (String.String (Coq_x66, (String.String (Coq_x5f,
+             String.EmptyString)))))))) (encode_name i)))
+     in
      List ((Atom_ (Raw (String ((Ascii (false, false, true, false, false,
      true, false, false)), na)))) :: ((List ((Atom_ (Raw (String ((Ascii
      (true, true, true, false, false, true, true, false)), (String ((Ascii
@@ -536,8 +542,7 @@ let global_serializer = function
      false, true, true, false, true, true, false)), (String ((Ascii (true,
      true, false, false, true, true, true, false)),
      EmptyString)))))))))))))))) :: ((Atom_ (Raw (String ((Ascii (false,
-     false, true, false, false, true, false, false)),
-     (String.to_string (encode_name i)))))) :: [])))) :: [])))
+     false, true, false, false, true, false, false)), na)))) :: [])))) :: [])))
 
 (** val coq_Serialize_program : program coq_Serialize **)
 
@@ -593,12 +598,13 @@ let coq_Serialize_module = function
    | Atom_ a -> Atom_ a
    | List l ->
      let exports =
-       rev
-         (map (fun x ->
-           coq_Serialize_Ident
-             (String.append (String.String (Coq_x64, (String.String (Coq_x65,
-               (String.String (Coq_x66, (String.String (Coq_x5f,
-               String.EmptyString)))))))) (fst x))) m)
+       match m with
+       | [] -> []
+       | x :: _ ->
+         (coq_Serialize_Ident
+           (String.append (String.String (Coq_x64, (String.String (Coq_x65,
+             (String.String (Coq_x66, (String.String (Coq_x5f,
+             String.EmptyString)))))))) (fst x))) :: []
      in
      List
      (app l

@@ -202,10 +202,10 @@ Definition uncapitalize (s : bytestring.string) : bytestring.string :=
   end.
 
 Definition encode_name (s : bytestring.string) : bytestring.string :=
-  _escape_ident ""%bs (uncapitalize s).
+  _escape_ident ""%bs s.
 
 Definition exports (m : list (Ident.t * option t)) : list (Ident.t * option t) :=
-  List.map (fun '(x, v) => (encode_name x, Some (Mglobal x))) m.
+  List.map (fun '(x, v) => (("def_" ++ encode_name x)%bs, Some (Mglobal x))) m.
 
 Definition global_serializer : Serialize (Ident.t * option t) :=
   fun '(i, b) => match b with
@@ -213,9 +213,9 @@ Definition global_serializer : Serialize (Ident.t * option t) :=
               | None => (* let both := split_dot "" "" (bytestring.String.to_string i) in *)
                        (* let name := snd both in *)
                        (* let module := snd (split_dot "" "" (fst both)) in *)
-                       let na := bytestring.String.to_string i in
+                       let na := bytestring.String.to_string (uncapitalize ("def_" ++ encode_name i)%bs) in
                        List ( Atom (Raw ("$" :: na)) ::
-                                [Atom "global" ; Atom (Raw ("$Axioms")) ; Atom (Raw ("$" :: bytestring.String.to_string (encode_name i)))   ]
+                                [Atom "global" ; Atom (Raw ("$Axioms")) ; Atom (Raw ("$" :: na))   ]
                                 :: nil)
               end.
 
@@ -234,7 +234,10 @@ Definition Serialize_module : Serialize program :=
       Cons (Atom "module") (@Serialize_list _ global_serializer (List.rev m)%list)
     with
       List l =>
-        let exports := List.rev (List.map (fun x => Serialize_Ident ("def_" ++ fst x)) m)%bs in
+        let exports : list sexp := match m with
+                       | (x :: l)%list => (Serialize_Ident ("def_" ++ fst x)%bs :: nil)%list
+                       | nil => nil
+                       end in
         List (l ++ (Cons (Atom "export") (List exports) :: nil))
     | x => x
     end.

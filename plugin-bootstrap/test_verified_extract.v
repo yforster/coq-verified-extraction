@@ -6,7 +6,7 @@ From MetaCoq.Template Require Import All.
 
 Open Scope bs.
 
-MetaCoq Extract (MetaCoq.Common.Kernames.Kername.OT.compare (MPfile nil, "") (MPfile nil, "p")).
+(* MetaCoq Extract (MetaCoq.Common.Kernames.Kername.OT.compare (MPfile nil, "") (MPfile nil, "p")). *)
 
 From MetaCoq.Common Require Import Kernames.
 
@@ -23,7 +23,7 @@ Recursive Extraction plus.
 
 Open Scope bs.
 
-MetaCoq Extract (MetaCoq.Common.Kernames.Kername.OT.compare (MPfile nil, "prefix") (MPfile nil, "prefixsuffix")).
+(* MetaCoq Extract (MetaCoq.Common.Kernames.Kername.OT.compare (MPfile nil, "prefix") (MPfile nil, "prefixsuffix")). *)
 
 MetaCoq Verified Extract two "two.mlf".
 

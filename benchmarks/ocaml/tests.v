@@ -10,6 +10,7 @@ Open Scope string.
 (* The same benchmarks as CertiCoq benchmarks, but slightly modified
    to suspend computations with unit so we can run multiple times *)
 
+Extraction "demo0" demo0.
 Extraction "demo1" demo1.
 Extraction "demo2" demo2.
 Extraction "demo2" demo2.

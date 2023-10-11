@@ -6,7 +6,7 @@ let demo0_main =
   let t = Unix.gettimeofday () in
   for i = 1 to n do
     (* Printf.printf "%i\n" ( List.length ( *)
-       Demo0.def_MetaCoq_VerifiedExtraction_Benchmarks_lib_tests_demo0 ()
+     Demo0.def_MetaCoq_VerifiedExtraction_Benchmarks_lib_tests_demo0 ()
     (* )) *)
   done;
   let t' = Unix.gettimeofday () -. t in
@@ -34,20 +34,20 @@ let list_sum_main =
   let n = int_of_string Sys.argv.(1) in
   let t = Unix.gettimeofday () in
   for i = 1 to n do
-    List_sum.def_MetaCoq_VerifiedExtraction_Benchmarks_lib_tests_list_sum ()
+     List_sum.def_MetaCoq_VerifiedExtraction_Benchmarks_lib_tests_list_sum ()
   done;
   let t' = Unix.gettimeofday () -. t in
   Printf.printf "list_sum execution time: %f miliseconds\n" (t'*.1000.0)
 
 
-(* let vs_easy_main = *)
-(*   let n = int_of_string Sys.argv.(1) in *)
-(*   let t = Unix.gettimeofday () in *)
-(*   for i = 1 to n do *)
-(*     Vs_easy.vs_easy Tt *)
-(*   done; *)
-(*   let t' = Unix.gettimeofday () -. t in *)
-(*   Printf.printf "vs_easy execution time: %f miliseconds\n" (t'*.1000.0) *)
+let vs_easy_main =
+  let n = int_of_string Sys.argv.(1) in
+  let t = Unix.gettimeofday () in
+  for i = 1 to n do
+    Vs_easy.def_MetaCoq_VerifiedExtraction_Benchmarks_lib_tests_vs_easy ()
+  done;
+  let t' = Unix.gettimeofday () -. t in
+  Printf.printf "vs_easy execution time: %f miliseconds\n" (t'*.1000.0)
 
 (* let vs_hard_main = *)
 (*   let n = int_of_string Sys.argv.(1) in *)
@@ -58,26 +58,24 @@ let list_sum_main =
 (*   let t' = Unix.gettimeofday () -. t in *)
 (*   Printf.printf "vs_hard execution time: %f miliseconds\n" (t'*.1000.0) *)
 
-
-(* let binom_main =   *)
-(*   let n = int_of_string Sys.argv.(1) in *)
-(*   let t = Unix.gettimeofday () in *)
-(*   for i = 1 to n do *)
-(*     Binom.binom Tt *)
-(*   done; *)
-(*   let t' = Unix.gettimeofday () -. t in *)
-(*   Printf.printf "binom execution time: %f miliseconds\n" (t'*.1000.0) *)
-
+let binom_main =
+  let n = int_of_string Sys.argv.(1) in
+  let t = Unix.gettimeofday () in
+  for i = 1 to n do
+    Binom.def_MetaCoq_VerifiedExtraction_Benchmarks_lib_tests_binom ()
+  done;
+  let t' = Unix.gettimeofday () -. t in
+  Printf.printf "binom execution time: %f miliseconds\n" (t'*.1000.0)
 
 (* Color does not typecheck in OCaml *)
-(* let color_main =
- *   let n = int_of_string Sys.argv.(1) in
- *   let t = Unix.gettimeofday () in
- *   for i = 0 to n do
- *     Color.color Tt
- *   done;
- *   let t' = Unix.gettimeofday () -. t in
- *   Printf.printf "color xecution time: %f seconds\n" t' *)
+let color_main =
+  let n = int_of_string Sys.argv.(1) in
+  let t = Unix.gettimeofday () in
+  for i = 0 to n do
+    Color.def_MetaCoq_VerifiedExtraction_Benchmarks_lib_tests_color ()
+  done;
+  let t' = Unix.gettimeofday () -. t in
+  Printf.printf "color xecution time: %f seconds\n" t'
 
 (* let sha_main =  
  *   let n = int_of_string Sys.argv.(1) in
