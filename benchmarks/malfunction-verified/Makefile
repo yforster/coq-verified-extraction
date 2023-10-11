@@ -39,7 +39,6 @@ mainopt: $(MLFFILES) $(CMXFILES)
 	ocamlopt -o mainopt unix.cmxa $(CMXFILES) main.cmx
 
 tests: tests.v
-	which coqc
 	coqc $(COQOPTS) tests.v
 
 run: $(TESTS) mainopt 

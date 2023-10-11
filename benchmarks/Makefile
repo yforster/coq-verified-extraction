@@ -17,8 +17,11 @@ tests: lib
 	$(MAKE) -C lib 
 	$(MAKE) -C ocaml all
 	$(MAKE) -C malfunction all
+	$(MAKE) -C malfunction-verified all
 
 run:
 	$(MAKE) -C ocaml run
-	$(MAKE) -C malfunction run
 	$(MAKE) -C ocaml-noopt run
+	$(MAKE) -C malfunction run
+	$(MAKE) -C malfunction-verified run
+
