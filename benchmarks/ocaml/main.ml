@@ -1,11 +1,20 @@
 open Printf
 open Unix
 
+let demo0_main =
+  let n = int_of_string Sys.argv.(1) in
+  let t = Unix.gettimeofday () in
+  for i = 1 to n do
+    Demo0.demo0 Tt
+  done;
+  let t' = Unix.gettimeofday () -. t in
+  Printf.printf "demo1 execution time: %f miliseconds\n" (t'*.1000.0)
+
 let demo1_main =
   let n = int_of_string Sys.argv.(1) in
   let t = Unix.gettimeofday () in
   for i = 1 to n do
-    Printf.printf "%i\n" (List.length (Obj.magic (Demo1.demo1 Tt)))
+    Demo1.demo1 Tt
   done;
   let t' = Unix.gettimeofday () -. t in
   Printf.printf "demo1 execution time: %f miliseconds\n" (t'*.1000.0)

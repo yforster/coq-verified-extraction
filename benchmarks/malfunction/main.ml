@@ -71,7 +71,7 @@ let binom_main =
 let color_main =
   let n = int_of_string Sys.argv.(1) in
   let t = Unix.gettimeofday () in
-  for i = 0 to n do
+  for i = 0 to 10 * n do
     Color.def_MetaCoq_VerifiedExtraction_Benchmarks_lib_tests_color ()
   done;
   let t' = Unix.gettimeofday () -. t in

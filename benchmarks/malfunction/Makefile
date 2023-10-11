@@ -36,7 +36,7 @@ $(TESTS): $(MLFFILES)
 
 mainopt: $(MLFFILES) $(CMXFILES)
 	ocamlopt -c main.ml
-	ocamlopt -o mainopt unix.cmxa $(CMXFILES) axioms.cmx main.cmx
+	ocamlopt -o mainopt unix.cmxa $(CMXFILES) main.cmx
 
 tests: tests.v
 	coqc $(COQOPTS) tests.v

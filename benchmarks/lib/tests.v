@@ -61,6 +61,7 @@ Definition binom (u : unit) := Binom.main.
 
 (* Color *)
 Definition color (u : unit) := Color.main.
+Time Compute color tt.
 
 (* Lazy factorial. Needs coinductive types *)
 

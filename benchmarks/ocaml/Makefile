@@ -40,13 +40,15 @@ $(TESTS): $(MLFILES)
 
 main: $(CMOFILES) $(CMXFILES)
 	ocamlc -c main.ml
-	ocamlopt -c main.ml
 	ocamlc -o main unix.cma $(CMOFILES) main.cmo 
+
+mainopt: $(CMOFILES) $(CMXFILES)
+	ocamlopt -c main.ml
 	ocamlopt -o mainopt unix.cmxa $(CMXFILES) main.cmx
 
 tests: tests.v
 	coqc $(COQOPTS) tests.v
 
 run: main mainopt
-#	./main 10
+	./main 10
 	./mainopt 10
