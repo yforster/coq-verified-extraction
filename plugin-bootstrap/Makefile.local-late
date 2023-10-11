@@ -1,5 +1,5 @@
-g_metacoq_verified_malfunction.cmx: compile_malfunction.cmx
+g_metacoq_verified_malfunction.cmx: coq_uint63.cmx coq_float64_common.cmx coq_float64.cmx compile_malfunction.cmx
 	ocamlfind opt ${CAMLFLAGS} ${FINDLIBPKGS} -c  -for-pack Metacoq_verified_malfunction_plugin compile_malfunction.mli g_metacoq_verified_malfunction.ml
 
-metacoq_verified_malfunction_plugin.cmx: compile_malfunction.cmx
-	ocamlfind opt ${CAMLFLAGS} ${FINDLIBPKGS} -pack -o $@ $+
+metacoq_verified_malfunction_plugin.cmx: coq_uint63.cmx coq_float64_common.cmx coq_float64.cmx compile_malfunction.cmx
+	ocamlfind opt ${CAMLFLAGS} ${FINDLIBPKGS} -pack -o $@ coq_uint63.cmx coq_float64_common.cmx coq_float64.cmx compile_malfunction.cmx g_metacoq_verified_malfunction.cmx

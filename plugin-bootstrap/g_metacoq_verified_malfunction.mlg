@@ -157,7 +157,7 @@ let extract ~bypass ?(emodule=false) env evm c dest =
   let prog = time (str"Quoting") (Ast_quoter.quote_term_rec ~bypass env) evm (EConstr.to_constr evm c) in
   let prog = FixProgram.fix_quoted_program prog in
   let eprog = time (str"Extraction") 
-    (if emodule then Pipeline.compile_module_malfunction
+    (if emodule then assert false (* Pipeline.compile_module_malfunction*)
     else Compile_malfunction.malfunction_Pipeline_compile_malfunction) prog
   in
   match dest with
