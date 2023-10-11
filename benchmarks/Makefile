@@ -3,7 +3,7 @@ COQOPTS = -R ./ MetaCoq.VerifiedExtraction.Benchmarks -R lib MetaCoq.VerifiedExt
 # Names of the benchmarks
 TESTS=$(shell cat TESTS)
 
-all: lib tests exec run
+all: lib tests run
 
 .PHONY: all default clean lib cleanlib tests run copy $(TESTS)
 
@@ -16,5 +16,11 @@ lib: lib/Makefile
 cleanlib:
 	$(MAKE) clean -C lib
 
-tests: tests.v
-	coqc $(COQOPTS) tests.v
+tests: lib
+	$(MAKE) -C lib 
+	$(MAKE) -C ocaml all
+	$(MAKE) -C malfunction all
+
+run:
+	$(MAKE) -C ocaml run
+	$(MAKE) -C malfunction run

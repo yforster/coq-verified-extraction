@@ -10,9 +10,9 @@ CMOFILES=$(patsubst %,%.cmo, $(TESTS))
 CMXFILES=$(patsubst %,%.cmx, $(TESTS))
 
 default: tests run
-all: tests run
+all: tests main mainopt
 
-.PHONY: tests run clean cleanml
+.PHONY: run clean cleanml
 
 $(MLFILES): tests
 $(CMOFILES): $(TESTS)
@@ -30,21 +30,22 @@ clean:
 	rm -f ./*.vo ./*.vos ./*.vok
 
 cleanml :
-	rm -f $(MLFILES) $(MLIFILES)
+	rm -f $(MLFFILES) $(MLIFILES)
 
-$(TESTS): $(MLFILES)
+$(TESTS): $(MLFFILES)
 #	ocamlc -c $@.mli
 	malfunction cmx $@.mlf
 
 main: $(CMOFILES) $(CMXFILES)
-	ocamlc -c main.ml
-	# ocamlopt -c main.ml
+#	ocamlc -c main.ml
+	ocamlopt -c main.ml
 	# ocamlc -o main unix.cma $(CMOFILES) main.cmo 
-	ocamlopt -o mainopt unix.cmxa $(CMXFILES) main.cmx
+#	ocamlopt -o mainopt unix.cmxa $(CMXFILES) main.cmx
+	ocamlopt -o mainopt unix.cmxa demo1.cmx main.cmx
 
 tests: tests.v
 	coqc $(COQOPTS) tests.v
 
-run: main mainopt
-	./main 10
+run: mainopt
+#	./main 10
 	./mainopt 10

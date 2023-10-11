@@ -8,12 +8,11 @@ MLFILES=$(patsubst %,%.ml, $(TESTS))
 MLIFILES=$(patsubst %,%.mli, $(TESTS))
 CMOFILES=$(patsubst %,%.cmo, $(TESTS))
 CMXFILES=$(patsubst %,%.cmx, $(TESTS))
-MLFCMXFILES=$(patsubst %,mlf/%.cmx, $(TESTS))
 
 default: tests run
 all: tests run
 
-.PHONY: tests run clean cleanml
+.PHONY: run clean cleanml
 
 $(MLFILES): tests
 $(CMOFILES): $(TESTS)
@@ -49,5 +48,5 @@ tests: tests.v
 	coqc $(COQOPTS) tests.v
 
 run: main mainopt
-	./main 10
+#	./main 10
 	./mainopt 10

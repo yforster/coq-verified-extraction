@@ -5,7 +5,7 @@ let demo1_main =
   let n = int_of_string Sys.argv.(1) in
   let t = Unix.gettimeofday () in
   for i = 1 to n do
-    Demo1.demo1 Tt
+    Printf.printf "%i\n" (List.length (Obj.magic (Demo1.demo1 Tt)))
   done;
   let t' = Unix.gettimeofday () -. t in
   Printf.printf "demo1 execution time: %f miliseconds\n" (t'*.1000.0)

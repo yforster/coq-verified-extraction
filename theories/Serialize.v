@@ -230,12 +230,11 @@ Definition Serialize_program : Serialize program :=
 
 Definition Serialize_module : Serialize program :=
   fun '(m, x) =>
-    let exports := exports m in
     match
-      Cons (Atom "module") (@Serialize_list _ global_serializer (List.rev_append m exports)%list)
+      Cons (Atom "module") (@Serialize_list _ global_serializer (List.rev m)%list)
     with
       List l =>
-        let exports := List.map (fun x => Atom (Raw ("$" ++ (bytestring.String.to_string (fst x))))) exports in
+        let exports := List.rev (List.map (fun x => Serialize_Ident (fst x)) m) in
         List (l ++ (Cons (Atom "export") (List exports) :: nil))
     | x => x
     end.
