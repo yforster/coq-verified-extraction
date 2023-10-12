@@ -51,7 +51,7 @@ let vs_hard_main =
   let n = int_of_string Sys.argv.(1) in
   let t = Unix.gettimeofday () in
   for i = 1 to n do
-    Axioms.print_obj (Obj.magic (Vs_hard.vs_hard ()))
+    Vs_hard.vs_hard ()
   done;
   let t' = Unix.gettimeofday () -. t in
   Printf.printf "vs_hard execution time: %f miliseconds\n" (t'*.1000.0)
