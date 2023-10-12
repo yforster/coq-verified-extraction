@@ -14,7 +14,7 @@ Definition demo0 (u : unit) := [tt;tt;tt].
 
 (* Demo 1 *)
 
-Definition demo1 (u : unit) := List.app (List.repeat true 1) (List.repeat false 1).
+Definition demo1 (u : unit) := List.app (List.repeat true 500) (List.repeat false 300).
 
 (* Demo 2 *)
 
