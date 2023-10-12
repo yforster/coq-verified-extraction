@@ -9,10 +9,10 @@ authors: ["Yannick Forster"
           "Nicolas Tabareau"]
 license: "MIT"
 build: [
-  [make "-j%{jobs}%"]
+  [echo]
 ]
 install: [
-  [make "install"]
+  [make "bootstrap" "-j%{jobs}%"]
 ]
 depends: [
   "coq" { >= "8.17" & < "8.18~" }
