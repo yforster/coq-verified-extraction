@@ -1,6 +1,8 @@
 -I .
 -Q . VerifiedMalfunction.Plugin
 
+META.coq-metacoq-verified-malfunction
+
 g_metacoq_verified_malfunction.mlg
 metacoq_verified_malfunction_plugin.mlpack
 

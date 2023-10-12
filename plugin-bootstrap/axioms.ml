@@ -11,6 +11,8 @@ let def_Coq_Floats_PrimFloat_eqb = fun f1 f2 -> not (Float64.eq f1 f2)
 
 let def_Coq_Floats_PrimFloat_div = Float64.div
 
+let def_Coq_Numbers_Cyclic_Int63_PrimInt63_leb = fun i1 i2 -> not (Uint63.le i1 i2)
+
 let def_Coq_Numbers_Cyclic_Int63_PrimInt63_lsr = Uint63.l_sr
 
 let def_Coq_Numbers_Cyclic_Int63_PrimInt63_lsl = Uint63.l_sl

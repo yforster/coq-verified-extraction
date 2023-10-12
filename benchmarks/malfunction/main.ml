@@ -51,7 +51,7 @@ let vs_hard_main =
   let n = int_of_string Sys.argv.(1) in
   let t = Unix.gettimeofday () in
   for i = 1 to n do
-    Vs_hard.vs_hard ()
+    Axioms.print_obj (Obj.magic (Vs_hard.vs_hard ()))
   done;
   let t' = Unix.gettimeofday () -. t in
   Printf.printf "vs_hard execution time: %f miliseconds\n" (t'*.1000.0)
@@ -89,7 +89,7 @@ let sha_fast_main =
   let t = Unix.gettimeofday () in
   for i = 1 to n do
     (* Printf.printf "%i\n" (List.length ( *)
-        Sha_fast.def_MetaCoq_VerifiedExtraction_Benchmarks_lib_tests_sha_fast ()
+        Sha_fast.sha_fast ()
    (* ) ) *)
   done;
   let t' = Unix.gettimeofday () -. t in
