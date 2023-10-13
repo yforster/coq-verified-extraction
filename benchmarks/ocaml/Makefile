@@ -33,21 +33,21 @@ cleanml :
 	rm -f $(MLFILES) $(MLIFILES)
 
 $(TESTS): $(MLFILES)
-	ocamlc -c $@.mli
-	ocamlc -c $@.ml
-	ocamlopt -c $@.mli
-	ocamlopt -c $@.ml
+	@ocamlc -c $@.mli
+	@ocamlc -c $@.ml
+	@ocamlopt -c $@.mli
+	@ocamlopt -c $@.ml
 
 main: $(CMOFILES) $(CMXFILES)
-	ocamlc -c main.ml
-	ocamlc -o main unix.cma $(CMOFILES) main.cmo 
+	@ocamlc -c main.ml
+	@ocamlc -o main unix.cma $(CMOFILES) main.cmo 
 
 mainopt: $(CMOFILES) $(CMXFILES)
-	ocamlopt -c main.ml
-	ocamlopt -o mainopt unix.cmxa $(CMXFILES) main.cmx
+	@ocamlopt -c main.ml
+	@ocamlopt -o mainopt unix.cmxa $(CMXFILES) main.cmx
 
 tests: tests.v
-	coqc $(COQOPTS) tests.v
+	@coqc $(COQOPTS) tests.v
 
 run: main mainopt
 	./main 10

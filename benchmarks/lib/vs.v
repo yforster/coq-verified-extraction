@@ -2367,10 +2367,10 @@ Definition ce_harder_ent3 := check_entailment harder_ent.
 
 
 
-Definition main_h :=
+Definition main_h (u : unit) :=
   check_entailment harder_ent.
 
-Definition main :=
+Definition main (u : unit) :=
   check_entailment example_ent
 (*  map
     check_entailment

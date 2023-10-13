@@ -2,7 +2,7 @@
 .PHONY: all
 
 all: Makefile.coq
-	make -f Makefile.coq
+	make -f Makefile.coq 
 
 Makefile.coq: _CoqProject
-	coq_makefile -f _CoqProject -o Makefile.coq
+	@coq_makefile -f _CoqProject -o Makefile.coq

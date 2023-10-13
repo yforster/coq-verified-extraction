@@ -119,7 +119,7 @@ Fixpoint make_list (n : nat) (l : list nat) :=
   | S (S n) => make_list n (S (S n) :: l)
   end.   
   
-Definition main :=
+Definition main (u : unit) :=
   let a := insert_list (make_list 2000 []) empty in
   let b := insert_list (make_list 2001 []) empty in
   let c := merge a b in

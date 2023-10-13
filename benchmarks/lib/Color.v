@@ -1435,7 +1435,7 @@ Definition graph40 :=
 ])%Z.
 
 (* Time Compute (run graph40). *)
-Definition main := run G16.
+Definition main (u : unit) := run G16.
 
 
 (* Extraction "color.ml" main. *)

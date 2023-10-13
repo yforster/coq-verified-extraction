@@ -50,17 +50,17 @@ Definition vs_easy (u : unit) :=
      end) 100  Valid.
 
 Definition vs_hard (u : unit) :=
-  match vs.main_h with
+  match vs.main_h tt with
   | Valid => true
   | _ => false
   end.
 
 (* Binom *)
 
-Definition binom (u : unit) := Binom.main.
+Definition binom (u : unit) := Binom.main u.
 
 (* Color *)
-Definition color (u : unit) := Color.main.
+Definition color (u : unit) := Color.main u.
 Time Compute color tt.
 
 (* Lazy factorial. Needs coinductive types *)

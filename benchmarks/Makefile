@@ -7,16 +7,18 @@ all: lib tests run
 
 .PHONY: all default clean lib cleanlib tests run copy $(TESTS)
 
+.SILENT: lib
+
 lib: 
-	$(MAKE) -C lib
+	@make -C lib
 
 cleanlib:
 	$(MAKE) clean -C lib
 
 tests: lib
-	$(MAKE) -C lib 
-	$(MAKE) -C ocaml all
-	$(MAKE) -C malfunction all
+	@make -C ocaml all
+	@make -C ocaml-noopt all
+	@make -C malfunction all
 	# $(MAKE) -C malfunction-verified all
 
 run:

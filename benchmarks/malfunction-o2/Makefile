@@ -30,17 +30,22 @@ clean:
 cleanml :
 	rm -f $(MLFFILES) $(MLIFILES)
 
-$(TESTS): $(MLFFILES)
+$(TESTS): axioms.cmx $(MLFFILES)
 	ocamlc -c $@.mli 
 	malfunction cmx -O2 $@.mlf
 
+axioms.cmx: axioms.ml
+	ocamlopt -c axioms.ml
+
 mainopt: $(MLFFILES) $(CMXFILES)
-	ocamlopt -c main.ml
-	ocamlopt -o mainopt unix.cmxa $(CMXFILES) main.cmx
+	ocamlopt -c main.ml 
+	ocamlopt -o mainopt unix.cmxa axioms.cmx $(CMXFILES) main.cmx
 
 tests: tests.v
 	coqc $(COQOPTS) tests.v
 
-run: $(TESTS) mainopt 
+build: $(TESTS) mainopt 
+
+run: build
 #	./main 10
 	./mainopt 10
