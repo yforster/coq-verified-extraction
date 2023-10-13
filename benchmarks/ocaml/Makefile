@@ -1,4 +1,4 @@
-COQOPTS = -R ../lib MetaCoq.VerifiedExtraction.Benchmarks.lib
+COQOPTS =  -R ../lib MetaCoq.VerifiedExtraction.Benchmarks.lib -w -extraction-opaque-accessed,-notation-overridden,-opaque-let
 CCOMPILER=gcc
 
 # Names of the benchmarks
@@ -39,16 +39,17 @@ $(TESTS): $(MLFILES)
 	@ocamlopt -c $@.ml
 
 main: $(CMOFILES) $(CMXFILES)
-	@ocamlc -c main.ml
+	@ocamlc -w -a-1 -c main.ml
 	@ocamlc -o main unix.cma $(CMOFILES) main.cmo 
 
 mainopt: $(CMOFILES) $(CMXFILES)
-	@ocamlopt -c main.ml
+	@ocamlopt -w -a-1 -c main.ml
 	@ocamlopt -o mainopt unix.cmxa $(CMXFILES) main.cmx
 
 tests: tests.v
 	@coqc $(COQOPTS) tests.v
 
 run: main mainopt
+	@echo "OCaml with extraction optimisations on"
 	./main 10
 	./mainopt 10

@@ -70,14 +70,14 @@ let binom_main =
 
 
 (* Color does not typecheck in OCaml *)
-(* let color_main =
- *   let n = int_of_string Sys.argv.(1) in
- *   let t = Unix.gettimeofday () in
- *   for i = 0 to n do
- *     Color.color Tt
- *   done;
- *   let t' = Unix.gettimeofday () -. t in
- *   Printf.printf "color xecution time: %f seconds\n" t' *)
+(* let color_main = *)
+(*   let n = int_of_string Sys.argv.(1) in *)
+(*   let t = Unix.gettimeofday () in *)
+(*   for i = 0 to n do *)
+(*     Color.color Tt *)
+(*   done; *)
+(*   let t' = Unix.gettimeofday () -. t in *)
+(*   Printf.printf "color xecution time: %f seconds\n" t' *)
 
 (* let sha_main =  
  *   let n = int_of_string Sys.argv.(1) in
@@ -88,8 +88,7 @@ let binom_main =
  *   let t' = Unix.gettimeofday () -. t in
  *   Printf.printf "sha execution time: %f seconds\n" t' *)
 
-
-let sha_fast_main =  
+let sha_fast_main =
   let n = int_of_string Sys.argv.(1) in
   let t = Unix.gettimeofday () in
   for i = 1 to n do

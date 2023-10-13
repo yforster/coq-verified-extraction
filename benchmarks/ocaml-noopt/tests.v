@@ -7,10 +7,10 @@ Require Import MetaCoq.VerifiedExtraction.Benchmarks.lib.tests.
 
 Open Scope string.
 
+Unset Extraction Optimize.
+
 (* The same benchmarks as CertiCoq benchmarks, but slightly modified
    to suspend computations with unit so we can run multiple times *)
-
-Unset Extraction Optimize.
 
 Extraction "demo0" demo0.
 Extraction "demo1" demo1.
