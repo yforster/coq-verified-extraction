@@ -3,7 +3,8 @@ Require Import List String.
 Import ListNotations.
 Local Open Scope string_scope.
 From Malfunction Require Import Mcase.
-From MetaCoq Require Import ReflectEq EWcbvEvalNamed bytestring MCList.
+From MetaCoq.Utils Require Import ReflectEq bytestring MCList.
+From MetaCoq Require Import EWcbvEvalNamed.
 
 From Malfunction Require Import Compile SemanticsSpec utils_array.
 
@@ -306,7 +307,7 @@ Qed.
 Qed.
  *)    
  
-Lemma find_add_self {Hp : Heap} idx d na recs locals :
+Lemma find_add_self `{Heap} idx d na recs locals :
   NoDup (map fst recs) ->
   nth_error recs idx = Some (na, d) ->
   Malfunction.Ident.Map.find na (add_self (map fst recs) (RFunc_build (map snd recs)) locals)

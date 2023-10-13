@@ -130,130 +130,7 @@ Lemma Forall2_length {A B P l l'} : @Forall2 A B P l l' -> List.length l = List.
 Proof. 
   induction 1; cbn; now eauto.
 Qed.
-
-Require Import Malfunction.Malfunction Malfunction.SemanticsSpec.
-From Coq Require Import Uint63.
-
-Definition int_to_nat (i : int) : nat :=
-  Z.to_nat (Int63.to_Z i).
-
-Definition int_of_nat n := Uint63.of_Z (Coq.ZArith.BinInt.Z.of_nat n).
-
-Lemma int_of_to_nat i :
-  int_of_nat (int_to_nat i) = i.
-Proof.
-  unfold int_of_nat, int_to_nat.
-  rewrite Z2Nat.id.
-  1:eapply Int63.to_Z_bounded.
-  now rewrite Int63.of_to_Z.
-Qed.
-
-Lemma int_to_of_nat i :
-  (Z.of_nat i < Int63.wB)%Z ->
-  int_to_nat (int_of_nat i) = i.
-Proof.
-  unfold int_of_nat, int_to_nat.
-  intros ?.
-  rewrite Int63.of_Z_spec.
-  rewrite Z.mod_small. 1:lia.
-  now rewrite Nat2Z.id.
-Qed.
-
-Lemma wb_max_length :
-  int_to_nat max_length < Z.to_nat Int63.wB.
-Proof.
-  cbn. lia.
-Qed.
-
-Arguments Int63.wB : simpl never.
-Arguments max_length : simpl never.
-
-Ltac lia_max_length := 
-  pose proof wb_max_length; unfold max_length in*; cbn in *; lia.
-
-Module List. 
-  Fixpoint mapi_ {A B} (f : nat -> A -> B) (l : list A) (n:nat) : list B :=
-    match l with
-      | [] => []
-      | x :: l' =>  f n x :: mapi_ f l' (S n) 
-    end.
-
-  Definition mapi {A B} (f : nat -> A -> B) l := mapi_ f l 0. 
-
-  Definition init {A} (size : nat) (f : nat -> A) : list A := map f (seq 0 size).
-
-  Fixpoint set {A} (l : list A) (n : nat) (a:A) : list A 
-   := match l , n with
-     [] , _ =>  []
-   | x :: l , 0 => a :: l
-   | x :: l , S n => x :: set l n a
-   end.
-
-  Lemma length_set A (l : list  A) n a : 
-   List.length (set l n a) = List.length l.
-  Proof. 
-   revert n. induction l; destruct n; cbn; eauto.
-  Qed.
-
-  Lemma nth_set_same A (l : list A) n a d :
-    (n < List.length l) -> nth n (set l n a) d = a.
-  Proof. 
-    revert n. induction l; destruct n; cbn ; intros; try solve [inversion H]; eauto. 
-    apply IHl. now apply Nat.succ_lt_mono in H.
-  Qed. 
-
-  Lemma nth_set_other A (l : list A) n m a d : 
-  n <> m -> nth m (set l n a) d = nth m l d.
-  Proof. 
-   revert n m; induction l; intros; cbn; eauto.
-   destruct n; destruct m; cbn; try congruence.
-   eapply IHl; eauto.  
-  Qed. 
-
-End List. 
-
-Definition Forall2Array {A B:Type} (R : A -> B -> Prop) 
-  (l:list A) (a:array B) default := 
-    List.length l = int_to_nat (PArray.length a) /\
-    forall i:int, int_to_nat i < List.length l -> R (nth (int_to_nat i) l default ) a.[i].
-
-Inductive
-  Forall2_acc {X A B : Type} (R : X -> A -> X -> B -> Prop) : X -> list A -> X -> list B -> Prop :=
-    Forall2_acc_nil : forall x, Forall2_acc R x [] x []
-    | Forall2_acc_cons : forall (x y z : X) (a : A) (b : B) 
-                            (l : list A) (l' : list B) ,
-                     R x a y b -> Forall2_acc R y l z l' -> Forall2_acc R x (a :: l) z (b :: l').
     
-Fixpoint map_acc {A B S: Type} (f : S -> A -> S * B) (s:S) (l : list A) : S * list B :=
-  match l with
-  | [] => (s , [])
-  | a :: t => let (s',b) := f s a in 
-              let (s'',bs) := map_acc f s' t in (s'', b :: bs)
-  end.
-
-Lemma Forall2_acc_map {S S' A B B'} (R : S -> S' -> Prop) (RB : B -> B' -> Prop)
-        (f : S' -> A -> S' * B') (P : S -> A -> S -> B -> Prop) x x' y l1 l2 :
-  Forall2_acc P x l1 y l2 ->
-  (forall x x' a b y, R x x' -> P x a y b -> let (y' , b') := f x' a in R y y' /\ RB b b') ->
-  R x x' -> 
-  let (y' , l') := map_acc f x' l1 in R y y' /\ Forall2 RB l2 l'.
-Proof.
-  intros H H'. revert x'. induction H; cbn; intros x' Hx; f_equal; eauto.
-  specialize (H' _ _ _ _ _ Hx H). destruct (f _ _ ) as (s',b').
-  destruct H'. specialize (IHForall2_acc _ H1). destruct (map_acc _ _ _).
-  destruct IHForall2_acc. split; eauto.  
-Qed.
-
-Lemma Forall2_acc_length {X A B R x l y l'} : @Forall2_acc X A B R x l y l' -> List.length l = List.length l'.
-Proof. 
-  induction 1; cbn; eauto.
-Qed.   
-
-Lemma Forall2_length {A B P l l'} : @Forall2 A B P l l' -> List.length l = List.length l'.
-Proof. 
-  induction 1; cbn; eauto.
-Qed.
-
 Fixpoint Array_of_List' {A} count (l : list A) (a : array A) :=
   match l with
   | [] => a
@@ -390,10 +267,11 @@ Lemma Array_of_list_length A default (l:list A) :
   List.length l.
 Proof.
   unfold Array_of_list. rewrite Array_of_list'_length.
+  pose proof (Hmax := wb_max_length).
   rewrite PArray.length_make. intro H. 
   assert (Hl: (int_of_nat (Datatypes.length l) ≤? max_length)%uint63 = true).
-  { apply leb_spec. rewrite Int63.of_Z_spec. rewrite Z.mod_small; [cbn in *; lia |].
-    cbn in *; lia. }
+  { apply leb_spec. repeat rewrite Int63.of_Z_spec. rewrite Z.mod_small; [cbn in *; lia |].
+    clear Hmax. unfold max_length in *; cbn in *. lia. }
   rewrite Hl. apply int_to_of_nat. cbn in *; lia. 
 Qed.
 

@@ -1,9 +1,10 @@
 Require Import List Lia.
 Export ListNotations.
 
-From MetaCoq Require Import  bytestring BasicAst EWcbvEvalNamed All_Forall ReflectEq.
+From MetaCoq.Utils Require Import bytestring All_Forall MCList ReflectEq.
+From MetaCoq.Common Require Import BasicAst.
+From MetaCoq Require Import EWcbvEvalNamed.
 From Malfunction Require Import utils_array SemanticsSpec.
-From MetaCoq Require Import MCList.
 
 From Malfunction Require Import Malfunction Compile.
 Open Scope list_scope.

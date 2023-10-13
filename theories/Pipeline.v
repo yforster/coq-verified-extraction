@@ -21,7 +21,7 @@ Import PCUICTransform (template_to_pcuic_transform, pcuic_expand_lets_transform)
 
 Import Transform.
 
-Obligation Tactic := program_simpl.
+#[local] Obligation Tactic := program_simpl.
 
 #[local] Existing Instance extraction_checker_flags.
 
@@ -76,7 +76,7 @@ Next Obligation.
 Qed.
 
 Program Definition compile_to_malfunction (efl : EWellformed.EEnvFlags) `{SemanticsSpec.Heap}:
-  Transform.t (list (Kernames.kername × EAst.global_decl) × EAst.term) Malfunction.program
+  Transform.t (list (Kernames.kername × EAst.global_decl)) _ _ _
     EWcbvEvalNamed.value SemanticsSpec.value
     (fun p v => ∥EWcbvEvalNamed.eval p.1 [] p.2 v∥) (fun _ _ => True) :=
   {| name := "compile to Malfunction";
@@ -97,8 +97,7 @@ Next Obligation.
 Qed.
 
 Program Definition verified_malfunction_pipeline (efl := EWellformed.all_env_flags) `{SemanticsSpec.Heap}:
- Transform.t pcuic_program Malfunction.program
-             PCUICAst.term SemanticsSpec.value
+ Transform.t global_env_ext_map _ _ _ _ SemanticsSpec.value 
              PCUICTransform.eval_pcuic_program
              (fun _ _ => True) :=
   verified_erasure_pipeline ▷
@@ -199,9 +198,7 @@ End malfunction_pipeline_theorem.
 About verified_malfunction_pipeline_theorem.
 
 Program Definition malfunction_pipeline (efl := EWellformed.all_env_flags) `{SemanticsSpec.Heap}:
- Transform.t TemplateProgram.template_program Malfunction.program
-             Ast.term SemanticsSpec.value
-             TemplateProgram.eval_template_program
+ Transform.t _ _ _ _ _ _ TemplateProgram.eval_template_program
              (fun _ _ => True) :=
   pre_erasure_pipeline ▷ verified_malfunction_pipeline.
 

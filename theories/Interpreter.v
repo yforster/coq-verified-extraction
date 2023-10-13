@@ -6,7 +6,7 @@ Import ListNotations.
 (*Require Import Malfunction.Malfunction Malfunction.Deserialize Malfunction.SemanticsSpec Malfunction.Serialize Ceres.Ceres.*)
 
 Require Import Malfunction.Malfunction Malfunction.SemanticsSpec Malfunction.utils_array.
-From MetaCoq Require Import bytestring.
+From MetaCoq.Utils Require Import bytestring.
 Open Scope bs.
 
 From Coq Require Import Uint63.
