@@ -3,7 +3,7 @@ COQOPTS = -R ./ MetaCoq.VerifiedExtraction.Benchmarks -R lib MetaCoq.VerifiedExt
 # Names of the benchmarks
 TESTS=$(shell cat TESTS)
 
-all: lib tests run
+all: lib tests
 
 .PHONY: all default clean lib cleanlib tests run copy $(TESTS)
 

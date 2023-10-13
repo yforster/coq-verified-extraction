@@ -1,4 +1,4 @@
-COQOPTS = -R ../lib MetaCoq.VerifiedExtraction.Benchmarks.lib
+COQOPTS = -R ../lib MetaCoq.VerifiedExtraction.Benchmarks.lib -w -extraction-opaque-accessed,-notation-overridden,-opaque-let
 CCOMPILER=gcc
 
 # Names of the benchmarks
@@ -9,7 +9,7 @@ MLIFILES=$(patsubst %,%.mli, $(TESTS))
 CMXFILES=$(patsubst %,%.cmx, $(TESTS))
 
 default: tests run
-all: tests mainopt
+all: tests mainopt run
 
 .PHONY: run clean cleanml
 
@@ -31,21 +31,22 @@ cleanml :
 	rm -f $(MLFFILES) $(MLIFILES)
 
 $(TESTS): axioms.cmx $(MLFFILES)
-	ocamlc -c $@.mli 
-	malfunction cmx $@.mlf
+	@ocamlc -c $@.mli 
+	@malfunction cmx $@.mlf
 
 axioms.cmx: axioms.ml
-	ocamlopt -c axioms.ml
+	@ocamlopt -c axioms.ml
 
 mainopt: $(MLFFILES) $(CMXFILES)
-	ocamlopt -c main.ml 
-	ocamlopt -o mainopt unix.cmxa axioms.cmx $(CMXFILES) main.cmx
+	@ocamlopt -c -w -a-1  main.ml 
+	@ocamlopt -o mainopt unix.cmxa axioms.cmx $(CMXFILES) main.cmx
 
 tests: tests.v
-	coqc $(COQOPTS) tests.v
+	@coqc $(COQOPTS) tests.v > /dev/null
 
 build: $(TESTS) mainopt 
 
 run: build
 #	./main 10
+	@echo "Malfunction with no optimisations"
 	./mainopt 10
