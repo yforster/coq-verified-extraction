@@ -48,5 +48,5 @@ build: $(TESTS) mainopt
 
 run: build
 #	./main 10
-	@echo "Malfunction with no optimisations"
+	@echo "Malfunction with -O2 optimisations"
 	./mainopt 10

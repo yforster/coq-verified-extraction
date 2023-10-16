@@ -6,7 +6,7 @@ Open Scope bs.
 
 Eval compute in "Compiling demo0".
 
-MetaCoq Verified Extract demo1 "demo1.mlf".
+MetaCoq Verified Extract demo0 "demo0.mlf".
 
 Eval compute in "Compiling demo1".
 

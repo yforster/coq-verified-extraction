@@ -8,6 +8,12 @@ Inductive three := ZERO | ONE | TWO | THREE.
 
 Definition two := TWO.
 
+From MetaCoq.Utils Require Import bytestring.
+
+Definition test_bytestring (u : unit) := bytestring.String.compare "" "bug".
+
+MetaCoq Extract Module test_bytestring "test_bytestring.mlf".
+
 MetaCoq Extract Module two "two.mlf".
 
 Axiom axiom : nat.

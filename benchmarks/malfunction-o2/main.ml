@@ -72,7 +72,7 @@ let color_main =
     Color.color ()
   done;
   let t' = Unix.gettimeofday () -. t in
-  Printf.printf "color xecution time: %f seconds\n" t'
+  Printf.printf "color xecution time: %f seconds\n%!" t'
 
 (* let sha_main =  
  *   let n = int_of_string Sys.argv.(1) in

@@ -15,4 +15,4 @@ compile_malfunction.cmx: axioms.cmx
 	yes | mv  compile_malfunction_fmt.mlf compile_malfunction.mlf
 	# ocamlfind opt ${CAMLFLAGS} ${FINDLIBPKGS} -for-pack Metacoq_verified_malfunction_plugin axioms.mli
 	ocamlfind opt ${CAMLFLAGS} ${FINDLIBPKGS} -for-pack Metacoq_verified_malfunction_plugin compile_malfunction.mli
-	malfunction cmx -O2 -shared ${FINDLIBPKGS} -for-pack Metacoq_verified_malfunction_plugin compile_malfunction.mlf
+	malfunction cmx -shared ${FINDLIBPKGS} -for-pack Metacoq_verified_malfunction_plugin compile_malfunction.mlf

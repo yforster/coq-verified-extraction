@@ -44,7 +44,7 @@ let def_MetaDef_Coq_VerifiedExtraction_Benchmarks_lib_vs_HELLO = fun _ x ->
   (* Printf.printf "Returning in map\n%!" ; print_obj x ; Printf.printf "\n%!" ; *) x
 
 let def_print_arg na x = ()
-  (* Printf.printf "Function %s called %!" na (\* ; print_obj x ; Printf.printf "\n%!" *\) *)
+  (* Printf.printf "Function %s called %!" na *) (* ; print_obj x ; Printf.printf "\n%!" *)
  (* = fun x -> Printf.printf ("%i\n%!") (Obj.tag x) ; Printf.printf ("%b\n%!") (Obj.is_block x) ; if Obj.is_block x then Printf.printf ("Size: %i\n%!") (Obj.size x) else () *)
 
 (* let print_obj = fun x -> Printf.printf ("%i\n%!") (Obj.tag x) ; Printf.printf ("%b\n%!") (Obj.is_block x) ; if Obj.is_block x then Printf.printf ("Size: %i\n%!") (Obj.size x) else () *)
