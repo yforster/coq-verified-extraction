@@ -1,0 +1,5 @@
+g_metacoq_verified_malfunction.cmx: compile_malfunction.cmx 
+	ocamlfind opt ${CAMLFLAGS} ${FINDLIBPKGS} -c  -for-pack Metacoq_verified_malfunction_plugin compile_malfunction.mli g_metacoq_verified_malfunction.ml
+
+metacoq_verified_malfunction_plugin.cmx: axioms.cmx compile_malfunction.cmx 
+	ocamlfind opt ${CAMLFLAGS} ${FINDLIBPKGS} -pack -o $@ $+

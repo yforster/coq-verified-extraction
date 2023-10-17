@@ -12,31 +12,32 @@ Open Scope bs.
 
 Set Default Goal Selector "!".
 
-Class Heap := {
-  pointer : Type;
+Class Pointer := {pointer : Type}.
+
+Class Heap `{Pointer} := {
   heapGen : forall (value : Type), Type;
   fresh : forall {value : Type}, heapGen value -> pointer -> heapGen value -> Prop;
   deref : forall {value : Type}, heapGen value -> pointer -> list value -> Prop;
   update : forall {value : Type}, heapGen value -> pointer -> list value -> heapGen value -> Prop
 }.
 
-Definition CanonicalHeap : Heap := 
-{| pointer := int ;
-   heapGen := fun value => (int * (int -> list value)) % type;
-   fresh :=  fun _ '(ptr,h) fresh_ptr '(ptr',h') => Int63.ltb ptr fresh_ptr = true /\ fresh_ptr = ptr' /\ h = h' ;
+Definition CanonicalPointer : Pointer := {| pointer := int |}.
+
+Definition CanonicalHeap : @Heap CanonicalPointer := 
+{| heapGen := fun value => (int * (int -> list value)) % type;
+   fresh :=  fun _ '(ptr,h) (fresh_ptr : @pointer CanonicalPointer) '(ptr',h') => Int63.ltb ptr fresh_ptr = true /\ fresh_ptr = ptr' /\ h = h' ;
    deref := fun _ '(_,h) ptr val => h ptr = val;
    update := fun _ '(max_ptr,h) ptr arr '(max_ptr',h') => 
      max_ptr' = int_of_nat (max (int_to_nat max_ptr) (int_to_nat ptr)) /\ forall ptr', h' ptr' = if Int63.eqb ptr ptr' then arr else h ptr |}. 
 
-Inductive rec_value `{Heap} := 
+Inductive rec_value `{Pointer} := 
   | RFunc of Ident.t * t
   | RThunk of pointer
   | Bad_recursive_value.
 
-Inductive value `{Heap} :=
+Inductive value `{Pointer} :=
 | Block of int * list value
 | Vec of vector_type * pointer
-| BString of vector_type * pointer
 | Func of @Ident.Map.t value * Ident.t *  t
 | RClos of @Ident.Map.t value * list Ident.t * list rec_value * nat
 | Lazy of @Ident.Map.t value * t
@@ -99,7 +100,7 @@ match t with
 | BigInt => fail_Z "no bitwidth for bigint"
 end%Z.
 
-Definition truncate `{Heap} ty n :=
+Definition truncate `{Pointer} ty n :=
   value_Int (ty, match ty with
                  | Bigint => n
                  | ty =>
@@ -120,25 +121,25 @@ Definition inttype_eqb (t1 t2 : inttype) :=
   | _, _ => false
   end.
 
-Definition as_ty `{Heap} ty := fun ty2 =>
+Definition as_ty `{Pointer} ty := fun ty2 =>
   match ty2 with
   | value_Int (ty', n) => if inttype_eqb ty ty' then n else fail_Z "integer type missmatch"
   | _ => fail_Z "expected integer"
   end.
 
-Definition as_float `{Heap} x := match x with
+Definition as_float `{Pointer} x := match x with
   | Float f => f
   | _ => fail_float "expected float64"
 end.
 
-Definition cond `{Heap} scr case : bool := 
+Definition cond `{Pointer} scr case : bool := 
   (match case, scr with
     | Tag n, Block (n', _) => Int63.eqb n n'
     | Deftag, Block _ => true
     | Intrange (min, max), value_Int (Int, n) => Z.leb (Int63.to_Z min) n && Z.leb n (Int63.to_Z max)
     | _, _ => false end).
 
-Fixpoint find_match `{Heap} scr x : option t := match x with 
+Fixpoint find_match `{Pointer} scr x : option t := match x with 
                                         | (cases, e) :: rest =>
                                             if List.existsb (cond scr) cases then
                                               Some e
@@ -150,7 +151,7 @@ Fixpoint find_match `{Heap} scr x : option t := match x with
 Definition Mklambda binders e :=
   match binders with [] => e | _ => Mlambda (binders, e) end.
 
-Definition RFunc_build `{Heap} recs := 
+Definition RFunc_build `{Pointer} recs := 
     map (fun t =>
       match t with 
       Mlambda ([x], e) => RFunc (x , e)
@@ -159,10 +160,10 @@ Definition RFunc_build `{Heap} recs :=
     end) 
     recs.
 
-Definition add_recs `{Heap} locals (self : list Ident.t) rfunc := 
+Definition add_recs `{Pointer} locals (self : list Ident.t) rfunc := 
   List.mapi (fun n x => (x , RClos (locals, self, rfunc, n))) self.
 
-Definition add_self `{Heap} self rfunc locals := 
+Definition add_self `{Pointer} self rfunc locals := 
   List.fold_right (fun '(x,t) l => Ident.Map.add x t l) locals (add_recs locals self rfunc) .
 
 Definition comparison_eqb x1 x2 :=
@@ -223,6 +224,7 @@ Fixpoint get (n : nat) (s : string) {struct s} : option Byte.byte :=
 
 Section eval.
 
+Variable _Pointer:Pointer.
 Variable _Heap:Heap.
 Variable globals : list (Ident.t * value).
 
@@ -248,9 +250,9 @@ Inductive eval (locals : @Ident.Map.t value) : heap -> t -> heap -> value -> Pro
   eval locals h e1 h1 v ->
   isFunction v = false ->
   eval locals h (Mapply (e1, [e2])) h1 (fail "not a function:  evaluated to: ")
-| eval_app h h1 e2 e1 v es :
-  eval locals h (Mapply (Mapply (e1, [e2]), es)) h1 v ->
-  eval locals h (Mapply (e1, e2 :: es)) h1 v
+| eval_app h h1 e3 e2 e1 v es :
+  eval locals h (Mapply (Mapply (e1, [e2]), e3 :: es)) h1 v ->
+  eval locals h (Mapply (e1, e2 :: e3 :: es)) h1 v
 | eval_var h id :
   eval locals h (Mvar id) h (Ident.Map.find id locals)
 | eval_let_body h h1 e v : 
@@ -509,10 +511,10 @@ forall P : Ident.Map.t -> heap -> t -> heap -> value -> Prop,
         P locals h (Mapply (e1, [e2])) h1
           (fail "not a function:  evaluated to: ")) ->
        (forall (locals : Ident.Map.t) (h h1 : heap) 
-          (e2 e1 : t) (v : value) (es : list t),
-        eval locals h (Mapply (Mapply (e1, [e2]), es)) h1 v ->
-        P locals h (Mapply (Mapply (e1, [e2]), es)) h1 v ->
-        P locals h (Mapply (e1, e2 :: es)) h1 v) ->
+          (e3 e2 e1 : t) (v : value) (es : list t),
+        eval locals h (Mapply (Mapply (e1, [e2]), e3 :: es)) h1 v ->
+        P locals h (Mapply (Mapply (e1, [e2]), e3 :: es)) h1 v ->
+        P locals h (Mapply (e1, e2 :: e3 :: es)) h1 v) ->
        (forall (locals : Ident.Map.t) (h : heap) (id : Ident.t),
         P locals h (Mvar id) h (Ident.Map.find id locals)) ->
        (forall (locals : Ident.Map.t) (h h1 : heap) (e : t) (v : value),
@@ -555,9 +557,8 @@ forall P : Ident.Map.t -> heap -> t -> heap -> value -> Prop,
         P locals h1 e h2 v -> P locals h (Mswitch (scr, cases)) h2 v) ->
        (forall (locals : Ident.Map.t) (tag : Malfunction.int) 
           (h h' : heap) (es : list t) (vals : list value),
-        Forall2_acc (eval locals) h es h' vals ->
         Datatypes.length vals < int_to_nat max_length ->
-        Forall2_acc (P locals) h es h' vals ->
+        Forall2_acc (fun a b c d => eval locals a b c d /\ P locals a b c d) h es h' vals ->
         P locals h (Mblock (tag, es)) h' (Block (tag, vals))) ->
        (forall (locals : Ident.Map.t) (h h' : heap) 
           (idx : Malfunction.int) (b : t) (vals : list value)

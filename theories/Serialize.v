@@ -9,11 +9,13 @@ Require Import Malfunction.Ceres.CeresFormat Malfunction.Ceres.CeresSerialize.
 Local Open Scope sexp.
 Local Open Scope string.
 
+Compute match "'"%bs with bytestring.String.String b _ => b | _ => Byte.x00 end.
+
 Fixpoint _escape_ident (_end s : String.t) : String.t :=
   match s with
   | ""%bs => _end
   |  String.String c s' =>
-       if (c == byte_of_ascii "'") || (c == byte_of_ascii " ") then String.String "_" (_escape_ident _end s') 
+       if (c == "'"%byte) || (c == " "%byte) || (c == "."%byte) then String.String "_" (_escape_ident _end s') 
        else match s' with
             | String.String c2 s'' =>
                 if (String.String c (String.String c2 String.EmptyString)) == "Γ"%bs
@@ -36,8 +38,28 @@ Fixpoint _escape_ident (_end s : String.t) : String.t :=
 #[export] Instance Serialize_Ident : Serialize Ident.t :=
   fun a => Atom (append "$" (bytestring.String.to_string (_escape_ident ""%bs a))).
 
-#[export] Instance Integral_int : Integral int :=
-  fun n => (Int63.to_Z n).
+(* Section primint. *)
+
+(* Require Import PrimInt63. *)
+
+(* Definition min_int := Eval vm_compute in (PrimInt63.lsl 1 62). *)
+(* Definition max_int := Eval vm_compute in (PrimInt63.sub min_int 1). *)
+
+(* Definition Z_opp := fun x : BinNums.Z => *)
+(* match x with *)
+(* | BinNums.Z0 => BinNums.Z0 *)
+(* | BinNums.Zpos x0 => BinNums.Zneg x0 *)
+(* | BinNums.Zneg x0 => BinNums.Zpos x0 *)
+(* end. *)
+
+(* Definition sint_to_Z (i : int) :=  match PrimInt63.ltb i min_int return BinNums.Z with *)
+(*                       | true => Uint63.to_Z i *)
+(*                       | false => Z_opp (Uint63.to_Z (Int63.opp i)) *)
+(*                       end. *)
+(* End primint. *)
+
+(* #[export] Instance Integral_int : Integral int := *)
+(*   fun n => (Int63.to_Z n). *)
 
 #[export] Instance Serialize_int : Serialize int := 
    fun i => to_sexp (Int63.to_Z i).
@@ -55,6 +77,12 @@ Definition Cons x (l : sexp) :=
   | x => x
   end.
 
+Definition App (l1 : sexp) (l2 : sexp) :=
+  match l1, l2 with
+  | List l1, List l2 => List (l1 ++ l2)
+  | x, y => y
+  end.
+
 Definition rawapp (s : sexp) (a : string) :=
   match s with
   | Atom_ (Raw s) => Atom (Raw (append s a))
@@ -64,8 +92,8 @@ Definition rawapp (s : sexp) (a : string) :=
 #[export] Instance Serialize_case : Serialize case :=
   fun a => match a with
         | Tag tag => [Atom "tag"; Atom (Int63.to_Z tag)]
-        | Deftag => Atom "_"
-        | Intrange (i1, i2) => [ to_sexp i1 ; to_sexp i2  ]
+        | Deftag => [Atom "tag"; Atom "_"]
+        | Intrange (i1, i2) => if Uint63.leb i1 i2 then [ to_sexp i1 ; to_sexp i2  ] else Atom "_"
         end.
 
 #[export] Instance Serialize_unary_num_op : Serialize unary_num_op :=
@@ -141,6 +169,7 @@ Fixpoint split_dot accl accw (s : string) :=
 Definition before_dot s := fst (split_dot EmptyString EmptyString s).
 Definition after_dot s := snd (split_dot EmptyString EmptyString s).
 
+Unset Guard Checking.
 Fixpoint to_sexp_t (a : t) : sexp :=
   match a with
   | Mvar x => to_sexp x
@@ -149,8 +178,13 @@ Fixpoint to_sexp_t (a : t) : sexp :=
   | Mlet (binds, x) => List (Atom "let" :: List.map to_sexp_binding binds ++ (to_sexp_t x :: nil))
   | Mnum x => to_sexp x
   | Mstring x => Atom (Str (bytestring.String.to_string x))
-  | Mglobal x => (* [Atom "global" ; Atom ("$Top") ; *) to_sexp x  (* ] *)
-  | Mswitch (x, sels) => Cons (Atom "switch") (Cons (to_sexp_t x) (@Serialize_list _ (@Serialize_product _ _ (@Serialize_singleton_list _ _) to_sexp_t) sels))
+  | Mglobal x => (* [Atom "global" ; Atom ("$Top") ; *) to_sexp ("def_" ++ x)%bs  (* ] *)
+  | Mswitch (x, sels) =>
+      let sels := match List.rev sels with
+                   | cons last rest => List.rev ((Deftag :: (Intrange (Uint63.of_Z (BinNums.Zpos (BinNums.xI BinNums.xH)), Uint63.of_Z BinNums.Z0) :: nil) %list, snd last) :: rest)%list
+                   | nil => nil
+                   end in
+      Cons (Atom "switch") (Cons (to_sexp_t x) (@Serialize_list _ (fun '(sel, t) => App (to_sexp sel) ([to_sexp_t t]) ) sels))
   | Mnumop1 (op, num, x) => [ rawapp (to_sexp op) (numtype_to_string num) ; to_sexp_t x ]
   | Mnumop2 (op, num, x1, x2) => [ rawapp (to_sexp op) (numtype_to_string num) ; to_sexp_t x1 ; to_sexp_t x2 ]
   | Mconvert (from, to, x) => [rawapp (rawapp (Atom "convert") (numtype_to_string from)) (numtype_to_string to) ; to_sexp_t x]
@@ -170,69 +204,87 @@ to_sexp_binding (a : binding) : sexp :=
   | Named (id, x) => [ to_sexp id ; to_sexp_t x ]
   | Recursive x => Cons (Atom "rec") (@Serialize_list _ (@Serialize_product _ _ _ to_sexp_t) x)
   end.
-
+Set Guard Checking.
 
 #[export] Instance Serialize_t : Serialize t := to_sexp_t.
 #[export] Instance Serialize_binding : Serialize binding := to_sexp_binding.
 
-Fixpoint string_map (f : ascii -> ascii) (s : string) : string :=
-  match s with
-  | EmptyString => EmptyString
-  | String c s => String (f c) (string_map f s)
-  end.
+(* Fixpoint string_map (f : ascii -> ascii) (s : string) : string := *)
+(*   match s with *)
+(*   | EmptyString => EmptyString *)
+(*   | String c s => String (f c)< (string_map f s) *)
+(*   end. *)
 
-Definition dot_to_underscore (id : string) :=
-  string_map (fun c => 
-    match c with
-    | "."%char => "_"%char
-    | _ => c
-    end) id.
+(* Definition dot_to_underscore (id : string) := *)
+(*   string_map (fun c =>  *)
+(*     match c with *)
+(*     | "."%char => "_"%char *)
+(*     | _ => c *)
+(*     end) id. *)
 
-Definition uncapitalize_char (c : ascii) : ascii :=
-  let n := nat_of_ascii c in
-  if (65 <=? n)%nat && (n <=? 90)%nat then ascii_of_nat (n + 32)
+Definition uncapitalize_char (c : Byte.byte) : Byte.byte :=
+  let n := Byte.to_nat c in
+  if (65 <=? n)%nat && (n <=? 90)%nat then match Byte.of_nat (n + 32) with Some c => c | _ => c end
   else c.
 
-Definition uncapitalize (s : string) : string :=
+Definition uncapitalize (s : bytestring.string) : bytestring.string :=
   match s with 
-  | EmptyString => EmptyString
-  | String c s => String (uncapitalize_char c) s
+  | bytestring.String.EmptyString => bytestring.String.EmptyString
+  | bytestring.String.String c s => bytestring.String.String (uncapitalize_char c) s
   end.
 
-Definition encode_name (s : string) : string :=
-  uncapitalize (dot_to_underscore s).
+Definition encode_name (s : bytestring.string) : bytestring.string :=
+  _escape_ident ""%bs s.
 
 Definition exports (m : list (Ident.t * option t)) : list (Ident.t * option t) :=
-  List.map (fun '(x, v) => (bytestring.String.of_string (encode_name (bytestring.String.to_string x)), Some (Mglobal x))) m.
+  List.map (fun '(x, v) => (("def_" ++ encode_name x)%bs, Some (Mglobal x))) m.
 
 Definition global_serializer : Serialize (Ident.t * option t) :=
   fun '(i, b) => match b with
-              | Some x => to_sexp (i, x)
-              | None => let both := split_dot "" "" (bytestring.String.to_string i) in
-                       let name := snd both in
-                       let module := snd (split_dot "" "" (fst both)) in
-                       List ( Atom (Raw ("$" ++ bytestring.String.to_string i)) ::
-                                [Atom "global" ; Atom (Raw ("$" ++ module)) ; Atom (Raw ("$" ++ name))   ]
+              | Some x => to_sexp ("def_" ++ i, x)%bs
+              | None => (* let both := split_dot "" "" (bytestring.String.to_string i) in *)
+                       (* let name := snd both in *)
+                       (* let module := snd (split_dot "" "" (fst both)) in *)
+                       let na := bytestring.String.to_string (uncapitalize ("def_" ++ encode_name i)%bs) in
+                       List ( Atom (Raw ("$" :: na)) ::
+                                [Atom "global" ; Atom (Raw ("$Axioms")) ; Atom (Raw ("$" :: na))   ]
                                 :: nil)
               end.
 
 Definition Serialize_program : Serialize program :=
   fun '(m, x) =>
     match
-      Cons (Atom "module") (@Serialize_list _ global_serializer (m ++ ((bytestring.String.of_string "_main", Some x)  :: nil))%list)
+      Cons (Atom "module") (@Serialize_list _ global_serializer (List.rev m ++ ((bytestring.String.of_string "_main", Some x)  :: nil))%list)
     with
       List l => List (l ++ ([Atom "export"] :: match x with Mglobal i => Atom (bytestring.String.to_string i) :: nil | _ => nil end))
     | x => x
     end.
 
-Definition Serialize_module : Serialize program :=
+Fixpoint thename a (s : bytestring.String.t) :=
+  match s with
+  | String.EmptyString => bytestring.String.of_string (string_of_list_byte (List.rev a))
+  | String.String b s => if b == "."%byte
+                        then thename nil s
+                        else thename (b :: a)%list s
+  end.
+
+Program Definition Serialize_module : Serialize program :=
   fun '(m, x) =>
-    let exports := exports m in
+    let name : Ident.t  := match m with
+                           | (x :: l)%list => fst x
+                           | nil => ""%bs
+                           end in
+    let shortname : Ident.t := uncapitalize (thename nil name) in
+    let longname : list sexp := (to_sexp ("def_" ++ name)%bs :: nil)%list in
+    let exports : list sexp := (Atom ("$" ++ String.to_string shortname)%string :: nil)%list in
     match
-      Cons (Atom "module") (@Serialize_list _ global_serializer (List.rev_append m exports)%list)
+      Cons (Atom "module") (@Serialize_list _ global_serializer (List.rev m))
     with
       List l =>
-        let exports := List.map (fun x => Atom (Raw ("$" ++ (bytestring.String.to_string (fst x))))) exports in
-        List (l ++ (Cons (Atom "export") (List exports) :: nil))
+        List (l                 (* the extracted function *)
+              ++  (Cons (Atom ("$" ++ String.to_string shortname)%string)
+                         (List longname) :: nil)%list
+              ++ (Cons (Atom "export") (List exports) :: nil))%list (* export *)
     | x => x
     end.
+

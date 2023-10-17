@@ -2,8 +2,12 @@ From MetaCoq.Utils Require Import utils.
 Require Import List String.
 Import ListNotations.
 Local Open Scope string_scope.
-From Malfunction Require Import Mcase Compile SemanticsSpec utils_array.
-From MetaCoq Require Import Utils.ReflectEq EWcbvEvalNamed Utils.bytestring Utils.MCList.
+From Malfunction Require Import Mcase.
+From MetaCoq.Utils Require Import ReflectEq bytestring MCList.
+From MetaCoq Require Import EWcbvEvalNamed.
+
+From Malfunction Require Import Compile SemanticsSpec utils_array.
+
 From Equations Require Import Equations.
 
 Definition lookup {A} (E : list (Kernames.ident * A)) (x : string) :=
@@ -12,7 +16,7 @@ Definition lookup {A} (E : list (Kernames.ident * A)) (x : string) :=
   | None => None
   end.
 
-Fixpoint compile_value {H : Heap} (Σ : EAst.global_declarations) (s : EWcbvEvalNamed.value) : SemanticsSpec.value :=
+Fixpoint compile_value `{Heap} (Σ : EAst.global_declarations) (s : EWcbvEvalNamed.value) : SemanticsSpec.value :=
   match s with
   | vClos na b env => Func ((fun x => match lookup (map (fun '(x,v) => (x, compile_value Σ v)) env) x with Some v => v | None => fail "notfound" end), na, compile Σ b)
   | vConstruct i m [] =>
@@ -95,7 +99,7 @@ Proof.
     + reflexivity.
 Qed.
 
-Arguments SemanticsSpec.eval {_}.
+Arguments SemanticsSpec.eval {_ _}.
 
 Fixpoint Mnapply (l : Malfunction.t) (args : list Malfunction.t) :=
   match args with
@@ -111,10 +115,11 @@ Proof.
   - now rewrite IHargs1.
 Qed. 
 
-Lemma eval_app_nested_ `{Hp : Heap} globals locals args l args' v h h' :
+Lemma eval_app_nested_ `{Heap} globals locals args l args' v h h' :
   SemanticsSpec.eval globals locals h (Mnapply l (args' ++ args)) h' v ->
   SemanticsSpec.eval globals locals h (Mapply_ (Mnapply l args', args)) h' v.
 Proof.
+  rename H into HP; rename H0 into HH. 
   induction args in args' |- *.
   - cbn. now rewrite app_nil_r.
   - cbn. intros H. specialize (IHargs (args' ++ [a])%list). destruct args.
@@ -125,10 +130,11 @@ Proof.
       cbn. eauto.
 Qed.
 
-Lemma eval_app_nested_inv `{Hp : Heap} globals locals args l args' v h h' :
+Lemma eval_app_nested_inv `{Heap} globals locals args l args' v h h' :
   SemanticsSpec.eval globals locals h (Mapply_ (Mnapply l args', args)) h' v ->
   SemanticsSpec.eval globals locals h (Mnapply l (args' ++ args)) h' v.
 Proof.
+  rename H into HP; rename H0 into HH. 
   induction args in args' |- *.
   - cbn. now rewrite app_nil_r.
   - cbn. intros H. specialize (IHargs (args' ++ [a])%list). destruct args.
@@ -139,7 +145,7 @@ Proof.
       rewrite Mnapply_app. eauto.
 Qed.
 
-Lemma Mapply_eval `{H : Heap} globals locals (x : Malfunction.Ident.t)
+Lemma Mapply_eval `{Heap} globals locals (x : Malfunction.Ident.t)
     (locals' : Malfunction.Ident.Map.t)
     (e e2 : Malfunction.t) (v2 : SemanticsSpec.value)
     (e1 : Malfunction.t) (v : SemanticsSpec.value) args h1 h2 h3 h4 :
@@ -152,13 +158,19 @@ Proof.
   generalize (@nil Malfunction.t) at 1 2.
   induction args in e1 |- *; intros l Hleft Hright Happ; cbn.
   - econstructor; cbn in *; eauto.
-  - cbn. econstructor.
-    replace (Malfunction.Mapply (Mnapply e1 l, [a])) with
-    (Mnapply e1 (l ++ [a])) by now rewrite Mnapply_app. cbn.
-    eapply IHargs; eauto.
-    cbn in Hleft.
-    eapply eval_app_nested_inv with (args := a :: args) in Hleft.
-    eapply eval_app_nested_. now rewrite <- app_assoc.
+  - cbn. destruct args; econstructor.
+    * replace (Malfunction.Mapply (Mnapply e1 l, [a])) with
+        (Mnapply e1 (l ++ [a])) by now rewrite Mnapply_app. cbn.
+      eapply IHargs; eauto.
+      cbn in Hleft.
+      eapply eval_app_nested_inv with (args := a :: []) in Hleft.
+      eapply eval_app_nested_. now rewrite <- app_assoc.
+    * replace (Malfunction.Mapply (Mnapply e1 l, [a])) with
+        (Mnapply e1 (l ++ [a])) by now rewrite Mnapply_app. cbn.
+      eapply IHargs; eauto.
+      cbn in Hleft.
+      eapply eval_app_nested_inv with (args := a :: t :: args) in Hleft.
+      eapply eval_app_nested_. now rewrite <- app_assoc.
 Qed.
 
 Lemma Mapply_eval_rec `{H : Heap} globals locals (x : Malfunction.Ident.t)
@@ -176,13 +188,19 @@ Proof.
   generalize (@nil Malfunction.t) at 1 2.
   induction args in e1 |- *; intros l Hnth Hleft Hright Happ; cbn.
   - eapply eval_app_sing_rec; eauto.
-  - cbn. econstructor.
-    replace (Malfunction.Mapply (Mnapply e1 l, [a])) with
-    (Mnapply e1 (l ++ [a])) by now rewrite Mnapply_app. cbn.
-    eapply IHargs; eauto.
-    cbn in Hleft.
-    eapply eval_app_nested_inv with (args := a :: args) in Hleft.
-    eapply eval_app_nested_. now rewrite <- app_assoc.
+  - cbn. destruct args; econstructor.
+    + replace (Malfunction.Mapply (Mnapply e1 l, [a])) with
+      (Mnapply e1 (l ++ [a])) by now rewrite Mnapply_app. cbn.
+      eapply IHargs; eauto.
+      cbn in Hleft.
+      eapply eval_app_nested_inv with (args := a :: []) in Hleft.
+      eapply eval_app_nested_. now rewrite <- app_assoc.
+    + replace (Malfunction.Mapply (Mnapply e1 l, [a])) with
+      (Mnapply e1 (l ++ [a])) by now rewrite Mnapply_app. cbn.
+      eapply IHargs; eauto.
+      cbn in Hleft.
+      eapply eval_app_nested_inv with (args := a :: t :: args) in Hleft.
+      eapply eval_app_nested_. now rewrite <- app_assoc.
 Qed.
 
 Lemma Mapply_u_spec f a :
@@ -262,7 +280,7 @@ Proof.
   eauto.
 Qed.
 
-Lemma eval_Mvar `{Hp : Heap} globals (locals : Malfunction.Ident.Map.t) (id : Malfunction.Ident.t) v h :
+Lemma eval_Mvar `{Heap} globals (locals : Malfunction.Ident.Map.t) (id : Malfunction.Ident.t) v h :
   v = (Malfunction.Ident.Map.find id locals) ->
   SemanticsSpec.eval globals locals h (Malfunction.Mvar id) h v.
 Proof.
@@ -284,13 +302,18 @@ Proof.
   rewrite Zdiv.Zmod_small in Heq; [| lia_max_length]. rewrite <- Heq at 2.
   econstructor.
 Qed. 
+
+(*   todo "missing eval_num"%bs. eauto.
+Qed.
+ *)    
  
-Lemma find_add_self {Hp : Heap} idx d na recs locals :
+Lemma find_add_self `{Heap} idx d na recs locals :
   NoDup (map fst recs) ->
   nth_error recs idx = Some (na, d) ->
   Malfunction.Ident.Map.find na (add_self (map fst recs) (RFunc_build (map snd recs)) locals)
   = RClos (locals, map fst recs, RFunc_build (map snd recs), idx).
 Proof.
+  rename H into HP; rename H0 into HH. 
   intros Hdup Hnth. unfold add_self, add_recs, List.mapi.
   unfold Malfunction.Ident.Map.find.
   revert Hnth Hdup.
@@ -320,7 +343,7 @@ Proof.
     + cbn. eapply IHn. lia.
 Qed.
 
-Lemma add_self_lookup {Hp : Heap} Σ recs (na : Malfunction.Ident.t) locals locals' mfix nms bodies : 
+Lemma add_self_lookup `{Heap} Σ recs (na : Malfunction.Ident.t) locals locals' mfix nms bodies : 
   Forall2 (fun '(na1, e1) '(na2, e2) => na2 = na1 /\ e1 = compile Σ e2) recs mfix ->
   (forall na, locals na = match lookup locals' na with Some v => compile_value Σ v | None => fail "notfound" end) ->
   nms = (map fst recs) ->
@@ -333,6 +356,7 @@ Lemma add_self_lookup {Hp : Heap} Σ recs (na : Malfunction.Ident.t) locals loca
     | None => fail "notfound"
     end.
 Proof. 
+  rename H into HP; rename H0 into HH. 
   intros Hall Hlocals -> -> Hdup Hlam.
   rewrite lookup_multiple.
   destruct find eqn:E.
@@ -389,13 +413,14 @@ Qed.
 
 Opaque Malfunction.Int63.wB PArray.max_length.
 
-Lemma compile_correct `{Hp : Heap} Σ Σ' s t Γ Γ' h :
+Lemma compile_correct `{Heap} Σ Σ' s t Γ Γ' h :
   (forall i mb ob, EGlobalEnv.lookup_inductive Σ i = Some (mb, ob) -> #|ob.(EAst.ind_ctors)| < Z.to_nat Malfunction.Int63.wB /\ forall n b, nth_error ob.(EAst.ind_ctors) n = Some b -> b.(EAst.cstr_nargs) < int_to_nat PArray.max_length) ->
   (forall na, Malfunction.Ident.Map.find na Γ' =  match lookup Γ na with Some v => compile_value Σ v | _ => fail "notfound" end) ->
   (forall c decl body v, EGlobalEnv.declared_constant Σ c decl -> EAst.cst_body decl = Some body -> EWcbvEvalNamed.eval Σ [] body v -> In ((Kernames.string_of_kername c), compile_value Σ v) Σ') ->
    EWcbvEvalNamed.eval Σ Γ s t ->
    SemanticsSpec.eval Σ' Γ' h (compile Σ s) h (compile_value Σ t).
 Proof.
+  rename H into HP; rename H0 into HH. 
   intros Hextr HΓ HΣ Heval.
   revert Γ' HΓ.
   induction Heval; intros Γ_ HΓ; simp compile; try rewrite <- !compile_equation_1.

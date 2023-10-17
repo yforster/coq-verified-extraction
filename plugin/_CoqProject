@@ -129,6 +129,8 @@ extraction/eRemoveParams.ml
 
 extraction/erasureFunction.mli
 extraction/erasureFunction.ml
+extraction/erasureFunctionProperties.mli
+extraction/erasureFunctionProperties.ml
 # extraction/ePretty.mli
 # extraction/ePretty.ml
 extraction/eOptimizePropDiscr.mli

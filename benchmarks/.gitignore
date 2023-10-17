@@ -1,0 +1,5 @@
+*.mlf
+*.vo
+lib/*.ml
+lib/*.mli
+Makefile.conf

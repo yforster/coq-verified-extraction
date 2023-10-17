@@ -1,0 +1,4 @@
+-R ../lib MetaCoq.VerifiedExtraction.Benchmarks.lib
+-arg -w -arg -deprecated
+
+test.v

@@ -65,4 +65,10 @@ VERNAC COMMAND EXTEND MetaCoqExtract CLASSIFIED AS QUERY
     let (c, _) = Constrintern.interp_constr env evm c in
     extract ~bypass:false ~emodule:true env evm c dest
   }
+| [ "MetaCoq" "Bypass" "Extract" "Module" constr(c) string_opt(dest) ] -> {
+    let env = Global.env () in
+    let evm = Evd.from_env env in
+    let (c, _) = Constrintern.interp_constr env evm c in
+    extract ~bypass:true ~emodule:true env evm c dest
+  }
 END

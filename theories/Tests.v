@@ -14,6 +14,7 @@ Definition Mlet_ '(l, b) :=
   | _ => Malfunction.Mlet (l, b)
   end.
 
+Local Existing Instance SemanticsSpec.CanonicalPointer.
 Local Existing Instance SemanticsSpec.CanonicalHeap.
 
 Definition eval_malfunction (cf := config.extraction_checker_flags) (p : Ast.Env.program)

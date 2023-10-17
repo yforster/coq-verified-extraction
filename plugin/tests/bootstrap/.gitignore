@@ -1,7 +1,0 @@
-*.o
-*.cmx
-*.cmi
-main
-*.mlf
-*.mli
-*.ml
