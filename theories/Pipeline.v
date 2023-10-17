@@ -197,21 +197,22 @@ End malfunction_pipeline_theorem.
 
 About verified_malfunction_pipeline_theorem.
 
-Program Definition malfunction_pipeline (efl := EWellformed.all_env_flags) `{SemanticsSpec.Heap}:
+Local Existing Instance SemanticsSpec.CanonicalHeap.
+Local Existing Instance SemanticsSpec.CanonicalPointer.
+
+Program Definition malfunction_pipeline (efl := EWellformed.all_env_flags) :
  Transform.t _ _ _ _ _ _ TemplateProgram.eval_template_program
              (fun _ _ => True) :=
   pre_erasure_pipeline ▷ verified_malfunction_pipeline.
 
-Local Existing Instance SemanticsSpec.CanonicalHeap.
-
-Definition compile_malfunction (cf := config.extraction_checker_flags) (p : Ast.Env.program) `{SemanticsSpec.Heap}
+Definition compile_malfunction (cf := config.extraction_checker_flags) (p : Ast.Env.program) 
   : string :=
   let p' := run malfunction_pipeline p (MCUtils.todo "wf_env and welltyped term"%bs) in
   time "Pretty printing"%bs (fun p =>(@to_string _ Serialize_program p)) p'.
 
 About compile_malfunction.
 
-Definition compile_module_malfunction (cf := config.extraction_checker_flags) (p : Ast.Env.program) `{SemanticsSpec.Heap}
+Definition compile_module_malfunction (cf := config.extraction_checker_flags) (p : Ast.Env.program) 
   : string :=
   let p' := run malfunction_pipeline p (MCUtils.todo "wf_env and welltyped term"%bs) in
   time "Pretty printing"%bs (fun p => (@to_string _ Serialize_module p)) p'.
