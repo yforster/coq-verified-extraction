@@ -10,7 +10,7 @@ all: lib tests
 .SILENT: lib
 
 lib: 
-	@make -C lib
+	@make -C lib > /dev/null 2>&1
 
 cleanlib:
 	$(MAKE) clean -C lib
