@@ -177,7 +177,7 @@ Fixpoint to_sexp_t (a : t) : sexp :=
   | Mlet (binds, x) => List (Atom "let" :: List.map to_sexp_binding binds ++ (to_sexp_t x :: nil))
   | Mnum x => to_sexp x
   | Mstring x => Atom (Str (bytestring.String.to_string x))
-  | Mglobal x => (* [Atom "global" ; Atom ("$Top") ; *) to_sexp x  (* ] *)
+  | Mglobal x => (* [Atom "global" ; Atom ("$Top") ; *) to_sexp ("def_" ++ x)%bs  (* ] *)
   | Mswitch (x, sels) =>
       (* let sels := match List.rev sels with *)
       (*              | cons last rest => List.rev ((Deftag :: (Intrange (Uint63.of_Z (BinNums.Zpos (BinNums.xI BinNums.xH)), Uint63.of_Z BinNums.Z0) :: nil) %list, snd last) :: rest)%list *)
@@ -235,15 +235,12 @@ Definition encode_name (s : bytestring.string) : bytestring.string :=
   _escape_ident ""%bs s.
 
 Definition exports (m : list (Ident.t * option t)) : list (Ident.t * option t) :=
-  List.map (fun '(x, v) => ((encode_name x)%bs, Some (Mglobal x))) m.
+  List.map (fun '(x, v) => (("def_" ++ encode_name x)%bs, Some (Mglobal x))) m.
 
 Definition global_serializer : Serialize (Ident.t * option t) :=
   fun '(i, b) => match b with
-              | Some x => to_sexp (i, x)%bs
-              | None => (* let both := split_dot "" "" (bytestring.String.to_string i) in *)
-                       (* let name := snd both in *)
-                       (* let module := snd (split_dot "" "" (fst both)) in *)
-                       let na := bytestring.String.to_string (uncapitalize (encode_name i)%bs) in
+              | Some x => to_sexp ("def_" ++ i, x)%bs
+              | None => let na := bytestring.String.to_string (uncapitalize ("def_" ++ encode_name i)%bs) in
                        List ( Atom (Raw ("$" :: na)) ::
                                 [Atom "global" ; Atom (Raw ("$Axioms")) ; Atom (Raw ("$" :: na))   ]
                                 :: nil)
@@ -273,7 +270,7 @@ Program Definition Serialize_module : Serialize program :=
                            | nil => ""%bs
                            end in
     let shortname : Ident.t := uncapitalize (thename nil name) in
-    let longname : list sexp := (to_sexp (name)%bs :: nil)%list in
+    let longname : list sexp := (to_sexp ("def_" ++ name)%bs :: nil)%list in
     let exports : list sexp := (Atom ("$" ++ String.to_string shortname)%string :: nil)%list in
     match
       Cons (Atom "module") (@Serialize_list _ global_serializer (List.rev m))
