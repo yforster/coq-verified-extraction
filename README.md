@@ -14,7 +14,7 @@ Verification is work in progress.
 opam switch create coq-malfunction --packages="ocaml-variants.4.13.1+options,ocaml-option-flambda"
 eval $(opam env --switch=coq-malfunction)
 opam repo add coq-released https://coq.inria.fr/opam/released
-opam pin -n -y "https://github.com/MetaCoq/metacoq.git#1e3d82d"
+opam pin -n -y "https://github.com/MetaCoq/metacoq.git#105dba87a"
 opam pin -n -y "https://github.com/yforster/malfunction.git#for-pack"
 opam install . --deps-only
 make -j 4
@@ -22,7 +22,7 @@ make -j 4
 
 ## Usage
 
-The commands `MetaCoq Extract <definition>`, `MetaCoq Extract Module <module>`, and `MetaCoq Extract Module <module> "<file>"` can be used to run the new extraction process.
+The commands `MetaCoq Extract <definition>` and `MetaCoq Extract <definition> "<file>.mlf"` can be used to run the new extraction process.
 
 ## Structure
 
