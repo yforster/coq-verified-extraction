@@ -105,7 +105,7 @@ Obligation Tactic := try now program_simpl.
 Program Definition enforce_extraction_conditions (efl := EWellformed.all_env_flags) `{Pointer} `{Heap} :
   t EAst.global_declarations EAst.global_declarations EAst.term EAst.term EAst.term
     EAst.term
-    (EProgram.eval_eprogram EImplementBox.block_wcbv_flags) (EProgram.eval_eprogram EImplementBox.block_wcbv_flags) :=
+    (EProgram.eval_eprogram block_wcbv_flags) (EProgram.eval_eprogram block_wcbv_flags) :=
   {|
     name := "Enforce the term is extractable" ;
     transform p _ := p ;
@@ -132,7 +132,12 @@ Program Definition implement_box_transformation (efl := extraction_env_flags) :
 
 Next Obligation.
   intros. cbn in *. split. 2: split.
-  - todo "implement box good".
+  - destruct input as [Σ t]. 
+    split.
+    + intros. rewrite lookup_inductive_implement_box in H. now eapply few_enough_constructors.
+    + intros. rewrite lookup_inductive_implement_box in H. now eapply few_enough_arguments_in_constructors.
+    + cbn. refine (@implement_box_env_wf_glob _ Σ _ _ _). reflexivity. reflexivity. apply p.
+    + apply transform_wellformed'. all: try reflexivity. apply p. apply p.
   - eapply implement_box_env_wf_glob; eauto. apply p.
   - eapply transform_wellformed'. all: try reflexivity. all: apply p.
 Qed.
@@ -169,7 +174,15 @@ Program Definition name_annotation (efl := extraction_env_flags) : Transform.t E
       obseq p _ p' v v' := ∥ represents_value v' v∥ |}.
 Next Obligation.
   destruct input as [Σ s].
-  split. todo "annotate good".
+  split.
+  { split.
+    + intros. eapply few_enough_constructors. eassumption.
+      instantiate (1 := mb). instantiate (1 := i).
+      todo "env".
+    + intros. todo "env".
+    + cbn. todo "mono".
+    + cbn. todo "mono".
+  }
   destruct H0 as [HΣ Hs].
   split.
   2: now eapply wellformed_annotate with (Γ := []).
@@ -550,19 +563,22 @@ End malfunction_pipeline_theorem.
 
 About verified_malfunction_pipeline_theorem.
 
-Program Definition malfunction_pipeline (efl := EWellformed.all_env_flags) `{Heap}:
+Local Existing Instance CanonicalHeap.
+Local Existing Instance CanonicalPointer.
+
+Program Definition malfunction_pipeline (efl := EWellformed.all_env_flags) :
  Transform.t _ _ _ _ _ _ TemplateProgram.eval_template_program
              (fun _ _ => True) :=
   pre_erasure_pipeline ▷ verified_malfunction_pipeline.
 
-Definition compile_malfunction (cf := config.extraction_checker_flags) (p : Ast.Env.program) `{Heap}
+Definition compile_malfunction (cf := config.extraction_checker_flags) (p : Ast.Env.program) 
   : string :=
   let p' := run malfunction_pipeline p (MCUtils.todo "wf_env and welltyped term"%bs) in
   time "Pretty printing"%bs (fun p =>(@to_string _ Serialize_program p)) p'.
 
 About compile_malfunction.
 
-Definition compile_module_malfunction (cf := config.extraction_checker_flags) (p : Ast.Env.program) `{Heap}
+Definition compile_module_malfunction (cf := config.extraction_checker_flags) (p : Ast.Env.program) 
   : string :=
   let p' := run malfunction_pipeline p (MCUtils.todo "wf_env and welltyped term"%bs) in
   time "Pretty printing"%bs (fun p => (@to_string _ Serialize_module p)) p'.

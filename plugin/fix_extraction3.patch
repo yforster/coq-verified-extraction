@@ -1,7 +1,7 @@
-*** extraction/serialize.ml.orig	2023-10-12 14:45:55.411165130 +0200
---- extraction/serialize.ml	2023-10-12 14:46:04.586731349 +0200
+*** extraction/serialize.ml.orig	2023-10-25 17:51:03.833634506 +0200
+--- extraction/serialize.ml	2023-10-25 17:52:00.913635716 +0200
 *************** open CeresSerialize
-*** 8,22 ****
+*** 7,20 ****
   open CeresString
   open Datatypes
   open List0
@@ -12,12 +12,11 @@
   open PrimInt63
   open ReflectEq
   open String0
-  open Uint0
   open Bytestring
   
   (** val _escape_ident : String.t -> String.t -> String.t **)
   
---- 8,22 ----
+--- 7,20 ----
   open CeresString
   open Datatypes
   open List0
@@ -27,7 +26,6 @@
 + open PeanoNat
   open ReflectEq
   open String0
-  open Uint0
   open Bytestring
 + open Malfunction
   
