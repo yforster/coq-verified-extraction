@@ -302,10 +302,6 @@ Proof.
   rewrite Zdiv.Zmod_small in Heq; [| lia_max_length]. rewrite <- Heq at 2.
   econstructor.
 Qed. 
-
-(*   todo "missing eval_num"%bs. eauto.
-Qed.
- *)    
  
 Lemma find_add_self `{Heap} idx d na recs locals :
   NoDup (map fst recs) ->
@@ -685,7 +681,6 @@ Proof.
     cbn -[compile_value]. 
     rewrite map_InP_spec.
     econstructor. econstructor. eapply eval_Mvar.
-    (* rewrite !map_map. *)
     destruct Hnth as [[na fn] Hnth].
     cbn -[compile_value].
     erewrite nth_error_nth. 
