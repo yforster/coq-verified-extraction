@@ -1,4 +1,4 @@
-all: coq 
+all: coq plugin bootstrap
 
 coq: Makefile.coq
 	+make -f Makefile.coq all
@@ -29,3 +29,7 @@ test:
 
 Makefile.coq: _CoqProject
 	coq_makefile -f _CoqProject -o Makefile.coq
+
+bootstrap: coq plugin
+	+make -C plugin-bootstrap -j 1
+	cd plugin-bootstrap && make -f Makefile.coq install

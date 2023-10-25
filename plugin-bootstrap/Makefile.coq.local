@@ -6,13 +6,17 @@ CAMLFLAGS+=-w -32 # Unused values
 CAMLFLAGS+=-w -8 # Non-exhaustive pattern-matching (due to comparison -> int translation)
 CAMLPKGS+=-package coq-metacoq-template-ocaml.plugin,stdlib-shims,coq-core.kernel
 
-axioms.cmx:
+axioms.ml:
+	cp ../lib/axioms.ml .
+
+axioms.cmx: axioms.ml
 	ocamlfind opt -thread -package coq-metacoq-template-ocaml.plugin,stdlib-shims,coq-core.kernel -for-pack Metacoq_verified_malfunction_plugin -c axioms.ml
 
 compile_malfunction.cmx: axioms.cmx
-	cp -u ../plugin/compile_malfunction.mlf compile_malfunction.mlf
+	cp ../plugin/compile_malfunction.mlf compile_malfunction.mlf
 	malfunction fmt compile_malfunction.mlf > compile_malfunction_fmt.mlf
 	yes | mv  compile_malfunction_fmt.mlf compile_malfunction.mlf
-#	ocamlfind opt ${CAMLFLAGS} ${FINDLIBPKGS} -for-pack Metacoq_verified_malfunction_plugin axioms.mli
+	# ocamlfind opt ${CAMLFLAGS} ${FINDLIBPKGS} -for-pack Metacoq_verified_malfunction_plugin axioms.mli
 	ocamlfind opt ${CAMLFLAGS} ${FINDLIBPKGS} -for-pack Metacoq_verified_malfunction_plugin compile_malfunction.mli
-	malfunction cmx -shared ${FINDLIBPKGS} -for-pack Metacoq_verified_malfunction_plugin compile_malfunction.mlf
+	malfunction cmx -O2 -shared ${FINDLIBPKGS} -for-pack Metacoq_verified_malfunction_plugin compile_malfunction.mlf
+

@@ -438,8 +438,6 @@ Program Definition malfunction_pipeline (efl := EWellformed.all_env_flags) `{Hea
              (fun _ _ => True) :=
   pre_erasure_pipeline ▷ verified_malfunction_pipeline.
 
-Local Existing Instance CanonicalHeap.
-
 Definition compile_malfunction (cf := config.extraction_checker_flags) (p : Ast.Env.program) `{Heap}
   : string :=
   let p' := run malfunction_pipeline p (MCUtils.todo "wf_env and welltyped term"%bs) in
