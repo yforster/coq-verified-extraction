@@ -76,12 +76,30 @@ Next Obligation.
   - eapply pr.
 Qed.
 
+Record good_for_extraction (p : program (list (kername × EAst.global_decl)) EAst.term) := 
+  {
+    few_enough_constructors :
+    forall (i : inductive) (mb : EAst.mutual_inductive_body)
+      (ob : EAst.one_inductive_body),
+      EGlobalEnv.lookup_inductive p.1 i = Some (mb, ob) ->
+      #|EAst.ind_ctors ob| < Z.to_nat Malfunction.Int63.wB ;
+    few_enough_arguments_in_constructors :
+    forall (i : inductive) (mb : EAst.mutual_inductive_body)
+      (ob : EAst.one_inductive_body),
+      EGlobalEnv.lookup_inductive p.1 i = Some (mb, ob) ->
+                             (forall (n : nat) (b : EAst.constructor_body),
+                                 nth_error (EAst.ind_ctors ob) n = Some b ->
+                                 EAst.cstr_nargs b < utils_array.int_to_nat PArray.max_length)
+
+  }.
+
 Program Definition compile_to_malfunction (efl : EWellformed.EEnvFlags) `{Heap}:
   Transform.t (list (Kernames.kername × EAst.global_decl)) _ _ _
     EWcbvEvalNamed.value SemanticsSpec.value
     (fun p v => ∥EWcbvEvalNamed.eval p.1 [] p.2 v∥) (fun _ _ => True) :=
   {| name := "compile to Malfunction";
-      pre := fun p =>   EWellformed.wf_glob p.1 /\ EWellformed.wellformed p.1 0 p.2;
+      pre := fun p =>   EWellformed.wf_glob p.1 /\ EWellformed.wellformed p.1 0 p.2 /\
+                       good_for_extraction p ;
       transform p _ := compile_program p ;
       post := fun p =>  True ;
       obseq p _ p' v v' := v' = CompileCorrect.compile_value p.1 v
@@ -91,27 +109,37 @@ Next Obligation.
   red. intros. sq.
   eapply compile_correct in H.
   - eauto.
-  - intros. todo "int".
+  - intros. split. eapply pr. eauto. eapply pr. eauto.
   - intros. unfold lookup. cbn. instantiate (1 := fun _ =>  SemanticsSpec.fail "notfound"). reflexivity.
-  - intros. todo "wf".
+  - intros. todo "global env".
     Unshelve. all: todo "wf".
 Qed.
+
+Obligation Tactic := try now program_simpl.
 
 Program Definition verified_malfunction_pipeline (efl := EWellformed.all_env_flags) `{Heap}:
  Transform.t global_env_ext_map _ _ _ _ SemanticsSpec.value 
              PCUICTransform.eval_pcuic_program
              (fun _ _ => True) :=
   verified_erasure_pipeline ▷
-  implement_box_transformation (has_app := eq_refl) (has_pars := eq_refl) (has_letin := eq_refl) (has_cofix := eq_refl) (has_cstrblocks := eq_refl) ▷
+  implement_box_transformation (efl := (switch_cstr_as_blocks
+        (EInlineProjections.disable_projections_env_flag
+           (ERemoveParams.switch_no_params
+              EWellformed.all_env_flags)))) (has_app := eq_refl) (has_pars := eq_refl) (has_letin := eq_refl) (has_cofix := eq_refl) (has_cstrblocks := eq_refl) ▷
   name_annotation ▷
-  compile_to_malfunction _.
+  compile_to_malfunction named_extraction_env_flags.
 Next Obligation.
-  todo "wf".
+  todo "enforce no cofix to run implement box".
 Qed.
 Next Obligation.
-  todo "wf".
+  cbn. intros.
+  todo "enforce flags to run name annotation".
 Qed.
 Next Obligation.
+  cbn. intros. split. eapply H1.
+  split. eapply H1.
+  todo "enforce good_for_extraction".
+Qed.
 
 Section malfunction_pipeline_theorem.
 
@@ -152,23 +180,18 @@ Section malfunction_pipeline_theorem.
 
   Let Σ_t := (transform verified_malfunction_pipeline (Σ, t) precond_).1.
 
-  Program Definition Σ_b `{EWellformed.EEnvFlags} := (transform (verified_erasure_pipeline ▷ implement_box_transformation (has_app := eq_refl) (has_pars := eq_refl) (has_cstrblocks := eq_refl) ▷ name_annotation) (Σ, t) precond_).1.
+  Program Definition Σ_b `{EWellformed.EEnvFlags} := (transform (verified_erasure_pipeline ▷ implement_box_transformation (efl := (switch_cstr_as_blocks
+        (EInlineProjections.disable_projections_env_flag
+           (ERemoveParams.switch_no_params
+              EWellformed.all_env_flags)))) (has_cofix := eq_refl) (has_app := eq_refl) (has_letin := eq_refl) (has_pars := eq_refl) (has_cstrblocks := eq_refl) ▷ name_annotation) (Σ, t) precond_).1.
   Next Obligation.
-    todo "admit".
-  Qed.
-  Next Obligation.
-    todo "admit".
-  Qed.
-  Next Obligation.
-  todo "admit".
+    todo "enforce no cofix".
   Qed.
   Next Obligation.
-  todo "admit".
+    cbn. intros.
+    todo "enforce flags to run name annotation".
   Qed.
-  Next Obligation.  
-  todo "admit".
-  Qed.
-
+  
   Let t_t := (transform verified_malfunction_pipeline (Σ, t) precond_).2.
 
   Fixpoint compile_value_mf_acc (Σb : list (Kernames.kername × EAst.global_decl)) (t : PCUICAst.term) (acc : list SemanticsSpec.value) : SemanticsSpec.value :=
@@ -275,60 +298,60 @@ Section malfunction_pipeline_theorem.
     eapply PCUICInversion.inversion_Construct in X' as [? [? [? [? [? [? ?]]]]]]; eauto.
     eapply map_squash. intro. econstructor. 3: exact X.
     3 :{ induction H1; cbn. econstructor; eauto. inversion t0; subst; clear t0. inversion H0; subst.    
-    eapply map_squash. intro; econstructor. [apply p | eauto].
-    eapply IHAll; eauto. inversion H0; eauto. }
-    eapply declared_constructor_to_gen in d. 
-    rewrite /declared_constructor_gen /declared_inductive_gen /declared_minductive_gen in d.
-    unfold Σ_b. repeat destruct_compose; intros. 
-    rewrite /EGlobalEnv.lookup_constructor /EGlobalEnv.lookup_inductive /EGlobalEnv.lookup_minductive.
-    rewrite EExtends. lookup_env_In. 
-    rewrite <- EEnvMap.GlobalContextMap.lookup_env_spec.
-    cbn. 
-    destruct EGlobalEnv.lookup_env eqn:Henv => //=.
-    destruct g => //.
-    eapply he in declm; tea. subst m.
-    rewrite nth_error_map decli /=.
-    rewrite nth_error_map declc /=. intuition congruence.
-    unfold Σ_b. repeat destruct_compose; intros.
+    eapply map_squash. intro; econstructor. (* [apply p | eauto]. *)
+    (* eapply IHAll; eauto. inversion H0; eauto. } *)
+    (* eapply declared_constructor_to_gen in d.  *)
+    (* rewrite /declared_constructor_gen /declared_inductive_gen /declared_minductive_gen in d. *)
+    (* unfold Σ_b. repeat destruct_compose; intros.  *)
+    (* rewrite /EGlobalEnv.lookup_constructor /EGlobalEnv.lookup_inductive /EGlobalEnv.lookup_minductive. *)
+    (* rewrite EExtends. lookup_env_In.  *)
+    (* rewrite <- EEnvMap.GlobalContextMap.lookup_env_spec. *)
+    (* cbn.  *)
+    (* destruct EGlobalEnv.lookup_env eqn:Henv => //=. *)
+    (* destruct g => //. *)
+    (* eapply he in declm; tea. subst m. *)
+    (* rewrite nth_error_map decli /=. *)
+    (* rewrite nth_error_map declc /=. intuition congruence. *)
+    (* unfold Σ_b. repeat destruct_compose; intros. *)
     
 
       
       
     
     
-    revert typing Σ_b.  refine (PCUICFirstorder.firstorder_value_inds _ _ (fun p => let v := compile_value_box (PCUICExpandLets.trans_global_env Σ) p [] in
-    ∥EWcbvEvalNamed.eval Σ_b [] v (eval_fo kn v)∥) _ _ H); intros; clear H. 
-    unfold v0. clear v0. rewrite compile_value_box_mkApps.
-    eapply Forall_All in H1. cbn. pose proof (X' := X).
-    eapply PCUICValidity.validity in X. eapply PCUICInductiveInversion.wt_ind_app_variance in X as [mdecl [? ?]].  
-    unfold pcuic_lookup_inductive_pars. unfold lookup_inductive,lookup_inductive_gen,lookup_minductive_gen in e.
-    rewrite PCUICExpandLetsCorrectness.trans_lookup. specialize (noParam (inductive_mind i0)). 
-    case_eq (lookup_env Σ (inductive_mind i0)); cbn.  
-    2: { intro neq. rewrite neq in e. inversion e. }
-    intros ? Heq. rewrite Heq in e. rewrite Heq. destruct g; cbn; [inversion e |]. destruct nth_error; inversion e; subst; cbn.  
-    assert (ind_npars m = 0) by eauto. rewrite H. rewrite skipn_0.
-    eapply PCUICValidity.inversion_mkApps in X' as [A [X' ?]].  
-    eapply PCUICInversion.inversion_Construct in X' as [? [? [? [? [? [? ?]]]]]]; eauto.
-    eapply map_squash. intro. econstructor. 3: exact X.
-    3 :{ clear t0.  induction H1; cbn. econstructor; eauto.
-    cbn in p0. destruct p0 as [p0]. eapply map_squash. intro; econstructor; [exact p0 | eauto].
-    eapply IHAll; eauto. inversion H0; eauto. }
-    eapply declared_constructor_to_gen in d. 
-    rewrite /declared_constructor_gen /declared_inductive_gen /declared_minductive_gen in d.
-    unfold Σ_b. repeat destruct_compose; intros. 
-    rewrite /EGlobalEnv.lookup_constructor /EGlobalEnv.lookup_inductive /EGlobalEnv.lookup_minductive.
-    rewrite EExtends. lookup_env_In. 
-    rewrite <- EEnvMap.GlobalContextMap.lookup_env_spec.
-    cbn. 
-    destruct EGlobalEnv.lookup_env eqn:Henv => //=.
-    destruct g => //.
-    eapply he in declm; tea. subst m.
-    rewrite nth_error_map decli /=.
-    rewrite nth_error_map declc /=. intuition congruence.
-    unfold Σ_b. repeat destruct_compose; intros.
+    (* revert typing Σ_b.  refine (PCUICFirstorder.firstorder_value_inds _ _ (fun p => let v := compile_value_box (PCUICExpandLets.trans_global_env Σ) p [] in *)
+    (* ∥EWcbvEvalNamed.eval Σ_b [] v (eval_fo kn v)∥) _ _ H); intros; clear H.  *)
+    (* unfold v0. clear v0. rewrite compile_value_box_mkApps. *)
+    (* eapply Forall_All in H1. cbn. pose proof (X' := X). *)
+    (* eapply PCUICValidity.validity in X. eapply PCUICInductiveInversion.wt_ind_app_variance in X as [mdecl [? ?]].   *)
+    (* unfold pcuic_lookup_inductive_pars. unfold lookup_inductive,lookup_inductive_gen,lookup_minductive_gen in e. *)
+    (* rewrite PCUICExpandLetsCorrectness.trans_lookup. specialize (noParam (inductive_mind i0)).  *)
+    (* case_eq (lookup_env Σ (inductive_mind i0)); cbn.   *)
+    (* 2: { intro neq. rewrite neq in e. inversion e. } *)
+    (* intros ? Heq. rewrite Heq in e. rewrite Heq. destruct g; cbn; [inversion e |]. destruct nth_error; inversion e; subst; cbn.   *)
+    (* assert (ind_npars m = 0) by eauto. rewrite H. rewrite skipn_0. *)
+    (* eapply PCUICValidity.inversion_mkApps in X' as [A [X' ?]].   *)
+    (* eapply PCUICInversion.inversion_Construct in X' as [? [? [? [? [? [? ?]]]]]]; eauto. *)
+    (* eapply map_squash. intro. econstructor. 3: exact X. *)
+    (* 3 :{ clear t0.  induction H1; cbn. econstructor; eauto. *)
+    (* cbn in p0. destruct p0 as [p0]. eapply map_squash. intro; econstructor; [exact p0 | eauto]. *)
+    (* eapply IHAll; eauto. inversion H0; eauto. } *)
+    (* eapply declared_constructor_to_gen in d.  *)
+    (* rewrite /declared_constructor_gen /declared_inductive_gen /declared_minductive_gen in d. *)
+    (* unfold Σ_b. repeat destruct_compose; intros.  *)
+    (* rewrite /EGlobalEnv.lookup_constructor /EGlobalEnv.lookup_inductive /EGlobalEnv.lookup_minductive. *)
+    (* rewrite EExtends. lookup_env_In.  *)
+    (* rewrite <- EEnvMap.GlobalContextMap.lookup_env_spec. *)
+    (* cbn.  *)
+    (* destruct EGlobalEnv.lookup_env eqn:Henv => //=. *)
+    (* destruct g => //. *)
+    (* eapply he in declm; tea. subst m. *)
+    (* rewrite nth_error_map decli /=. *)
+    (* rewrite nth_error_map declc /=. intuition congruence. *)
+    (* unfold Σ_b. repeat destruct_compose; intros. *)
     
 
-    2: { rewrite map_length.  }
+    (* 2: { rewrite map_length.  } *)
 
   Admitted.
 
@@ -343,8 +366,8 @@ Section malfunction_pipeline_theorem.
   v = EImplementBox.implement_box v) _ _ H); intros. revert v0. 
   rewrite compile_value_box_mkApps. intro v0. cbn in v0. destruct pcuic_lookup_inductive_pars.
   assert (n0 = 0) by admit. subst. revert v0; rewrite skipn_0. set (map _ _). simpl. rewrite EImplementBox.implement_box_unfold_eq. simpl.
-  f_equal. erewrite map_InP_spec. clear -H1. unfold l; clear l. induction H1; eauto. simpl. f_equal; eauto.
-  unfold v0. cbn.  
+  f_equal. (* erewrite map_InP_spec. clear -H1. unfold l; clear l. induction H1; eauto. simpl. f_equal; eauto. *)
+  (* unfold v0. cbn.   *)
   Admitted. 
         
   Lemma represent_value_eval_fo p kn : 
@@ -410,7 +433,7 @@ Section malfunction_pipeline_theorem.
       5: { eapply represent_value_eval_fo in r. rewrite r in e. eapply e. eapply fo_v; eauto. }
       { admit. }
       { admit. }
-      { rewrite implement_box_fo. eapply fo_v; eauto. eapply EImplementBox.implement_box_eval. 1-5: admit.
+      { rewrite implement_box_fo. eapply fo_v; eauto. eapply EImplementBox.implement_box_eval. 1-6: admit.
         eapply H. }
       admit. 
   Admitted.
