@@ -281,8 +281,9 @@ Section malfunction_pipeline_theorem.
     assert (ind_npars m = 0) by eauto. rewrite H. rewrite skipn_0.
     eapply PCUICValidity.inversion_mkApps in X' as [A [X' ?]].  
     eapply PCUICInversion.inversion_Construct in X' as [? [? [? [? [? [? ?]]]]]]; eauto.
-    eapply map_squash. intro. econstructor. 3: exact X.
-    3 :{ induction H1; cbn. econstructor; eauto. inversion t0; subst; clear t0. inversion H0; subst.    
+    eapply map_squash. intro. econstructor. 3: exact X. 1-2: admit. 
+    induction H1; cbn. econstructor; eauto. inversion t0; subst; clear t0. inversion H0; subst.
+(*    specialize (p _ _ _).    
     eapply map_squash. intro; econstructor. [apply p | eauto].
     eapply IHAll; eauto. inversion H0; eauto. }
     eapply declared_constructor_to_gen in d. 
@@ -337,7 +338,7 @@ Section malfunction_pipeline_theorem.
     
 
     2: { rewrite map_length.  }
-
+*)
   Admitted.
 
   From Equations Require Import Equations.
@@ -349,10 +350,9 @@ Section malfunction_pipeline_theorem.
   Proof.
   intro H. refine (PCUICFirstorder.firstorder_value_inds _ _ (fun p => let v := compile_value_box (PCUICExpandLets.trans_global_env Σ) p [] in
   v = EImplementBox.implement_box v) _ _ H); intros. revert v0. 
-  rewrite compile_value_box_mkApps. intro v0. cbn in v0. destruct pcuic_lookup_inductive_pars.
+  rewrite compile_value_box_mkApps. intro v0. cbn in v0. destruct pcuic_lookup_inductive_pars; eauto. 
   assert (n0 = 0) by admit. subst. revert v0; rewrite skipn_0. set (map _ _). simpl. rewrite EImplementBox.implement_box_unfold_eq. simpl.
-  f_equal. erewrite map_InP_spec. clear -H1. unfold l; clear l. induction H1; eauto. simpl. f_equal; eauto.
-  unfold v0. cbn.  
+  f_equal. erewrite MCList.map_InP_spec. clear -H1. unfold l; clear l. induction H1; eauto. simpl. f_equal; eauto.
   Admitted. 
         
   Lemma represent_value_eval_fo p kn : 
