@@ -90,30 +90,22 @@ Next Obligation.
   red. intros. sq.
   eapply compile_correct in H.
   - eauto.
-  - intros. todo "wf".
-  - intros.  todo "wf".
+  - intros. todo "int".
+  - intros. unfold lookup. cbn. instantiate (1 := fun _ =>  SemanticsSpec.fail "notfound"). reflexivity.
   - intros. todo "wf".
     Unshelve. all: todo "wf".
 Qed.
 
-Program Definition verified_malfunction_pipeline (efl := EWellformed.all_env_flags) `{SemanticsSpec.Heap}:
+Program Definition verified_malfunction_pipeline (efl :=  EWcbvEvalNamed.extraction_env_flags) `{SemanticsSpec.Heap}:
  Transform.t global_env_ext_map _ _ _ _ SemanticsSpec.value 
              PCUICTransform.eval_pcuic_program
              (fun _ _ => True) :=
   verified_erasure_pipeline ▷
-  implement_box_transformation (has_app := eq_refl) (has_pars := eq_refl) (has_cstrblocks := eq_refl) ▷
+  implement_box_transformation (has_app := eq_refl) (has_pars := eq_refl) (has_letin := eq_refl) (has_cofix := eq_refl) (has_cstrblocks := eq_refl) ▷
   name_annotation ▷
   compile_to_malfunction _.
 Next Obligation.
-  todo "wf".
-Qed.
-Next Obligation.
-  cbn in *. todo "wf".
-Qed.
-Next Obligation.
-  todo "wf".
-Qed.
-Next Obligation.
+
   todo "wf".
 Qed.
 Next Obligation.
