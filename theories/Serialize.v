@@ -246,15 +246,6 @@ Definition global_serializer : Serialize (Ident.t * option t) :=
                                 :: nil)
               end.
 
-Definition Serialize_program : Serialize program :=
-  fun '(m, x) =>
-    match
-      Cons (Atom "module") (@Serialize_list _ global_serializer (List.rev m ++ ((bytestring.String.of_string "_main", Some x)  :: nil))%list)
-    with
-      List l => List (l ++ ([Atom "export"] :: match x with Mglobal i => Atom (bytestring.String.to_string i) :: nil | _ => nil end))
-    | x => x
-    end.
-
 Fixpoint thename a (s : bytestring.String.t) :=
   match s with
   | String.EmptyString => bytestring.String.of_string (string_of_list_byte (List.rev a))

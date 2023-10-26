@@ -574,11 +574,11 @@ Program Definition malfunction_pipeline (efl := EWellformed.all_env_flags) :
 Definition compile_malfunction (cf := config.extraction_checker_flags) (p : Ast.Env.program) 
   : string :=
   let p' := run malfunction_pipeline p (MCUtils.todo "wf_env and welltyped term"%bs) in
-  time "Pretty printing"%bs (fun p =>(@to_string _ Serialize_program p)) p'.
+  time "Pretty printing"%bs (fun p =>(@to_string _ Serialize_module p)) p'.
 
 About compile_malfunction.
 
-Definition compile_module_malfunction (cf := config.extraction_checker_flags) (p : Ast.Env.program) 
-  : string :=
-  let p' := run malfunction_pipeline p (MCUtils.todo "wf_env and welltyped term"%bs) in
-  time "Pretty printing"%bs (fun p => (@to_string _ Serialize_module p)) p'.
+(* Definition compile_module_malfunction (cf := config.extraction_checker_flags) (p : Ast.Env.program)  *)
+(*   : string := *)
+(*   let p' := run malfunction_pipeline p (MCUtils.todo "wf_env and welltyped term"%bs) in *)
+(*   time "Pretty printing"%bs (fun p => (@to_string _ Serialize_module p)) p'. *)

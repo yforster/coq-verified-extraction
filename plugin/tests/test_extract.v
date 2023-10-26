@@ -12,41 +12,41 @@ From MetaCoq.Utils Require Import bytestring.
 
 Definition test_bytestring (u : unit) := bytestring.String.compare "" "bug".
 
-MetaCoq Extract Module test_bytestring "test_bytestring.mlf".
+MetaCoq Extract test_bytestring "test_bytestring.mlf".
 
-MetaCoq Extract Module two "two.mlf".
+MetaCoq Extract two "two.mlf".
 
 Axiom axiom : nat.
 
-MetaCoq Extract Module axiom "axiom.mlf".
+MetaCoq Extract axiom "axiom.mlf".
 
 
 From Malfunction Require Import Compile.
-MetaCoq Extract Module compile "compile.mlf".
+MetaCoq Extract compile "compile.mlf".
 
 From Malfunction Require Import Pipeline.
-MetaCoq Extract Module compile_malfunction "compile_malfunction.mlf".
+MetaCoq Extract compile_malfunction "compile_malfunction.mlf".
 
 Definition many_list_functions := (@List.firstn, @List.filter, @List.skipn).
 
-MetaCoq Extract Module many_list_functions "list.mlf".
+MetaCoq Extract many_list_functions "list.mlf".
 
 Definition prf := match conj I I with conj x y => (x,0) end.
 
-MetaCoq Extract Module prf "proof.mlf".
+MetaCoq Extract prf "proof.mlf".
 
-MetaCoq Extract Module blocks_until "mcase.mlf".
+MetaCoq Extract blocks_until "mcase.mlf".
 
 Definition test_add := plus 2 5.
 
-MetaCoq Extract Module test_add "add.mlf".
+MetaCoq Extract test_add "add.mlf".
 
 
 (* 
 MetaCoq Quote Recursively Definition tm := compile_malfunction.
 
 Definition test := compile_malfunction tm.
-MetaCoq Extract Module test "test.mlf". *)
+MetaCoq Extract test "test.mlf". *)
 
 MetaCoq Extract (match cons THREE nil with cons x _ => x | _ => ONE end).
 MetaCoq Extract -help.

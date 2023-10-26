@@ -33,7 +33,7 @@ Definition eval_malfunction_sexp (cf := config.extraction_checker_flags) (p : As
 Definition compile_malfunction {cf : config.checker_flags} (p : Ast.Env.program)
   : string :=
   let p' := run malfunction_pipeline p (MCUtils.todo "wf_env and welltyped term"%bs) in
-  time "Pretty printing"%bs (@to_string _ Serialize_program) p'.
+  time "Pretty printing"%bs (@to_string _ Serialize_module) p'.
 
 Section something.
 
