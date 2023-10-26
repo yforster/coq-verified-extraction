@@ -451,13 +451,13 @@ Proof.
     destruct (Mapply_u_spec (compile Σ f1) (compile Σ a)) as [(fn & arg & E & ->) | (E & ->) ].
     + destruct f1; simp compile; intros [? [=]].
       * destruct (compile Σ f1_1); cbn in H0; try congruence. destruct p, l; cbn in *; congruence.
-      * revert H0. destruct l; simp compile; destruct lookup_constructor_args; cbn.
+      * revert H0. destruct args; simp compile; destruct lookup_constructor_args; cbn.
         all: congruence.
-      * revert H0. destruct l; simp compile; try congruence.
+      * revert H0. destruct brs; simp compile; try congruence.
         destruct lookup_constructor_args; cbn in *; congruence.
       * revert H0. destruct p. simp compile. unfold compile_unfold_clause_11.
         destruct lookup_record_projs; congruence.
-      * revert H0. destruct p; cbn. unfold to_primitive. cbn. destruct p; cbn; congruence.
+      * revert H0. destruct prim; cbn. unfold to_primitive. cbn. destruct p; cbn; congruence.
     + rewrite Mapply_spec. 2: destruct arg; cbn; congruence.
       eapply Mapply_eval.
       * rewrite <- E. cbn in IHHeval1. eauto.
@@ -594,12 +594,12 @@ Proof.
     destruct (Mapply_u_spec (compile Σ f5) (compile Σ a)) as [(fn_ & arg & E & ->) | (E & ->) ].
     + destruct f5; simp compile; intros [? [=]].
       * destruct (compile Σ f5_1); cbn in H0; try congruence. destruct p, l; cbn in *; congruence.
-      * revert H0. destruct l; simp compile; destruct lookup_constructor_args; cbn.  all: congruence.
-      * revert H0. destruct l; simp compile; try congruence.
+      * revert H0. destruct args; simp compile; destruct lookup_constructor_args; cbn.  all: congruence.
+      * revert H0. destruct brs; simp compile; try congruence.
         destruct lookup_constructor_args; cbn; try congruence. unfold Mcase. congruence.
       * revert H0. destruct p; simp compile. unfold compile_unfold_clause_11.
         destruct lookup_record_projs; cbn; congruence.
-      * revert H0. repeat destruct p; cbn; try congruence. 
+      * revert H0. destruct prim; destruct p; cbn; try congruence. 
     + rewrite Mapply_spec. 2: destruct arg; cbn; congruence.
       eapply Mapply_eval_rec. 2: rewrite <- E.
       2: cbn in IHHeval1.
