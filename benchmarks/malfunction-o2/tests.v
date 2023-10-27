@@ -6,35 +6,35 @@ Open Scope bs.
 
 Eval compute in "Compiling demo0".
 
-MetaCoq Extract Module demo0 "demo0.mlf".
+MetaCoq Extract demo0 "demo0.mlf".
 
 Eval compute in "Compiling demo1".
 
-MetaCoq Extract Module demo1 "demo1.mlf".
+MetaCoq Extract demo1 "demo1.mlf".
 
 Eval compute in "Compiling demo2".
 
-MetaCoq Extract Module demo2 "demo2.mlf".
+MetaCoq Extract demo2 "demo2.mlf".
 
 Eval compute in "Compiling demo3".
 
-MetaCoq Extract Module demo3 "demo3.mlf".
+MetaCoq Extract demo3 "demo3.mlf".
 
 Eval compute in "Compiling list_sum".
 
-MetaCoq Extract Module list_sum "list_sum.mlf".
+MetaCoq Extract list_sum "list_sum.mlf".
 
 Eval compute in "Compiling vs_easy".
 
-MetaCoq Extract Module vs_easy "vs_easy.mlf".
+MetaCoq Extract vs_easy "vs_easy.mlf".
 
 Eval compute in "Compiling vs_hard".
 
-MetaCoq Extract Module vs_hard "vs_hard.mlf".
+MetaCoq Extract vs_hard "vs_hard.mlf".
 
 Eval compute in "Compiling binom".
 
-MetaCoq Extract Module binom "binom.mlf".
+MetaCoq Extract binom "binom.mlf".
 
 (* Eval compute in "Compiling lazy factorial". *)
 
@@ -46,7 +46,7 @@ MetaCoq Extract Module binom "binom.mlf".
 
 Eval compute in "Compiling color".
 
-MetaCoq Extract Module color "color.mlf".
+MetaCoq Extract color "color.mlf".
 
 (* (* Don't compile slow sha *) *)
 (* (* Eval compute in "Compiling sha". *) *)
@@ -58,4 +58,4 @@ MetaCoq Extract Module color "color.mlf".
 
 Eval compute in "Compiling sha_fast".
 
-MetaCoq Extract Module sha_fast "sha_fast.mlf".
+MetaCoq Extract sha_fast "sha_fast.mlf".
