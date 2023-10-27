@@ -20,6 +20,8 @@ Axiom axiom : nat.
 
 MetaCoq Extract axiom "axiom.mlf".
 
+From compcert Require Import Compiler.
+MetaCoq Extract transf_c_program "compcert.mlf".
 
 From Malfunction Require Import Compile.
 MetaCoq Extract compile "compile.mlf".
@@ -40,13 +42,6 @@ MetaCoq Extract blocks_until "mcase.mlf".
 Definition test_add := plus 2 5.
 
 MetaCoq Extract test_add "add.mlf".
-
-
-(* 
-MetaCoq Quote Recursively Definition tm := compile_malfunction.
-
-Definition test := compile_malfunction tm.
-MetaCoq Extract test "test.mlf". *)
 
 MetaCoq Extract (match cons THREE nil with cons x _ => x | _ => ONE end).
 MetaCoq Extract -help.

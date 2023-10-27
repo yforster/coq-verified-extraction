@@ -6,21 +6,16 @@ From MetaCoq.Template Require Import All.
 
 Open Scope bs.
 
-(* MetaCoq Extract (MetaCoq.Common.Kernames.Kername.OT.compare (MPfile nil, "") (MPfile nil, "p")). *)
-
 From MetaCoq.Common Require Import Kernames.
 
 From Coq Require Import String.
 From Coq Require Vector.
-
 
 Inductive three := ZERO | ONE | TWO | THREE.
 
 Definition two := TWO.
 
 Open Scope bs.
-
-(* MetaCoq Extract (MetaCoq.Common.Kernames.Kername.OT.compare (MPfile nil, "prefix") (MPfile nil, "prefixsuffix")). *)
 
 MetaCoq Verified Extract two "two.mlf".
 
@@ -30,39 +25,10 @@ MetaCoq Verified Extract axiom "axiom.mlf".
 
 Definition testAAAAA := 0.
 Definition test := testAAAAA.
-(* Definition testB := testA. *)
-(* Definition testC := testB. *)
-(* Definition testD := testC. *)
-(* Definition testE := testD. *)
+
 MetaCoq Verified Extract test.
-(* MetaCoq Verified Extract testB. *)
-(* Set Ltac Debug. *)
-
-
-(* MetaCoq Verified Extract Module test. *)
-(* MetaCoq Verified Extract @Vector.t_rect. *)
-(* MetaCoq Verified Extract Module @Vector.t_rect. *)
-(* MetaCoq Verified Extract Module @Vector.case0. *)
-
 
 Definition testA := 0.
-(* fix F (n : nat) : P n := *)
-(*   match n as n0 return (P n0) with *)
-(*   | 0 => f *)
-(*   | S n0 => f0 n0 (F n0) *)
-(*   end. *)
-
-(* Goal nat_rect = id nat. *)
-(* Proof. *)
-(*   reflexivity. *)
-(* Qed. *)
-
-
-(* From Malfunction Require Import Compile. *)
-(* MetaCoq Verified Bypass Extract compile. *)
-
-(* From Malfunction Require Import Pipeline. *)
-(* MetaCoq Verified Extract Module compile_malfunction "compile_malfunction.mlf". *)
 
 Definition many_list_functions := (@List.firstn, @List.filter, @List.skipn).
 
@@ -75,12 +41,6 @@ MetaCoq Verified Extract prf "proof.mlf".
 Definition test_add := plus 2 5.
 
 MetaCoq Verified Extract test_add "add.mlf".
-
-
-(*  *)
-(* MetaCoq Quote Recursively Definition tm := compile_malfunction. *)
-(* Definition test := compile_malfunction tm. *)
-(* MetaCoq Verified Extract Module test "test.mlf". *)
 
 MetaCoq Verified Extract (match cons THREE nil with cons x _ => x | _ => ONE end).
 MetaCoq Verified Extract -help.
@@ -120,19 +80,6 @@ From Coq Require Import VectorDef.
 MetaCoq Verified Extract @t_rec.
 
 Definition vtest := @VectorDef.rectS.
-
-(* Definition vtest := *)
-(*   fun (A : Type) (P : Vector.t A 0 -> Type) (H : P (Vector.nil A)) (v : Vector.t A 0) => *)
-(* match *)
-(*   v as v0 in (Vector.t _ n) *)
-(*   return (match n as x return (Vector.t A x -> Type) with *)
-(*           | 0 => fun v1 : Vector.t A 0 => P v1 *)
-(*           | S n0 => fun _ : Vector.t A (S n0) => False -> IDProp *)
-(*           end v0) *)
-(* with *)
-(* | @Vector.nil _ => H *)
-(* | @Vector.cons _ _ _ _ => fun devil : False => False_ind IDProp devil *)
-(* end. *)
 
 MetaCoq Verified Extract @VectorDef.case0.
 
@@ -179,9 +126,3 @@ Definition arden: forest bool :=
                (leaf false)).
 
 MetaCoq Verified Extract (forest_size arden).
-
-(* From Malfunction Require Import Compile. *)
-(* MetaCoq Verified Bypass Extract compile. *)
-
-(* From Malfunction Require Import Pipeline. *)
-(* MetaCoq Verified Extract Module compile_malfunction "compile_malfunction.mlf".  *)
