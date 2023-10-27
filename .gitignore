@@ -68,6 +68,7 @@ plugin/Makefile.conf
 plugin/Makefile
 plugin/g_metacoq_malfunction.ml
 plugin/*.mlf
+plugin/tests/*.mlf
 plugin/META
 plugin-bootstrap/META
 plugin-bootstrap/Makefile.coq
