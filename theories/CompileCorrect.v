@@ -858,6 +858,15 @@ Proof.
       intros ?. rewrite !in_app_iff. intros [ ] ; eauto.
 Qed.
 
+Lemma force_lambda_id Σ t :
+  EAst.isLambda t ->
+  force_lambda (compile Σ t) = compile Σ t.
+Proof.
+  intros H.
+  destruct t; cbn in H; try congruence.
+  simp compile. reflexivity.
+Qed.
+
 Lemma compile_wellformed (efl := EWcbvEvalNamed.extraction_env_flags) Γ n s t (Σ : EAst.global_declarations) :
   EWellformed.wellformed Σ n t ->
   represents Γ [] s t ->
@@ -951,7 +960,11 @@ Proof.
       induction a0; intros.
       -- econstructor.
       -- cbn in *. rtoProp. econstructor.
-         ++ eapply IH; eauto.
+         ++ rewrite force_lambda_id.
+            eapply IH; eauto.
+            destruct (EAst.dbody y); inversion H1.
+            invs r; cbn.
+            inversion H4. auto.
          ++ eapply IHa0; eauto. eapply IH.
     + cbn -[in_dec]. unfold EWellformed.wf_fix_gen in H0.
       rtoProp. eapply Nat.ltb_lt in H0.

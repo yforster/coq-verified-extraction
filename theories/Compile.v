@@ -84,6 +84,12 @@ Section Compile.
     | PCUICPrimitive.primFloatModel f => Mnum (numconst_Float64 f)
     end.
 
+  Definition force_lambda (t : Malfunction.t) :=
+    match t with
+    | Mlambda _ => t
+    | _ => Mlambda (["__expanded"], Mapply_u t (Mvar "__expanded"))
+    end.
+
   Equations? compile (t: term) : Malfunction.t
     by wf t (fun x y : EAst.term => size x < size y) :=
       | tVar na => Mvar na
@@ -110,7 +116,7 @@ Section Compile.
        | None => Mstring "error: inductive not found"
         end
       | tFix mfix idx =>
-          let bodies := map_InP mfix (fun d H => ((BasicAst.string_of_name (d.(dname))), compile d.(dbody))) in
+          let bodies := map_InP mfix (fun d H => ((BasicAst.string_of_name (d.(dname))), force_lambda (compile d.(dbody)))) in
           Mlet ([Recursive bodies], Mvar (fst (nth (idx) bodies ("", Mstring ""))))
       | tProj (Kernames.mkProjection ind _ nargs) bod with lookup_record_projs Σ ind :=
         { | Some args =>
