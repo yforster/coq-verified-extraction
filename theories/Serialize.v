@@ -38,35 +38,32 @@ Fixpoint _escape_ident (_end s : String.t) : String.t :=
 #[export] Instance Serialize_Ident : Serialize Ident.t :=
   fun a => Atom (append "$" (bytestring.String.to_string (_escape_ident ""%bs a))).
 
-(* Section primint. *)
+Section primint.
 
-(* Require Import PrimInt63. *)
+Require Import PrimInt63.
 
-(* Definition min_int := Eval vm_compute in (PrimInt63.lsl 1 62). *)
-(* Definition max_int := Eval vm_compute in (PrimInt63.sub min_int 1). *)
+Definition min_int := Eval vm_compute in (PrimInt63.lsl 1 62).
+Definition max_int := Eval vm_compute in (PrimInt63.sub min_int 1).
 
-(* Definition Z_opp := fun x : BinNums.Z => *)
-(* match x with *)
-(* | BinNums.Z0 => BinNums.Z0 *)
-(* | BinNums.Zpos x0 => BinNums.Zneg x0 *)
-(* | BinNums.Zneg x0 => BinNums.Zpos x0 *)
-(* end. *)
+Definition Z_opp := fun x : BinNums.Z =>
+match x with
+| BinNums.Z0 => BinNums.Z0
+| BinNums.Zpos x0 => BinNums.Zneg x0
+| BinNums.Zneg x0 => BinNums.Zpos x0
+end.
 
-(* Definition sint_to_Z (i : int) :=  match PrimInt63.ltb i min_int return BinNums.Z with *)
-(*                       | true => Uint63.to_Z i *)
-(*                       | false => Z_opp (Uint63.to_Z (Int63.opp i)) *)
-(*                       end. *)
-(* End primint. *)
+Definition sint_to_Z (i : int) :=  match PrimInt63.ltb i min_int return BinNums.Z with
+                      | true => Uint63.to_Z i
+                      | false => Z_opp (Uint63.to_Z (Int63.opp i))
+                      end.
+End primint.
 
-(* #[export] Instance Integral_int : Integral int := *)
-(*   fun n => (Int63.to_Z n). *)
-
-#[export] Instance Serialize_int : Serialize int := 
-   fun i => to_sexp (Int63.to_Z i).
+#[export] Instance Serialize_int : Serialize int :=
+   fun i => to_sexp (sint_to_Z i).
 
 #[export] Instance Serialize_numconst : Serialize numconst :=
   fun a => match a with
-        | numconst_Int i => to_sexp i
+        | numconst_Int i => to_sexp (sint_to_Z i)
         | numconst_Bigint x => Atom (append (CeresString.string_of_Z x) ".ibig")
         | numconst_Float64 x => Atom (append (CeresString.string_of_Z (Int63.to_Z (snd (PrimFloat.frshiftexp x)))) ".0")
         end.
@@ -91,7 +88,7 @@ Definition rawapp (s : sexp) (a : string) :=
 
 #[export] Instance Serialize_case : Serialize case :=
   fun a => match a with
-        | Tag tag => [Atom "tag"; Atom (Int63.to_Z tag)]
+        | Tag tag => [Atom "tag"; Atom (sint_to_Z tag)]
         | Deftag => [Atom "tag"; Atom "_"]
         | Intrange (i1, i2) => if Uint63.leb i1 i2 then [ to_sexp i1 ; to_sexp i2  ] else Atom "_"
         end.
@@ -193,7 +190,7 @@ Fixpoint to_sexp_t (a : t) : sexp :=
   | Mveclen (ty, x) => [ Atom (append "load" (vector_type_to_string ty)) ; to_sexp_t x ]
   | Mlazy x => [Atom "lazy"; to_sexp_t x]
   | Mforce x => [Atom "force"; to_sexp_t x]
-  | Mblock (tag, xs) => List (Atom "block" :: [Atom "tag"; Atom (Int63.to_Z tag)] :: List.map to_sexp_t xs)
+  | Mblock (tag, xs) => List (Atom "block" :: [Atom "tag"; Atom (sint_to_Z tag)] :: List.map to_sexp_t xs)
   | Mfield (i, x) => [ Atom "field"; to_sexp i; to_sexp_t x]
   end
 with
