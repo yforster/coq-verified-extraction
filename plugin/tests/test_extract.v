@@ -20,9 +20,6 @@ Axiom axiom : nat.
 
 MetaCoq Extraction axiom "axiom.mlf".
 
-From compcert Require Import Compiler.
-MetaCoq Extraction transf_c_program "compcert.mlf".
-
 From Malfunction Require Import Compile.
 MetaCoq Extraction compile "compile.mlf".
 
