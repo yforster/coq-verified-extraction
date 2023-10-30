@@ -1,6 +1,6 @@
 From MetaCoq.Template Require Import Loader.
 From MetaCoq.ErasurePlugin Require Import Loader.
-From VerifiedMalfunction.Plugin Require Import Loader.
+From VerifiedExtraction.Plugin Require Import Loader.
 From Malfunction.Plugin Require Import Loader.
 From MetaCoq.Template Require Import All.
 

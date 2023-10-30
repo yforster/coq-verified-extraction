@@ -22,7 +22,9 @@ make -j 4
 
 ## Usage
 
-The commands `MetaCoq Extraction <definition>` and `MetaCoq Extraction <definition> "<file>.mlf"` can be used to run the new extraction process.
+After `From VerifiedExtraction Require Import Loader.`
+the commands `MetaCoq Verified Extraction <definition>` and `MetaCoq Verified Extraction <definition> "<file>.mlf"` can be used to run the new extraction process.
+To add an `mli` file one can add the output of the (unverified) generator `MetaCoq Run Print mli <definition>.` to a `.mli` file.
 
 ## Structure
 
