@@ -110,4 +110,3 @@ Definition arden: forest bool :=
                (leaf false)).
 
 MetaCoq Run Extraction (forest_size arden).
-y

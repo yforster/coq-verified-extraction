@@ -22,7 +22,7 @@ make -j 4
 
 ## Usage
 
-The commands `MetaCoq Extract <definition>` and `MetaCoq Extract <definition> "<file>.mlf"` can be used to run the new extraction process.
+The commands `MetaCoq Extraction <definition>` and `MetaCoq Extraction <definition> "<file>.mlf"` can be used to run the new extraction process.
 
 ## Structure
 

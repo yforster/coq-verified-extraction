@@ -81,4 +81,4 @@ Definition append1_sorted_option (s : list int) (x : int) : option (list int) :=
 Require Import Malfunction.Extraction.
 From VerifiedMalfunction Require Import Loader.
 From MetaCoq.Utils Require Import bytestring.
-MetaCoq Verified Extract append1_and_sort "append.mlf".
+MetaCoq Verified Extraction append1_and_sort "append.mlf".

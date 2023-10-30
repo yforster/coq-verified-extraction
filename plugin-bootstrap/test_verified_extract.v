@@ -17,33 +17,33 @@ Definition two := TWO.
 
 Open Scope bs.
 
-MetaCoq Verified Extract two "two.mlf".
+MetaCoq Verified Extraction two "two.mlf".
 
 Axiom axiom : nat.
 
-MetaCoq Verified Extract axiom "axiom.mlf".
+MetaCoq Verified Extraction axiom "axiom.mlf".
 
 Definition testAAAAA := 0.
 Definition test := testAAAAA.
 
-MetaCoq Verified Extract test.
+MetaCoq Verified Extraction test.
 
 Definition testA := 0.
 
 Definition many_list_functions := (@List.firstn, @List.filter, @List.skipn).
 
-MetaCoq Verified Extract many_list_functions "list.mlf".
+MetaCoq Verified Extraction many_list_functions "list.mlf".
 
 Definition prf := match conj I I with conj x y => (x,0) end.
 
-MetaCoq Verified Extract prf "proof.mlf".
+MetaCoq Verified Extraction prf "proof.mlf".
 
 Definition test_add := plus 2 5.
 
-MetaCoq Verified Extract test_add "add.mlf".
+MetaCoq Verified Extraction test_add "add.mlf".
 
-MetaCoq Verified Extract (match cons THREE nil with cons x _ => x | _ => ONE end).
-MetaCoq Verified Extract -help.
+MetaCoq Verified Extraction (match cons THREE nil with cons x _ => x | _ => ONE end).
+MetaCoq Verified Extraction -help.
 
 Fixpoint ack (n m:nat) {struct n} : nat :=
   match n with
@@ -56,7 +56,7 @@ Fixpoint ack (n m:nat) {struct n} : nat :=
              in ackn m
   end.
 
-MetaCoq Verified Extract (ack 3 5).
+MetaCoq Verified Extraction (ack 3 5).
 
 Definition bla {A} (a : A) (b : bool) : b = true -> A :=
   match b with
@@ -64,9 +64,9 @@ Definition bla {A} (a : A) (b : bool) : b = true -> A :=
   | false => fun E => match E with end
   end.
 
-MetaCoq Verified Extract @Vector.nil.
+MetaCoq Verified Extraction @Vector.nil.
 
-MetaCoq Verified Extract @Vector.cons.
+MetaCoq Verified Extraction @Vector.cons.
 
 Definition case0 {A} (P:Vector.t A 0 -> Type) (H:P (Vector.nil A)) v:P v :=
 match v with
@@ -77,19 +77,19 @@ end.
 From Coq Require Import VectorDef.
 
 
-MetaCoq Verified Extract @t_rec.
+MetaCoq Verified Extraction @t_rec.
 
 Definition vtest := @VectorDef.rectS.
 
-MetaCoq Verified Extract @VectorDef.case0.
+MetaCoq Verified Extraction @VectorDef.case0.
 
-MetaCoq Verified Extract vtest.
+MetaCoq Verified Extraction vtest.
 
 Arguments Vector.case0 : clear implicits.
 
-MetaCoq Verified Extract Vector.case0.
+MetaCoq Verified Extraction Vector.case0.
 
-MetaCoq Verified Extract (@exist nat (fun x => x = 0) 0 (@eq_refl _ 0)).
+MetaCoq Verified Extraction (@exist nat (fun x => x = 0) 0 (@eq_refl _ 0)).
 
 Definition vplus {n:nat} :
   Vector.t nat n -> Vector.t nat n -> Vector.t nat n := (Vector.map2 plus).
@@ -99,7 +99,7 @@ Definition v23 : Vector.t nat 2 :=
   (Vector.cons nat 2 1 (Vector.cons nat 3 0 (Vector.nil nat))).
 Definition vplus0123 := Vector.hd (vplus v01 v23).
 
-MetaCoq Verified Extract @Vector.hd.
+MetaCoq Verified Extraction @Vector.hd.
 
 Inductive tree (A:Set) : Set :=
   node : A -> forest A -> tree A
@@ -125,4 +125,4 @@ Definition arden: forest bool :=
         (fcons (node true (fcons (node true (leaf false)) (leaf true)))
                (leaf false)).
 
-MetaCoq Verified Extract (forest_size arden).
+MetaCoq Verified Extraction (forest_size arden).

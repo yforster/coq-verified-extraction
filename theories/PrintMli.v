@@ -91,4 +91,6 @@ Definition PrintMLI {A} (a : A) :=
   | _ => tmFail "only constants supported"
   end.
 
-MetaCoq Run (PrintMLI add).
+Notation "'Print' 'mli' x" := (PrintMLI x) (at level 0).
+
+MetaCoq Run Print mli Nat.ltb.

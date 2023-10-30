@@ -170,17 +170,17 @@ let extract ~bypass env evm c dest =
 }
 
 VERNAC COMMAND EXTEND MetaCoqVerifiedExtract CLASSIFIED AS QUERY
-| [ "MetaCoq" "Verified" "Extract" "-help" ] -> {
-  let usage = "MetaCoq (Bypass)? Extract [term] [output_file]?" in
+| [ "MetaCoq" "Verified" "Extraction" "-help" ] -> {
+  let usage = "MetaCoq (Bypass)? Extraction [term] [output_file]?" in
   Feedback.msg_notice (str usage)
   }
-| [ "MetaCoq" "Verified" "Bypass" "Extract" constr(c) string_opt(dest) ] -> {
+| [ "MetaCoq" "Verified" "Bypass" "Extraction" constr(c) string_opt(dest) ] -> {
     let env = Global.env () in
     let evm = Evd.from_env env in
     let (c, _) = Constrintern.interp_constr env evm c in
     extract ~bypass:true env evm c dest
   }
-| [ "MetaCoq" "Verified" "Extract" constr(c) string_opt(dest) ] -> {
+| [ "MetaCoq" "Verified" "Extraction" constr(c) string_opt(dest) ] -> {
     let env = Global.env () in
     let evm = Evd.from_env env in
     let (c, _) = Constrintern.interp_constr env evm c in

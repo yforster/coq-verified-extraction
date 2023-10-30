@@ -12,39 +12,39 @@ From MetaCoq.Utils Require Import bytestring.
 
 Definition test_bytestring (u : unit) := bytestring.String.compare "" "bug".
 
-MetaCoq Extract test_bytestring "test_bytestring.mlf".
+MetaCoq Extraction test_bytestring "test_bytestring.mlf".
 
-MetaCoq Extract two "two.mlf".
+MetaCoq Extraction two "two.mlf".
 
 Axiom axiom : nat.
 
-MetaCoq Extract axiom "axiom.mlf".
+MetaCoq Extraction axiom "axiom.mlf".
 
 From compcert Require Import Compiler.
-MetaCoq Extract transf_c_program "compcert.mlf".
+MetaCoq Extraction transf_c_program "compcert.mlf".
 
 From Malfunction Require Import Compile.
-MetaCoq Extract compile "compile.mlf".
+MetaCoq Extraction compile "compile.mlf".
 
 From Malfunction Require Import Pipeline.
-MetaCoq Extract compile_malfunction "compile_malfunction.mlf".
+MetaCoq Extraction compile_malfunction "compile_malfunction.mlf".
 
 Definition many_list_functions := (@List.firstn, @List.filter, @List.skipn).
 
-MetaCoq Extract many_list_functions "list.mlf".
+MetaCoq Extraction many_list_functions "list.mlf".
 
 Definition prf := match conj I I with conj x y => (x,0) end.
 
-MetaCoq Extract prf "proof.mlf".
+MetaCoq Extraction prf "proof.mlf".
 
-MetaCoq Extract blocks_until "mcase.mlf".
+MetaCoq Extraction blocks_until "mcase.mlf".
 
 Definition test_add := plus 2 5.
 
-MetaCoq Extract test_add "add.mlf".
+MetaCoq Extraction test_add "add.mlf".
 
-MetaCoq Extract (match cons THREE nil with cons x _ => x | _ => ONE end).
-MetaCoq Extract -help.
+MetaCoq Extraction (match cons THREE nil with cons x _ => x | _ => ONE end).
+MetaCoq Extraction -help.
 
 Fixpoint ack (n m:nat) {struct n} : nat :=
   match n with
@@ -57,9 +57,9 @@ Fixpoint ack (n m:nat) {struct n} : nat :=
              in ackn m
   end.
 
-MetaCoq Extract (ack 3 5).
+MetaCoq Extraction (ack 3 5).
 
-MetaCoq Extract (@exist nat (fun x => x = 0) 0 (@eq_refl _ 0)).
+MetaCoq Extraction (@exist nat (fun x => x = 0) 0 (@eq_refl _ 0)).
 
 Definition vplus {n:nat} :
   Vector.t nat n -> Vector.t nat n -> Vector.t nat n := (Vector.map2 plus).
@@ -69,7 +69,7 @@ Definition v23 : Vector.t nat 2 :=
   (Vector.cons nat 2 1 (Vector.cons nat 3 0 (Vector.nil nat))).
 Definition vplus0123 := Vector.hd (vplus v01 v23).
 
-MetaCoq Extract vplus0123.
+MetaCoq Extraction vplus0123.
 
 Inductive tree (A:Set) : Set :=
   node : A -> forest A -> tree A
@@ -95,4 +95,4 @@ Definition arden: forest bool :=
         (fcons (node true (fcons (node true (leaf false)) (leaf true)))
                (leaf false)).
 
-MetaCoq Extract (forest_size arden).
+MetaCoq Extraction (forest_size arden).
