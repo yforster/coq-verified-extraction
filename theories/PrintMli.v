@@ -49,7 +49,10 @@ Fixpoint print_type_def def (t : term) :=
       if p === <% prod %> then
         "(" ++ print_type_def def A ++ " * " ++ print_type_def def B ++ ")"
       else def
-  | _ => def
+  | t =>
+      if t === <% PrimInt63.int %>
+      then "int"
+      else def
   end.
 
 Definition print_type := print_type_def "<NOTSUPPORTED>".
@@ -114,4 +117,3 @@ Definition test (u : nat * bool) := @nil (bool * nat).
 
 Notation "'Print' 'mli' x" := (PrintMLI x) (at level 0).
 
-MetaCoq Run Print mli test.
