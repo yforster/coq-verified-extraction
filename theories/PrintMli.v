@@ -49,6 +49,8 @@ Fixpoint print_type_def def (t : term) :=
       if p === <% prod %> then
         "(" ++ print_type_def def A ++ " * " ++ print_type_def def B ++ ")"
       else def
+  | tSort _ =>
+      "Obj.t (* polymorphic function *)"
   | t =>
       if t === <% PrimInt63.int %>
       then "int"
@@ -133,7 +135,7 @@ Definition PrintMLI {A} (a : A) :=
   t <- tmQuote a ;;
   match t with
   | tConst kn _ =>
-      tmEval cbv (print_mli kn.2 p) >>= tmPrint
+      tmEval cbv (print_mli kn.2 p) >>= tmMsg
   | _ => tmFail "only constants supported"
   end.
 
@@ -147,9 +149,7 @@ Set Primitive Projections.
 MetaCoq Quote Recursively Definition t := unit.
 Compute t.1.
 
-Definition test (u : testrec) := @nil (bool * nat).
+Definition test {A : Type} (u : testrec) (a : list A) := a.
 
 Notation "'Print' 'mli' x" := (PrintMLI x) (at level 0).
-
-MetaCoq Run Print mli test.
 
