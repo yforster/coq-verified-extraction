@@ -78,11 +78,35 @@ Fixpoint print_constructors indna (l : list constructor_body) :=
   | c :: l => print_constructor indna c.(cstr_name) (fst (decompose_prod_assum [] c.(cstr_type))) ++ " | " ++ print_constructors indna l
   end.
 
-Definition print_inductive na (m : mutual_inductive_body) :=
-  "type " ++ na ++ " = " ++ 
-  match m.(ind_bodies) with
+Fixpoint print_record (ctx : context) :=
+  match ctx with
+  | {| decl_name := {| binder_name := nNamed na |} ;
+       decl_type := A
+   |} :: ctx => na ++ " : " ++ print_type A ++ " ; " ++ print_record ctx
+  | _ => ""
+  end.
+
+Definition print_record_bodies (bds : list one_inductive_body) :=
+  match bds with
+  | b :: _ => match  b.(ind_ctors) with
+              [c] => print_record (rev (fst (decompose_prod_assum [] c.(cstr_type))))
+            | _ => "<this is not a record>"
+            end
+  | _ => ""
+  end.
+
+Definition print_inductive_bodies na (bds : list one_inductive_body) :=
+  match bds with
   | b :: _ => print_constructors na b.(ind_ctors) 
   | _ => ""
+  end.
+
+Definition print_inductive na (m : mutual_inductive_body) :=
+  "type " ++ na ++ " = " ++ 
+  match m.(ind_finite) with
+  | Finite =>  print_inductive_bodies na m.(ind_bodies)
+  | BiFinite => " { " ++ print_record_bodies m.(ind_bodies) ++ " }"
+  | CoFinite => "<co recursive type not supported>"
   end.
 
 Fixpoint print_globals (Σ : global_declarations) :=
@@ -113,7 +137,19 @@ Definition PrintMLI {A} (a : A) :=
   | _ => tmFail "only constants supported"
   end.
 
-Definition test (u : nat * bool) := @nil (bool * nat).
+Record testrec :=
+  {
+    testproj1 : nat;
+    testproj2 : bool
+  }.
+
+Set Primitive Projections.
+MetaCoq Quote Recursively Definition t := unit.
+Compute t.1.
+
+Definition test (u : testrec) := @nil (bool * nat).
 
 Notation "'Print' 'mli' x" := (PrintMLI x) (at level 0).
+
+MetaCoq Run Print mli test.
 
