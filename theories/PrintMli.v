@@ -36,48 +36,51 @@ Definition term_eqb (t1 t2 : term) :=
 
 Notation "t === u" := (term_eqb t u) (at level 70).
 
-Fixpoint print_type_def def (t : term) :=
+Fixpoint print_type_def (names : list ident) (t : term) :=
+  let def := "<not supported>" in
   match t with
   | tInd {| inductive_mind := (_, i) |} _ => uncapitalize i
   | tProd _ A B =>
-      print_type_def def A ++ " -> " ++ print_type_def def B
+      print_type_def names A ++ " -> " ++ print_type_def ("Obj.t (* insert correct type variable manually *)" :: names) B
   | tApp l [A] =>
       if l === <% list %> then
-        print_type_def def A ++ " list"
+        print_type_def names A ++ " list"
       else def
   | tApp p [A;B] =>
       if p === <% prod %> then
-        "(" ++ print_type_def def A ++ " * " ++ print_type_def def B ++ ")"
+        "(" ++ print_type_def names A ++ " * " ++ print_type_def names B ++ ")"
       else def
   | tSort _ =>
       "Obj.t (* polymorphic function *)"
+  | tRel n =>
+      nth n names "<rel not found>"
   | t =>
       if t === <% PrimInt63.int %>
       then "int"
       else def
   end.
 
-Definition print_type := print_type_def "<NOTSUPPORTED>".
+Definition print_type := print_type_def [].
 
-Fixpoint print_types indna (ctx : context) :=
+Fixpoint print_types names (ctx : context) :=
   match ctx with
   | [] => ""
-  | [{| decl_type := T |}] => print_type_def indna T
-  | {| decl_type := T |} :: l => print_type_def indna T ++ " * " ++ print_types indna l
+  | [{| decl_type := T |}] => print_type_def names T
+  | {| decl_type := T |} :: l => print_type_def names T ++ " * " ++ print_types ("__" :: names) l
   end.
 
-Definition print_constructor indna  (na : ident) (ctx : context) :=
+Definition print_constructor na (names : list ident) (ctx : context) :=
   capitalize na ++
   match ctx with
   | [] => " "
-  | l => " of " ++ print_types indna l
+  | l => " of " ++ print_types names l
   end.
 
-Fixpoint print_constructors indna (l : list constructor_body) :=
+Fixpoint print_constructors (names : list ident) (l : list constructor_body) :=
   match l with
   | [] => ""
-  | [c] => print_constructor indna c.(cstr_name) (fst (decompose_prod_assum [] c.(cstr_type)))
-  | c :: l => print_constructor indna c.(cstr_name) (fst (decompose_prod_assum [] c.(cstr_type))) ++ " | " ++ print_constructors indna l
+  | [c] => print_constructor c.(cstr_name) names (MCList.rev (fst (decompose_prod_assum [] c.(cstr_type))))
+  | c :: l => print_constructor c.(cstr_name) names (MCList.rev (fst (decompose_prod_assum [] c.(cstr_type)))) ++ "| " ++ print_constructors names l
   end.
 
 Fixpoint print_record (ctx : context) :=
@@ -97,17 +100,19 @@ Definition print_record_bodies (bds : list one_inductive_body) :=
   | _ => ""
   end.
 
-Definition print_inductive_bodies na (bds : list one_inductive_body) :=
+Fixpoint print_inductive_bodies (names : list ident) (bds : list one_inductive_body) :=
   match bds with
-  | b :: _ => print_constructors na b.(ind_ctors) 
-  | _ => ""
+  | [] => ""
+  | [b] => b.(ind_name) ++ " = " ++ print_constructors names b.(ind_ctors) 
+  | b :: bds => b.(ind_name) ++ " = " ++ print_constructors names b.(ind_ctors) ++ nl ++ "and " ++ print_inductive_bodies names bds 
   end.
 
 Definition print_inductive na (m : mutual_inductive_body) :=
-  "type " ++ na ++ " = " ++ 
   match m.(ind_finite) with
-  | Finite =>  print_inductive_bodies na m.(ind_bodies)
-  | BiFinite => " { " ++ print_record_bodies m.(ind_bodies) ++ " }"
+  | Finite =>
+      "type " ++ 
+      print_inductive_bodies (MCList.rev_map ind_name m.(ind_bodies)) m.(ind_bodies)
+  | BiFinite => "type " ++ na ++ " = " ++ "{ " ++ print_record_bodies m.(ind_bodies) ++ " }"
   | CoFinite => "<co recursive type not supported>"
   end.
 
@@ -139,17 +144,18 @@ Definition PrintMLI {A} (a : A) :=
   | _ => tmFail "only constants supported"
   end.
 
-Record testrec :=
-  {
-    testproj1 : nat;
-    testproj2 : bool
-  }.
-
-Set Primitive Projections.
-MetaCoq Quote Recursively Definition t := unit.
-Compute t.1.
-
-Definition test {A : Type} (u : testrec) (a : list A) := a.
-
 Notation "'Print' 'mli' x" := (PrintMLI x) (at level 0).
 
+(* Record testrec := *)
+(*   { *)
+(*     testproj1 : nat; *)
+(*     testproj2 : bool *)
+(*   }. *)
+
+(* Inductive ltree := Tree (a : nat) (b1 : ltree) (b2 : ltree) (d : bla) *)
+(*                      with bla := a (n : nat) (b : blub) with blub := B (c : bla). *)
+
+(* Definition test (A : Type) (u : testrec) (a : list A) (l : ltree) := l. *)
+
+(* MetaCoq Run Print mli Byte.to_nat. *)
+(* MetaCoq Run Print mli test. *)
