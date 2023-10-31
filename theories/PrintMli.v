@@ -40,6 +40,8 @@ Fixpoint print_type_def (names : list ident) (t : term) :=
   let def := "<not supported>" in
   match t with
   | tInd {| inductive_mind := (_, i) |} _ => uncapitalize i
+  | tProd {| binder_name := nNamed na |}  A B =>
+      print_type_def names A ++ " -> " ++ print_type_def (("'" ++ uncapitalize na) :: names) B
   | tProd _ A B =>
       print_type_def names A ++ " -> " ++ print_type_def ("Obj.t (* insert correct type variable manually *)" :: names) B
   | tApp l [A] =>
@@ -130,8 +132,6 @@ Fixpoint print_globals (Σ : global_declarations) :=
 
 Definition print_mli na (p : program) :=
   print_globals (MCList.rev p.1.(declarations)) ++ nl ++ "val " ++ na ++ " : " ++ print_type p.2.
-
-MetaCoq Quote Recursively Definition p := (nat -> bool).
 Import MCMonadNotation.
 
 Definition PrintMLI {A} (a : A) :=
@@ -155,7 +155,7 @@ Notation "'Print' 'mli' x" := (PrintMLI x) (at level 0).
 (* Inductive ltree := Tree (a : nat) (b1 : ltree) (b2 : ltree) (d : bla) *)
 (*                      with bla := a (n : nat) (b : blub) with blub := B (c : bla). *)
 
-(* Definition test (A : Type) (u : testrec) (a : list A) (l : ltree) := l. *)
+(* Definition test (A : Type) (u : testrec) (a : list A) (l : ltree) := a. *)
 
-(* MetaCoq Run Print mli Byte.to_nat. *)
 (* MetaCoq Run Print mli test. *)
+(* (* MetaCoq Run Print mli Byte.to_nat. *) *)
