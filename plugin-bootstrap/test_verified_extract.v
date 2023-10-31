@@ -17,6 +17,10 @@ Definition two := TWO.
 
 Open Scope bs.
 
+From Coq Require Import Uint63.
+
+MetaCoq Verified Extraction max_int.
+
 MetaCoq Verified Extraction two "two.mlf".
 
 Axiom axiom : nat.

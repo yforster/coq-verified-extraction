@@ -82,3 +82,6 @@ Require Import Malfunction.Extraction.
 From VerifiedExtraction Require Import Loader.
 From MetaCoq.Utils Require Import bytestring.
 MetaCoq Verified Extraction append1_and_sort "append.mlf".
+
+MetaCoq Verified Extraction max_int.
+
