@@ -37,25 +37,28 @@ Definition term_eqb (t1 t2 : term) :=
 Notation "t === u" := (term_eqb t u) (at level 70).
 
 Fixpoint print_type_def (names : list ident) (t : term) :=
-  let def := "<not supported>" in
+  let def := "Obj.t (* not supported *)" in
   match t with
   | tInd {| inductive_mind := (_, i) |} _ => uncapitalize i
   | tProd {| binder_name := nNamed na |}  A B =>
       print_type_def names A ++ " -> " ++ print_type_def (("'" ++ uncapitalize na) :: names) B
   | tProd _ A B =>
       print_type_def names A ++ " -> " ++ print_type_def ("Obj.t (* insert correct type variable manually *)" :: names) B
-  | tApp l [A] =>
-      if l === <% list %> then
-        print_type_def names A ++ " list"
-      else def
-  | tApp p [A;B] =>
-      if p === <% prod %> then
-        "(" ++ print_type_def names A ++ " * " ++ print_type_def names B ++ ")"
-      else def
+  | tApp f args =>
+      if f === <% list %> then
+        match args with [A] => print_type_def names A ++ " list"
+                   | _ => def
+        end
+      else 
+      if f === <% prod %> then
+        match args with [A; B] => "(" ++ print_type_def names A ++ " * " ++ print_type_def names B ++ ")"
+                   | _ => def
+        end
+      else print_type_def names f ++ String.concat " " (map (print_type_def names) args)
   | tSort _ =>
-      "Obj.t (* polymorphic function *)"
+      "Obj.t (* insert correct type variable manually *)"
   | tRel n =>
-      nth n names "<rel not found>"
+      nth n names " Obj.t (* dependent type *) "
   | t =>
       if t === <% PrimInt63.int %>
       then "int"
@@ -68,7 +71,7 @@ Fixpoint print_types names (ctx : context) :=
   match ctx with
   | [] => ""
   | [{| decl_type := T |}] => print_type_def names T
-  | {| decl_type := T |} :: l => print_type_def names T ++ " * " ++ print_types ("__" :: names) l
+  | {| decl_type := T |} :: l => print_type_def names T ++ " * " ++ print_types ("Obj.t (* dependent type *)" :: names) l
   end.
 
 Definition print_constructor na (names : list ident) (ctx : context) :=
@@ -82,7 +85,7 @@ Fixpoint print_constructors (names : list ident) (l : list constructor_body) :=
   match l with
   | [] => ""
   | [c] => print_constructor c.(cstr_name) names (MCList.rev (fst (decompose_prod_assum [] c.(cstr_type))))
-  | c :: l => print_constructor c.(cstr_name) names (MCList.rev (fst (decompose_prod_assum [] c.(cstr_type)))) ++ "| " ++ print_constructors names l
+  | c :: l => print_constructor c.(cstr_name) names (MCList.rev (fst (decompose_prod_assum [] c.(cstr_type)))) ++ " | " ++ print_constructors names l
   end.
 
 Fixpoint print_record (ctx : context) :=
