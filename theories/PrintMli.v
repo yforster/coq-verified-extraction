@@ -36,96 +36,115 @@ Definition term_eqb (t1 t2 : term) :=
 
 Notation "t === u" := (term_eqb t u) (at level 70).
 
-Fixpoint print_type_def (names : list ident) (t : term) :=
-  let def := "Obj.t (* not supported *)" in
-  match t with
-  | tInd {| inductive_mind := (_, i) |} _ => uncapitalize i
-  | tProd {| binder_name := nNamed na |}  A B =>
-      print_type_def names A ++ " -> " ++ print_type_def (("'" ++ uncapitalize na) :: names) B
-  | tProd _ A B =>
-      print_type_def names A ++ " -> " ++ print_type_def ("Obj.t" :: names) B
-  | tApp f args =>
-      if f === <% list %> then
-        match args with [A] => print_type_def names A ++ " list"
-                   | _ => def
-        end
-      else 
-      if f === <% prod %> then
-        match args with [A; B] => "(" ++ print_type_def names A ++ " * " ++ print_type_def names B ++ ")"
-                   | _ => def
-        end
-      else print_type_def names f ++ " " ++ String.concat " " (map (print_type_def names) args)
-  | tSort _ =>
-      "Obj.t"
-  | tRel n =>
-      nth n names " Obj.t"
-  | t =>
-      if t === <% PrimInt63.int %>
-      then "int"
-      else def
-  end.
+Unset Guard Checking.
+Section fix_global.
+  
+  Variable Σ : global_declarations.
 
-Definition print_type := print_type_def [].
-
-Fixpoint print_types names (ctx : context) :=
-  match ctx with
-  | [] => ""
-  | [{| decl_type := T |}] => print_type_def names T
-  | {| decl_type := T |} :: l => print_type_def names T ++ " * " ++ print_types ("Obj.t" :: names) l
-  end.
-
-Definition print_constructor na (names : list ident) (ctx : context) :=
-  capitalize na ++
-  match ctx with
-  | [] => " "
-  | l => " of " ++ print_types names l
-  end.
-
-Fixpoint print_constructors (names : list ident) (l : list constructor_body) :=
-  match l with
-  | [] => ""
-  | [c] => print_constructor c.(cstr_name) names (MCList.rev (fst (decompose_prod_assum [] c.(cstr_type))))
-  | c :: l => print_constructor c.(cstr_name) names (MCList.rev (fst (decompose_prod_assum [] c.(cstr_type)))) ++ " | " ++ print_constructors names l
-  end.
-
-Fixpoint print_record (ctx : context) :=
-  match ctx with
-  | {| decl_name := {| binder_name := nNamed na |} ;
-       decl_type := A
-   |} :: ctx => na ++ " : " ++ print_type A ++ " ; " ++ print_record ctx
-  | _ => ""
-  end.
-
-Definition print_record_bodies (bds : list one_inductive_body) :=
-  match bds with
-  | b :: _ => match  b.(ind_ctors) with
-              [c] => print_record (rev (fst (decompose_prod_assum [] c.(cstr_type))))
-            | _ => "<this is not a record>"
+  Fixpoint print_type_def (names : list ident) (t : term) {struct t} :=
+    let def := "Obj.t (* not supported *)" in
+    match t with
+    | tConst kn univs =>
+        if (tConst kn univs === <% PrimInt63.int %>) then
+          "int"
+        else
+          if (tConst kn univs === <% PrimFloat.float %>) then
+          "float"
+        else
+        match lookup_global Σ kn with
+                    | Some (ConstantDecl d) => match d.(cst_body) with
+                               | Some b => print_type_def [] b
+                               | _ => "<constant doesn't have a body>"
+                               end
+                    | Some _ => "<constant not a decl>"
+                    | _ => "<constant not found>"
+                    end
+    | tInd {| inductive_mind := (_, i) |} _ => uncapitalize i
+    | tProd {| binder_name := nNamed na |}  A B =>
+        print_type_def names A ++ " -> " ++ print_type_def (("'" ++ uncapitalize na) :: names) B
+    | tProd _ A B =>
+        print_type_def names A ++ " -> " ++ print_type_def ("Obj.t" :: names) B
+    | tApp f args =>
+        if f === <% list %> then
+          match args with [A] => print_type_def names A ++ " list"
+                     | _ => def
+          end
+        else 
+          if f === <% prod %> then
+            match args with [A; B] => "(" ++ print_type_def names A ++ " * " ++ print_type_def names B ++ ")"
+                       | _ => def
             end
-  | _ => ""
-  end.
+          else print_type_def names f ++ " " ++ String.concat " " (map (print_type_def names) args)
+    | tSort _ =>
+        "Obj.t"
+    | tRel n =>
+        nth n names " Obj.t"
+    | t => def
+    end.
 
-Fixpoint print_inductive_bodies (names : list ident) (bds : list one_inductive_body) :=
-  match bds with
-  | [] => ""
-  | [b] => b.(ind_name) ++ " = " ++ print_constructors names b.(ind_ctors) 
-  | b :: bds => b.(ind_name) ++ " = " ++ print_constructors names b.(ind_ctors) ++ nl ++ "and " ++ print_inductive_bodies names bds 
-  end.
+  Definition typevariable_from_aname (a : aname) :=
+    match a.(binder_name) with
+    | nNamed i => "'" ++ uncapitalize i
+    | _ => "<IMPOSSIBLE>"
+    end.
 
-Definition ident_from_aname (a : aname) :=
-  match a.(binder_name) with
-  | nNamed i => i
-  | _ => "<IMPOSSIBLE>"
-  end.
+  Definition print_type := print_type_def [].
 
-Definition print_inductive na (m : mutual_inductive_body) :=
-  match m.(ind_finite) with
-  | Finite =>
-      "type " ++ 
-      print_inductive_bodies (map (fun d => ident_from_aname (d.(decl_name))) m.(ind_params) ++ MCList.rev_map ind_name m.(ind_bodies)) m.(ind_bodies)
-  | BiFinite => "type " ++ na ++ " = " ++ "{ " ++ print_record_bodies m.(ind_bodies) ++ " }"
-  | CoFinite => "<co recursive type not supported>"
-  end.
+  Fixpoint print_types names (ctx : context) :=
+    match ctx with
+    | [] => ""
+    | [{| decl_type := T |}] => print_type_def names T
+    | {| decl_type := T ; decl_name := na |} :: l => print_type_def names T ++ " * " ++ print_types ((typevariable_from_aname na) :: names) l
+    end.
+
+  Definition print_constructor na (names : list ident) (ctx : context) :=
+    capitalize na ++
+      match ctx with
+      | [] => " "
+      | l => " of " ++ print_types names l
+      end.
+
+  Fixpoint print_constructors pars (names : list ident) (l : list constructor_body) :=
+    match l with
+    | [] => ""
+    | [c] => print_constructor c.(cstr_name) names (skipn pars (MCList.rev (fst (decompose_prod_assum [] c.(cstr_type)))))
+    | c :: l => print_constructor c.(cstr_name) names (skipn pars (MCList.rev (fst (decompose_prod_assum [] c.(cstr_type))))) ++ " | " ++ print_constructors pars names l
+    end.
+
+  Fixpoint print_record (ctx : context) :=
+    match ctx with
+    | {| decl_name := {| binder_name := nNamed na |} ;
+        decl_type := A
+      |} :: ctx => na ++ " : " ++ print_type A ++ " ; " ++ print_record ctx
+    | _ => ""
+    end.
+
+  Definition print_record_bodies (bds : list one_inductive_body) :=
+    match bds with
+    | b :: _ => match  b.(ind_ctors) with
+                [c] => print_record (rev (fst (decompose_prod_assum [] c.(cstr_type))))
+              | _ => "<this is not a record>"
+              end
+    | _ => ""
+    end.
+
+  Fixpoint print_inductive_bodies pars (names : list ident) (bds : list one_inductive_body) :=
+    match bds with
+    | [] => ""
+    | [b] => b.(ind_name) ++ " = " ++ print_constructors pars names b.(ind_ctors) 
+    | b :: bds => b.(ind_name) ++ " = " ++ print_constructors pars names b.(ind_ctors) ++ nl ++ "and " ++ print_inductive_bodies pars names bds 
+    end.
+
+  Definition print_inductive na (m : mutual_inductive_body) :=
+    match m.(ind_finite) with
+    | Finite =>
+        "type " ++ 
+          print_inductive_bodies m.(ind_npars) (map (fun d => typevariable_from_aname (d.(decl_name))) m.(ind_params) ++ MCList.rev_map ind_name m.(ind_bodies)) m.(ind_bodies)
+    | BiFinite => "type " ++ na ++ " = " ++ "{ " ++ print_record_bodies m.(ind_bodies) ++ " }"
+    | CoFinite => "<co recursive type not supported>"
+    end.
+
+End fix_global.
 
 Fixpoint print_globals (Σ : global_declarations) :=
   match Σ with
@@ -134,13 +153,13 @@ Fixpoint print_globals (Σ : global_declarations) :=
       if (na == (MPfile ["Datatypes"; "Init"; "Coq"], "list"))
         || (na == (MPfile ["Datatypes"; "Init"; "Coq"], "prod"))
       then print_globals l
-      else print_inductive na.2 m ++ nl ++
-             print_globals l
+      else print_globals l
+             ++ nl ++ print_inductive Σ na.2 m 
   | _ :: l => print_globals l
   end.
 
 Definition print_mli na (p : program) :=
-  print_globals (MCList.rev p.1.(declarations)) ++ nl ++ "val " ++ na ++ " : " ++ print_type p.2.
+  print_globals (p.1.(declarations)) ++ nl ++ "val " ++ na ++ " : " ++ print_type p.1.(declarations) p.2.
 Import MCMonadNotation.
 
 Definition PrintMLI {A} (a : A) :=
@@ -150,7 +169,8 @@ Definition PrintMLI {A} (a : A) :=
   match t with
   | tConst kn _ =>
       tmEval cbv (print_mli kn.2 p) >>= tmMsg
-  | _ => tmFail "only constants supported"
+  | _ =>
+      tmEval cbv (print_mli "<no name given>" p) >>= tmMsg
   end.
 
 Notation "'Print' 'mli' x" := (PrintMLI x) (at level 0).
@@ -169,5 +189,4 @@ Notation "'Print' 'mli' x" := (PrintMLI x) (at level 0).
 (* MetaCoq Run Print mli test. *)
 (* (* MetaCoq Run Print mli Byte.to_nat. *) *)
 
-(* MetaCoq Run Print mli @fst. *)
-
+(* MetaCoq Run Print mli @config.check_univs. *)
