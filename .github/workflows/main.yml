@@ -18,7 +18,7 @@ jobs:
         opam_file:
           - 'coq-malfunction.opam'
         image:
-          - 'yforster/coq:8.17.0--clang-11--compcert-3.12--extlib-0.11.8--equations-1.3--elpi.1.17.1-metacoq.dev.b33a9bd'
+          - 'yforster/coq:8.17.0--clang-11--compcert-3.12--extlib-0.11.8--equations-1.3--elpi.1.17.1-metacoq-8.17.dev.b33a9bd'
       fail-fast: false  # don't stop jobs if one fails
     steps:
       - uses: actions/checkout@v2
