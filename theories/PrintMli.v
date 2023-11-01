@@ -43,7 +43,7 @@ Fixpoint print_type_def (names : list ident) (t : term) :=
   | tProd {| binder_name := nNamed na |}  A B =>
       print_type_def names A ++ " -> " ++ print_type_def (("'" ++ uncapitalize na) :: names) B
   | tProd _ A B =>
-      print_type_def names A ++ " -> " ++ print_type_def ("Obj.t (* insert correct type variable manually *)" :: names) B
+      print_type_def names A ++ " -> " ++ print_type_def ("Obj.t" :: names) B
   | tApp f args =>
       if f === <% list %> then
         match args with [A] => print_type_def names A ++ " list"
@@ -54,11 +54,11 @@ Fixpoint print_type_def (names : list ident) (t : term) :=
         match args with [A; B] => "(" ++ print_type_def names A ++ " * " ++ print_type_def names B ++ ")"
                    | _ => def
         end
-      else print_type_def names f ++ String.concat " " (map (print_type_def names) args)
+      else print_type_def names f ++ " " ++ String.concat " " (map (print_type_def names) args)
   | tSort _ =>
-      "Obj.t (* insert correct type variable manually *)"
+      "Obj.t"
   | tRel n =>
-      nth n names " Obj.t (* dependent type *) "
+      nth n names " Obj.t"
   | t =>
       if t === <% PrimInt63.int %>
       then "int"
@@ -71,7 +71,7 @@ Fixpoint print_types names (ctx : context) :=
   match ctx with
   | [] => ""
   | [{| decl_type := T |}] => print_type_def names T
-  | {| decl_type := T |} :: l => print_type_def names T ++ " * " ++ print_types ("Obj.t (* dependent type *)" :: names) l
+  | {| decl_type := T |} :: l => print_type_def names T ++ " * " ++ print_types ("Obj.t" :: names) l
   end.
 
 Definition print_constructor na (names : list ident) (ctx : context) :=
@@ -112,11 +112,17 @@ Fixpoint print_inductive_bodies (names : list ident) (bds : list one_inductive_b
   | b :: bds => b.(ind_name) ++ " = " ++ print_constructors names b.(ind_ctors) ++ nl ++ "and " ++ print_inductive_bodies names bds 
   end.
 
+Definition ident_from_aname (a : aname) :=
+  match a.(binder_name) with
+  | nNamed i => i
+  | _ => "<IMPOSSIBLE>"
+  end.
+
 Definition print_inductive na (m : mutual_inductive_body) :=
   match m.(ind_finite) with
   | Finite =>
       "type " ++ 
-      print_inductive_bodies (MCList.rev_map ind_name m.(ind_bodies)) m.(ind_bodies)
+      print_inductive_bodies (map (fun d => ident_from_aname (d.(decl_name))) m.(ind_params) ++ MCList.rev_map ind_name m.(ind_bodies)) m.(ind_bodies)
   | BiFinite => "type " ++ na ++ " = " ++ "{ " ++ print_record_bodies m.(ind_bodies) ++ " }"
   | CoFinite => "<co recursive type not supported>"
   end.
@@ -162,3 +168,6 @@ Notation "'Print' 'mli' x" := (PrintMLI x) (at level 0).
 
 (* MetaCoq Run Print mli test. *)
 (* (* MetaCoq Run Print mli Byte.to_nat. *) *)
+
+(* MetaCoq Run Print mli @fst. *)
+
