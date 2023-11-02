@@ -72,11 +72,6 @@ Section fix_global.
     | tProd _ A B =>
         print_type_def names A ++ " -> " ++ print_type_def ("Obj.t" :: names) B
     | tApp f args =>
-        if f === <% list %> then
-          match args with [A] => print_type_def names A ++ " list"
-                     | _ => def
-          end
-        else 
           if f === <% prod %> then
             match args with [A; B] => "(" ++ print_type_def names A ++ " * " ++ print_type_def names B ++ ")"
                        | _ => def
@@ -166,6 +161,7 @@ Fixpoint print_globals (Σ : global_declarations) :=
   | (na, InductiveDecl m) :: l =>
       if (na == (MPfile ["Datatypes"; "Init"; "Coq"], "list"))
         || (na == (MPfile ["Datatypes"; "Init"; "Coq"], "prod"))
+        || (na == (MPfile ["Datatypes"; "Init"; "Coq"], "option"))
       then print_globals l
       else print_globals l
              ++ nl ++ print_inductive Σ na.2 m 
