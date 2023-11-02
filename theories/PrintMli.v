@@ -41,6 +41,13 @@ Section fix_global.
   
   Variable Σ : global_declarations.
 
+  Definition print_parens_around sep l :=
+    match l with
+      [] => ""
+    | [c] => c ++ " "
+    | l => "(" ++ String.concat sep l ++ ") "
+    end.
+
   Fixpoint print_type_def (names : list ident) (t : term) {struct t} :=
     let def := "Obj.t (* not supported *)" in
     match t with
@@ -74,7 +81,8 @@ Section fix_global.
             match args with [A; B] => "(" ++ print_type_def names A ++ " * " ++ print_type_def names B ++ ")"
                        | _ => def
             end
-          else print_type_def names f ++ " " ++ String.concat " " (map (print_type_def names) args)
+          else
+            print_parens_around ", " (map (print_type_def names) args) ++ " " ++ print_type_def names f
     | tSort _ =>
         "Obj.t"
     | tRel n =>
@@ -111,18 +119,21 @@ Section fix_global.
     | c :: l => print_constructor c.(cstr_name) names (skipn pars (MCList.rev (fst (decompose_prod_assum [] c.(cstr_type))))) ++ " | " ++ print_constructors pars names l
     end.
 
-  Fixpoint print_record (ctx : context) :=
+  Fixpoint print_record nms (ctx : context) :=
     match ctx with
     | {| decl_name := {| binder_name := nNamed na |} ;
         decl_type := A
-      |} :: ctx => na ++ " : " ++ print_type A ++ " ; " ++ print_record ctx
+      |} :: ctx => na ++ " : " ++ print_type_def nms A ++ " ; " ++ print_record (na :: nms) ctx
     | _ => ""
     end.
 
-  Definition print_record_bodies (bds : list one_inductive_body) :=
+  Definition print_record_bodies pars (bds : list one_inductive_body) :=
     match bds with
     | b :: _ => match  b.(ind_ctors) with
-                [c] => print_record (rev (fst (decompose_prod_assum [] c.(cstr_type))))
+                [c] => let all := (rev (fst (decompose_prod_assum [] c.(cstr_type)))) in
+                  print_record (map
+                                  (fun d => typevariable_from_aname (d.(decl_name)))
+                                  (firstn pars all)) (skipn pars all)
               | _ => "<this is not a record>"
               end
     | _ => ""
@@ -138,9 +149,12 @@ Section fix_global.
   Definition print_inductive na (m : mutual_inductive_body) :=
     match m.(ind_finite) with
     | Finite =>
-        "type " ++ 
+        "type " ++
+                print_parens_around ", " (MCList.rev_map (fun d => typevariable_from_aname (d.(decl_name))) m.(ind_params)) ++
           print_inductive_bodies m.(ind_npars) (map (fun d => typevariable_from_aname (d.(decl_name))) m.(ind_params) ++ MCList.rev_map ind_name m.(ind_bodies)) m.(ind_bodies)
-    | BiFinite => "type " ++ na ++ " = " ++ "{ " ++ print_record_bodies m.(ind_bodies) ++ " }"
+    | BiFinite => "type " ++
+                   print_parens_around ", " (MCList.rev_map (fun d => typevariable_from_aname (d.(decl_name))) m.(ind_params)) ++
+                   na ++ " = " ++ "{ " ++ print_record_bodies m.(ind_npars) m.(ind_bodies) ++ " }"
     | CoFinite => "<co recursive type not supported>"
     end.
 
@@ -187,6 +201,4 @@ Notation "'Print' 'mli' x" := (PrintMLI x) (at level 0).
 (* Definition test (A : Type) (u : testrec) (a : list A) (l : ltree) := a. *)
 
 (* MetaCoq Run Print mli test. *)
-(* (* MetaCoq Run Print mli Byte.to_nat. *) *)
-
-(* MetaCoq Run Print mli @config.check_univs. *)
+(* MetaCoq Run Print mli Byte.to_nat. *)
