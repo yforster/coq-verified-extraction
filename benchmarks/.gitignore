@@ -3,3 +3,4 @@
 lib/*.ml
 lib/*.mli
 Makefile.conf
+*/mainopt

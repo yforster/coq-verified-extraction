@@ -421,6 +421,41 @@ Section malfunction_pipeline_theorem.
       | _ => vConstruct kn 0 []
     end. 
 
+  Lemma All_sq {A} (P : A -> Type) l :
+    Forall (fun x => squash (P x)) l ->
+    squash (All P l).
+  Proof using Type.
+    induction 1.
+    - repeat econstructor.
+    - sq. now constructor.
+  Qed.
+
+  Lemma compile_value_eval_fo_repr {Henvflags:EWellformed.EEnvFlags} kn : 
+    PCUICFirstorder.firstorder_value Σ [] t ->
+    let v := compile_value_box (PCUICExpandLets.trans_global_env Σ) t [] in
+    ∥ EWcbvEvalNamed.represents_value (eval_fo kn v) v∥.
+  Proof.
+    intro H. cbn.
+    unfold precond_ in *. clear Σ_t t_t.
+    pattern t.
+    refine (PCUICFirstorder.firstorder_value_inds _ _ _ _ _ H). 
+    intros.
+    rewrite compile_value_box_mkApps.
+    cbn.
+    eapply PCUICValidity.validity in X. eapply PCUICInductiveInversion.wt_ind_app_variance in X as [mdecl [? ?]].  
+    unfold pcuic_lookup_inductive_pars. unfold lookup_inductive,lookup_inductive_gen,lookup_minductive_gen in e.
+    rewrite PCUICExpandLetsCorrectness.trans_lookup. specialize (noParam (inductive_mind i0)). 
+    case_eq (lookup_env Σ (inductive_mind i0)); cbn.  
+    2: { intro neq. rewrite neq in e. inversion e. }
+    intros ? Heq. rewrite Heq in e. rewrite Heq. destruct g; cbn; [inversion e |]. destruct nth_error; inversion e; subst; cbn.  
+    assert (ind_npars m = 0) by eauto. rewrite H3. rewrite skipn_0.
+    rewrite map_map.
+    eapply All_sq in H1. sq. constructor.
+    eapply All2_All2_Set. solve_all.
+    eapply TemplateToPCUICCorrectness.All_All2_refl.
+    solve_all.
+  Qed.
+
   Lemma compile_value_eval_fo {Henvflags:EWellformed.EEnvFlags} kn : 
     PCUICFirstorder.firstorder_value Σ [] t ->
     let v := compile_value_box (PCUICExpandLets.trans_global_env Σ) t [] in
