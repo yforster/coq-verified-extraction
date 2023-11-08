@@ -22,6 +22,7 @@ tests: lib
 	@make -C malfunction all
 	@make -C malfunction-o2 all
 	@make -C malfunction-verified all
+	@make -C malfunction-verified-o2 all
 
 run:
 	$(MAKE) -C ocaml run
@@ -29,4 +30,5 @@ run:
 	$(MAKE) -C malfunction run
 	$(MAKE) -C malfunction-o2 run
 	$(MAKE) -C malfunction-verified run
+	$(MAKE) -C malfunction-verified-o2 run
 

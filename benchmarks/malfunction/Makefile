@@ -49,4 +49,4 @@ build: $(TESTS) mainopt
 run: build
 #	./main 10
 	@echo "Malfunction with no optimisations"
-	./mainopt 10
+	./mainopt 50
