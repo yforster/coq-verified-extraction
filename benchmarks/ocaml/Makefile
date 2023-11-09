@@ -50,7 +50,5 @@ tests: tests.v
 	@coqc $(COQOPTS) tests.v
 
 run: main mainopt
-	@echo "OCaml with extraction optimisations on. Bytecode:"
-	./main 50
-  @echo "OCaml with extraction optimisations on. Native:"
+	@echo "OCaml with extraction optimisations on. Native:"
 	./mainopt 50
