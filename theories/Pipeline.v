@@ -290,6 +290,64 @@ Next Obligation.
   - eapply pr.
 Qed.
 
+Module evalnamed.
+
+  From MetaCoq Require Import EWcbvEvalNamed.
+
+  Lemma eval_det Σ Γ t v1 v2 :
+    eval Σ Γ t v1 -> eval Σ Γ t v2 -> v1 = v2.
+  Proof.
+    intros H.
+    revert v2.
+    induction H; intros v2 Hev; depelim Hev.
+    - congruence.
+    - Ltac appIH H1 H2 := apply H1 in H2; invs H2.
+      appIH IHeval1 Hev1.
+      appIH IHeval2 Hev2.
+      appIH IHeval3 Hev3.
+      eauto.
+    - appIH IHeval1 Hev1.
+    - reflexivity.
+    - appIH IHeval1 Hev1.
+      appIH IHeval2 Hev2.
+      reflexivity.
+    - appIH IHeval1 Hev1.
+      rewrite e0 in e. invs e.
+      rewrite e1 in e4. invs e4.
+      assert (nms = nms0) as ->.
+      { clear - f f4. revert nms f4. induction f; cbn; intros; depelim f4.
+        + reflexivity.
+        + f_equal. eauto.
+      }
+      now appIH IHeval2 Hev2.
+    - appIH IHeval1 Hev1.
+    - appIH IHeval1 Hev1.
+      rewrite e0 in e. invs e.
+      appIH IHeval3 Hev3.
+      now appIH IHeval2 Hev2.
+    - repeat f_equal.
+      { clear - f f6. revert nms f6. induction f; cbn; intros; depelim f6.
+        + reflexivity.
+        + f_equal. rewrite <- H0 in H. invs H. eauto. eauto.
+      }
+    - eapply EGlobalEnv.declared_constant_lookup in isdecl, isdecl0.
+      rewrite isdecl in isdecl0. invs isdecl0.
+      rewrite e in e0. invs e0.
+      now appIH IHeval Hev.
+    - f_equal.
+      rewrite e in e0. invs e0.
+      clear - IHa a0. revert args'0 a0.
+      induction a; cbn in *; intros; invs a0.
+      + reflexivity.
+      + f_equal. eapply IHa. eauto. eapply IHa0; eauto.
+        eapply IHa.
+    - depelim a. reflexivity.
+    - depelim a; reflexivity.
+    - reflexivity.
+  Qed.
+
+End evalnamed.
+
 Program Definition compile_to_malfunction (efl := named_extraction_env_flags) `{Heap} {hh : heap}:
   Transform.t (list (Kernames.kername × EAst.global_decl)) _ _ _
     EWcbvEvalNamed.value SemanticsSpec.value
@@ -331,7 +389,8 @@ Next Obligation.
               cbn in H0.
               destruct (eqb_spec c k).
               ** subst. left. invs H0. invs H1.
-                 todo "eval_det".
+                 eapply evalnamed.eval_det in H2; eauto. subst.
+                 reflexivity.
               ** right. eapply H; eauto.
            ++ exists Σ'. intros.
               sq.
