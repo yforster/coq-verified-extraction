@@ -290,7 +290,7 @@ Next Obligation.
   - eapply pr.
 Qed.
 
-Program Definition compile_to_malfunction (efl := named_extraction_env_flags) `{Heap}:
+Program Definition compile_to_malfunction (efl := named_extraction_env_flags) `{Heap} {hh : heap}:
   Transform.t (list (Kernames.kername × EAst.global_decl)) _ _ _
     EWcbvEvalNamed.value SemanticsSpec.value
     (fun p v => ∥EWcbvEvalNamed.eval p.1 [] p.2 v∥) (fun _ _ => True) :=
@@ -302,31 +302,62 @@ Program Definition compile_to_malfunction (efl := named_extraction_env_flags) `{
       obseq p _ p' v v' := v' = CompileCorrect.compile_value p.1 v
   |}.
 Next Obligation. sq.
-  eset (l := map _ _).
-  assert (l = (map (fun '(i, _) => string_of_kername i) input.1)) as ->.
-  { subst l. destruct input.
-    clear. cbn. clear. induction l; cbn.
-    + reflexivity.
-    + destruct a. cbn. destruct g. cbn.
-      * f_equal. eapply IHl.
-      * todo "axiom". }
+  erewrite map_ext.
   eapply compile_wellformed.
-  2: exact H4. 2: exact H5.
-  eapply H3.
+  eapply H3. eapply H4. eapply H5.
+  intros. now destruct x.
 Qed.
 Next Obligation.
   rename H into HP; rename H0 into HH. 
   red. intros. sq.
+  assert (exists Σ',
+             (forall (c : kername) (decl : EAst.constant_body) (body : EAst.term) (v : EWcbvEvalNamed.value),
+                 EGlobalEnv.declared_constant p.1 c decl -> EAst.cst_body decl = Some body -> EWcbvEvalNamed.eval p.1 [] body v -> In (string_of_kername c, compile_value p.1 v) Σ')) as [Σ' HΣ'].
+  {
+    Require Import Classical.
+    clear.
+    generalize p.1 at 2 3. intros G.
+    induction p.1.
+    + exists []. intros. red in H. destruct c; inversion H.
+    + destruct IHl as [Σ' H].
+      destruct a. destruct g.
+      * destruct c. destruct cst_body0.
+        -- destruct (classic (exists v, ∥EWcbvEvalNamed.eval G [] t0 v∥)).
+           ++ destruct H0 as [v Hv]. 
+              exists ((string_of_kername k, compile_value G v) :: Σ').
+              intros.
+              sq.
+              red in H0.
+              cbn in H0.
+              destruct (eqb_spec c k).
+              ** subst. left. invs H0. invs H1.
+                 todo "eval_det".
+              ** right. eapply H; eauto.
+           ++ exists Σ'. intros.
+              sq.
+              red in H1.
+              cbn in H1.
+              destruct (eqb_spec c k).
+              ** subst. invs H1. invs H2. destruct H0. eauto.
+              ** eauto.
+        -- exists Σ'. intros. red in H0. cbn in H0.
+           destruct (eqb_spec c k).
+           ++ subst. invs H0. invs H1.
+           ++ eauto.
+      * exists Σ'. intros. red in H0. cbn in H0.
+        destruct (eqb_spec c k).
+        ++ subst. invs H0. 
+        ++ eauto.
+  } 
   eapply compile_correct in H.
   - eauto.
   - intros. split.
     eapply pr. eauto. eapply pr. eauto.
   - intros. unfold lookup. cbn. instantiate (1 := fun _ =>  SemanticsSpec.fail "notfound"). reflexivity.
-  - intros. todo "global env".
-    Unshelve. all: todo "global env".
+  - intros. eapply HΣ'; eauto. Unshelve. assumption.
 Qed.
 
-Program Definition verified_malfunction_pipeline (efl := EWellformed.all_env_flags) `{Heap}:
+Program Definition verified_malfunction_pipeline (efl := EWellformed.all_env_flags) `{Heap} {hp : heap} :
  Transform.t global_env_ext_map _ _ _ _ SemanticsSpec.value 
              PCUICTransform.eval_pcuic_program
              (fun _ _ => True) :=
@@ -334,7 +365,7 @@ Program Definition verified_malfunction_pipeline (efl := EWellformed.all_env_fla
   enforce_extraction_conditions ▷
   implement_box_transformation ▷
   name_annotation ▷
-  compile_to_malfunction.
+  compile_to_malfunction (hh := hp).
 Next Obligation.
   cbn. intros.
   destruct p as [Σ t]. split. apply H1. sq. split. 2: eauto.
@@ -350,6 +381,7 @@ Section malfunction_pipeline_theorem.
 
   Variable HP : Pointer.
   Variable HH : Heap.
+  Variable hp : heap.
 
   Variable Σ : global_env_ext_map.
   Variable HΣ : PCUICTyping.wf_ext Σ.
@@ -378,11 +410,11 @@ Section malfunction_pipeline_theorem.
     eapply precond; eauto.
   Defined.
 
-  Let Σ_t := (transform verified_malfunction_pipeline (Σ, t) precond_).1.
+  Let Σ_t := (transform (verified_malfunction_pipeline (hp := hp)) (Σ, t) precond_).1.
 
   Program Definition Σ_b `{EWellformed.EEnvFlags} := (transform (verified_erasure_pipeline ▷  enforce_extraction_conditions ▷ implement_box_transformation ▷ name_annotation) (Σ, t) precond_).1.
 
-  Let t_t := (transform verified_malfunction_pipeline (Σ, t) precond_).2.
+  Let t_t := (transform (verified_malfunction_pipeline (hp := hp)) (Σ, t) precond_).2.
 
   Fixpoint compile_value_mf_acc (Σb : list (Kernames.kername × EAst.global_decl)) (t : PCUICAst.term) (acc : list SemanticsSpec.value) : SemanticsSpec.value :=
     match t with
@@ -690,7 +722,10 @@ Local Existing Instance CanonicalPointer.
 Program Definition malfunction_pipeline (efl := EWellformed.all_env_flags) :
  Transform.t _ _ _ _ _ _ TemplateProgram.eval_template_program
              (fun _ _ => True) :=
-  pre_erasure_pipeline ▷ verified_malfunction_pipeline.
+  pre_erasure_pipeline ▷ (verified_malfunction_pipeline (hp := _)).
+Next Obligation.
+  exact (int_of_nat 0, fun _ => []).
+Defined.
 
 Definition compile_malfunction (cf := config.extraction_checker_flags) (p : Ast.Env.program) 
   : string :=

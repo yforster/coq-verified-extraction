@@ -891,7 +891,7 @@ Lemma compile_wellformed Γ n s t (Σ : EAst.global_declarations) :
             blocks_until (List.length args) args < 200) ->
   EWellformed.wellformed (efl := extraction_env_flags) Σ n t ->
   represents Γ [] s t ->
-  wellformed (map (fun '(i,_) => Kernames.string_of_kername i) Σ) Γ (compile Σ s).
+  wellformed (map fst (compile_env Σ)) Γ (compile Σ s).
 Proof.
   intros Hglob Hwf Hrep. revert n Hwf.
   remember [] as E. revert HeqE.
@@ -912,8 +912,11 @@ Proof.
     destruct EGlobalEnv.lookup_env as [ [] | ] eqn: Eq; try congruence.
     eapply lookup_env_In with (d := (c, _)) in Eq.
     destruct in_dec; eauto.
-    exfalso. eapply n0. eapply in_map_iff.
-    eexists; split; eauto. cbn. eauto.
+    exfalso. eapply n0.
+    clear - Eq. induction Σ; cbn in *. 1: eauto.
+    destruct Eq.
+    + subst. cbn. eauto.
+    + destruct a. destruct g. cbn. right. eauto. eauto.
   - destruct args; simp compile.
     + rtoProp. unfold EGlobalEnv.lookup_constructor_pars_args, lookup_constructor_args, EGlobalEnv.lookup_constructor in *.
       cbn -[EGlobalEnv.lookup_inductive] in *.
@@ -983,7 +986,7 @@ Proof.
   - cbn [wellformed].
     rtoProp. repeat split.
     + cbn. rewrite map_InP_spec. rewrite map_map. rtoProp; split; auto.
-      eapply All_forallb. eapply (@All_impl _ (fun '(_, t1) => (wellformed (map (fun '(i, _) => Kernames.string_of_kername i) Σ) (List.rev (map (fun x : EAst.def EAst.term => (BasicAst.string_of_name (EAst.dname x), compile Σ (EAst.dbody x)).1) mfix) ++ Γ0)%list t1))).
+      eapply All_forallb. eapply (@All_impl _ (fun '(_, t1) => (wellformed _ (List.rev (map (fun x : EAst.def EAst.term => (BasicAst.string_of_name (EAst.dname x), compile Σ (EAst.dbody x)).1) mfix) ++ Γ0)%list t1))).
       2:{ intros. destruct x. exact X. }
       eapply All_map. cbn.
       assert (nms = (map (fun x0 : EAst.def EAst.term => BasicAst.string_of_name (EAst.dname x0)) mfix)) as ->.
