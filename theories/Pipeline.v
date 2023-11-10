@@ -33,6 +33,8 @@ From Malfunction Require Import Compile Serialize.
 
 Record good_for_extraction (fl : EWellformed.EEnvFlags) (p : program (list (kername × EAst.global_decl)) EAst.term) := 
   {
+    few_enough_blocks :
+      forall (i : inductive) (args : list nat), lookup_constructor_args p.1 i = Some args -> blocks_until #|args| args < 200 ;
     few_enough_constructors :
     forall (i : inductive) (mb : EAst.mutual_inductive_body)
       (ob : EAst.one_inductive_body),
@@ -49,56 +51,56 @@ Record good_for_extraction (fl : EWellformed.EEnvFlags) (p : program (list (kern
     right_flags_in_term : @EWellformed.wellformed fl p.1 0 p.2
   }.
 
-Inductive check_good :=
-| Good
-| Error of string.
+(* Inductive check_good := *)
+(* | Good *)
+(* | Error of string. *)
 
-Definition bind_good a b :=
-  match a with
-  | Good => b
-  | Error s => Error s
-  end.
+(* Definition bind_good a b := *)
+(*   match a with *)
+(*   | Good => b *)
+(*   | Error s => Error s *)
+(*   end. *)
 
-Notation "a &|& b" := (bind_good a b) (at level 70).
+(* Notation "a &|& b" := (bind_good a b) (at level 70). *)
 
-Definition bool_good_error a s :=
-  match a with
-  | true => Good
-  | false => Error s
-  end.
+(* Definition bool_good_error a s := *)
+(*   match a with *)
+(*   | true => Good *)
+(*   | false => Error s *)
+(*   end. *)
 
-Notation "a >>> s" := (bool_good_error a s) (at level 65).
+(* Notation "a >>> s" := (bool_good_error a s) (at level 65). *)
 
-Fixpoint check_good_for_extraction_rec (fl : EWellformed.EEnvFlags) (Σ : (list (kername × EAst.global_decl))) :=
-  match Σ with
-  | nil => Good
-  | (kn, EAst.ConstantDecl d) :: Σ =>
-      forallb (fun x : kername × EAst.global_decl => negb (x.1 == kn)) Σ >>> "environment re-declares names"
-      &|&
-      option_default (fun b : EAst.term => @EWellformed.wellformed fl Σ 0 b) (EAst.cst_body d) false >>> "environment contains non-extractable constant"
-      &|&
-      check_good_for_extraction_rec fl Σ
-  | (kn, EAst.InductiveDecl mind) :: Σ =>
-      forallb (fun ob => #|EAst.ind_ctors ob| <? Z.to_nat Malfunction.Int63.wB) mind.(EAst.ind_bodies) >>> "inductive with too many constructors"
-      &|&
-      forallb (fun ob => forallb (fun b => EAst.cstr_nargs b <? utils_array.int_to_nat PArray.max_length ) (EAst.ind_ctors ob)) mind.(EAst.ind_bodies) >>> "inductive with too many constructor arguments"
-      &|&
-      forallb (fun x : kername × EAst.global_decl => negb (x.1 == kn)) Σ >>> "environment re-declares names"
-      &|& @EWellformed.wf_minductive fl mind >>> "environment contains non-extractable inductive"
-      &|& check_good_for_extraction_rec fl Σ
-  end.
+(* Fixpoint check_good_for_extraction_rec (fl : EWellformed.EEnvFlags) (Σ : (list (kername × EAst.global_decl))) := *)
+(*   match Σ with *)
+(*   | nil => Good *)
+(*   | (kn, EAst.ConstantDecl d) :: Σ => *)
+(*       forallb (fun x : kername × EAst.global_decl => negb (x.1 == kn)) Σ >>> "environment re-declares names" *)
+(*       &|& *)
+(*       option_default (fun b : EAst.term => @EWellformed.wellformed fl Σ 0 b) (EAst.cst_body d) false >>> "environment contains non-extractable constant" *)
+(*       &|& *)
+(*       check_good_for_extraction_rec fl Σ *)
+(*   | (kn, EAst.InductiveDecl mind) :: Σ => *)
+(*       forallb (fun ob => #|EAst.ind_ctors ob| <? Z.to_nat Malfunction.Int63.wB) mind.(EAst.ind_bodies) >>> "inductive with too many constructors" *)
+(*       &|& *)
+(*       forallb (fun ob => forallb (fun b => EAst.cstr_nargs b <? utils_array.int_to_nat PArray.max_length ) (EAst.ind_ctors ob)) mind.(EAst.ind_bodies) >>> "inductive with too many constructor arguments" *)
+(*       &|& *)
+(*       forallb (fun x : kername × EAst.global_decl => negb (x.1 == kn)) Σ >>> "environment re-declares names" *)
+(*       &|& @EWellformed.wf_minductive fl mind >>> "environment contains non-extractable inductive" *)
+(*       &|& check_good_for_extraction_rec fl Σ *)
+(*   end. *)
 
-Definition check_good_for_extraction fl (p : program (list (kername × EAst.global_decl)) EAst.term) :=
-  @EWellformed.wellformed fl p.1 0 p.2 >>> "term contains non-extractable constructors"
-    &|& check_good_for_extraction_rec fl p.1.
+(* Definition check_good_for_extraction fl (p : program (list (kername × EAst.global_decl)) EAst.term) := *)
+(*   @EWellformed.wellformed fl p.1 0 p.2 >>> "term contains non-extractable constructors" *)
+(*     &|& check_good_for_extraction_rec fl p.1. *)
 
-Lemma check_good_for_extraction_correct fl (p : program (list (kername × EAst.global_decl)) EAst.term) :
-  good_for_extraction fl p <-> check_good_for_extraction fl p = Good.
-Proof.
-  split.
-  - intros []. unfold check_good_for_extraction. rtoProp. admit.
-  - unfold check_good_for_extraction. rtoProp. intros []. admit.
-Admitted.
+(* Lemma check_good_for_extraction_correct fl (p : program (list (kername × EAst.global_decl)) EAst.term) : *)
+(*   good_for_extraction fl p <-> check_good_for_extraction fl p = Good. *)
+(* Proof. *)
+(*   split. *)
+(*   - intros []. unfold check_good_for_extraction. rtoProp. admit. *)
+(*   - unfold check_good_for_extraction. rtoProp. intros []. admit. *)
+(* Admitted. *)
 
 Obligation Tactic := try now program_simpl.
 
@@ -134,7 +136,11 @@ Next Obligation.
   intros. cbn in *. split. 2: split.
   - destruct input as [Σ t]. 
     split.
-    + intros. rewrite lookup_inductive_implement_box in H. now eapply few_enough_constructors.
+    + intros.
+      unfold lookup_constructor_args in H.
+      rewrite lookup_inductive_implement_box in H. now eapply few_enough_blocks.
+    + intros.
+      rewrite lookup_inductive_implement_box in H. now eapply few_enough_constructors.
     + intros. rewrite lookup_inductive_implement_box in H. now eapply few_enough_arguments_in_constructors.
     + cbn. refine (@implement_box_env_wf_glob _ Σ _ _ _). reflexivity. reflexivity. apply p.
     + apply transform_wellformed'. all: try reflexivity. apply p. apply p.
@@ -208,13 +214,20 @@ Program Definition name_annotation (efl := extraction_env_flags) : Transform.t E
   {| name := "annotate names";
       pre := fun p =>  good_for_extraction extraction_env_flags p /\ EProgram.wf_eprogram efl p ;
       transform p _ := (annotate_env [] p.1, annotate [] p.2) ;
-      post := fun p => good_for_extraction named_extraction_env_flags p /\ EProgram.wf_eprogram named_extraction_env_flags p ;
+      post := fun p => good_for_extraction named_extraction_env_flags p /\
+                      exists t, wellformed (efl := extraction_env_flags) p.1 0 t /\ ∥represents [] [] p.2 t∥ ;
       obseq p _ p' v v' := ∥ represents_value v' v∥ |}.
 Next Obligation.
   destruct input as [Σ s].
   split.
   { split.
+    + intros. eapply few_enough_blocks. eassumption.
+      unfold lookup_constructor_args in *.
+      instantiate (1 := i).
+      erewrite <- lookup_inductive_annotate_env.
+      eassumption.
     + intros. eapply few_enough_constructors. eassumption.
+      unfold lookup_constructor_args in *.
       instantiate (1 := mb). instantiate (1 := i).
       erewrite <- lookup_inductive_annotate_env.
       eassumption.
@@ -235,16 +248,23 @@ Next Obligation.
     + cbn. destruct H0. eapply wellformed_annotate with (Γ := nil) in H1.
       cbn in *. assumption.
   }
-  destruct H0 as [HΣ Hs].
-  split.
-  2: now eapply wellformed_annotate with (Γ := []).
-  cbn in *. clear Hs. clear H.
-  induction HΣ.
-  - econstructor.
-  - cbn in *. destruct d as [ [[]]| ]; cbn in *; econstructor; eauto.
-    cbn. now eapply wellformed_annotate with (Γ := []).
-    { clear - H0. induction H0; (try destruct x as [? [ [[]]| ]]); cbn in *; econstructor; eauto. }
-    { clear - H0. induction H0; (try destruct x as [? [ [[]]| ]]); cbn in *; econstructor; eauto. }
+  destruct H0 as [HΣ Hs]. cbn. exists s.
+  cbn in *. split.
+  2:{ sq. eapply nclosed_represents. cbn. eassumption. }
+  clear - Hs. revert Hs. generalize 0. intros.
+  induction s using EInduction.term_forall_list_ind in n, Hs |- *; cbn in *; eauto; rtoProp; eauto. 
+  all: try now rtoProp; eauto.
+  - rewrite lookup_env_annotate. destruct EGlobalEnv.lookup_env as [ [[ [] ] | ] | ]; cbn in *; eauto.
+  - rewrite lookup_env_annotate. destruct EGlobalEnv.lookup_env as [ [[ [] ] | ] | ]; cbn in *; eauto.
+    destruct nth_error; cbn in *; try congruence.
+    destruct nth_error; cbn in *; try congruence.
+    repeat split; eauto.
+    solve_all.
+  - rewrite lookup_env_annotate. destruct EGlobalEnv.lookup_env as [ [[ [] ] | ] | ]; cbn in *; eauto.
+    destruct nth_error; cbn in *; try congruence.
+    repeat split; eauto.
+    solve_all.
+  - solve_all. unfold wf_fix in *. rtoProp. solve_all.
 Qed.
 Next Obligation.
   red. intros. destruct pr as [_ pr]. red in H. sq.
@@ -270,23 +290,37 @@ Next Obligation.
   - eapply pr.
 Qed.
 
-Program Definition compile_to_malfunction (efl : EWellformed.EEnvFlags) `{Heap}:
+Program Definition compile_to_malfunction (efl := named_extraction_env_flags) `{Heap}:
   Transform.t (list (Kernames.kername × EAst.global_decl)) _ _ _
     EWcbvEvalNamed.value SemanticsSpec.value
     (fun p v => ∥EWcbvEvalNamed.eval p.1 [] p.2 v∥) (fun _ _ => True) :=
   {| name := "compile to Malfunction";
-      pre := fun p =>   EWellformed.wf_glob p.1 /\ EWellformed.wellformed p.1 0 p.2 /\
+      pre := fun p =>   EWellformed.wf_glob p.1 /\ (exists t, EWellformed.wellformed (efl := extraction_env_flags) p.1 0 t /\ ∥ represents [] [] p.2 t∥) /\
                        good_for_extraction named_extraction_env_flags p ;
       transform p _ := compile_program p ;
-      post := fun p =>  True ;
+      post := fun p => CompileCorrect.wellformed (map (fun '(i,_) => i) p.1) [] p.2 ;
       obseq p _ p' v v' := v' = CompileCorrect.compile_value p.1 v
   |}.
+Next Obligation. sq.
+  eset (l := map _ _).
+  assert (l = (map (fun '(i, _) => string_of_kername i) input.1)) as ->.
+  { subst l. destruct input.
+    clear. cbn. clear. induction l; cbn.
+    + reflexivity.
+    + destruct a. cbn. destruct g. cbn.
+      * f_equal. eapply IHl.
+      * todo "axiom". }
+  eapply compile_wellformed.
+  2: exact H4. 2: exact H5.
+  eapply H3.
+Qed.
 Next Obligation.
   rename H into HP; rename H0 into HH. 
   red. intros. sq.
   eapply compile_correct in H.
   - eauto.
-  - intros. split. eapply pr. eauto. eapply pr. eauto.
+  - intros. split.
+    eapply pr. eauto. eapply pr. eauto.
   - intros. unfold lookup. cbn. instantiate (1 := fun _ =>  SemanticsSpec.fail "notfound"). reflexivity.
   - intros. todo "global env".
     Unshelve. all: todo "global env".
@@ -300,11 +334,11 @@ Program Definition verified_malfunction_pipeline (efl := EWellformed.all_env_fla
   enforce_extraction_conditions ▷
   implement_box_transformation ▷
   name_annotation ▷
-  compile_to_malfunction named_extraction_env_flags.
+  compile_to_malfunction.
 Next Obligation.
   cbn. intros.
-  destruct p as [Σ t]. split. apply H2. split. eapply H2.
-  eapply H1.
+  destruct p as [Σ t]. split. apply H1. sq. split. 2: eauto.
+  eexists. split. 2:sq. all:eauto. 
 Qed.
 
 Section malfunction_pipeline_theorem.

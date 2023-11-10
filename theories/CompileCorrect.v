@@ -407,6 +407,11 @@ Proof.
   + now rewrite List.rev_length, map_length, fix_env_length.
 Qed.
 
+Lemma wB_200 : (Z.of_nat 200 < Malfunction.Int63.wB)%Z.
+Proof.
+  lazy. reflexivity.
+Qed.
+
 Opaque Malfunction.Int63.wB PArray.max_length.
 
 Lemma compile_correct `{Heap} Σ Σ' s t Γ Γ' h :
@@ -786,7 +791,7 @@ Section fix_global.
     | Malfunction.Mveclen (ty, x) => wellformed Γ x
     | Malfunction.Mlazy x => wellformed Γ x
     | Malfunction.Mforce x => wellformed Γ x
-    | Malfunction.Mblock (tag, xs) => forallb (wellformed Γ) xs
+    | Malfunction.Mblock (tag, xs) => Nat.ltb (int_to_nat tag) 200 && forallb (wellformed Γ) xs
     | Malfunction.Mfield (i, x) => wellformed Γ x
     end
   with wellformed_binding Γ (b : Malfunction.binding) :=
@@ -848,7 +853,8 @@ Proof.
   - destruct p as [ [[]] ]. rtoProp. split; eauto.
   - destruct p; rtoProp; eauto.
   - destruct p. induction l; cbn in *; eauto.
-    rtoProp; split; eauto.
+    forward IHl.
+    all: rtoProp; split; eauto.
   - destruct p; rtoProp; eauto.
   - destruct p; rtoProp; eauto.
   - revert Hwf. generalize l at 1 3. induction l; cbn in *.
@@ -867,12 +873,27 @@ Proof.
   simp compile. reflexivity.
 Qed.
 
-Lemma compile_wellformed (efl := EWcbvEvalNamed.extraction_env_flags) Γ n s t (Σ : EAst.global_declarations) :
-  EWellformed.wellformed Σ n t ->
+Lemma filter_first_lt (i : nat) (p : nat -> bool) (n : nat) l2 : 
+    i < n -> #|filter p (firstn i l2)| <= #|filter p (firstn n l2)|.
+Proof.
+  induction l2 in i,n |- *; intros.
+  - destruct i, n; cbn; lia.
+  - destruct n. lia.
+    destruct i.
+    + cbn. lia.
+    + cbn. destruct p. cbn.
+      eapply le_n_S. eapply  IHl2. lia.
+      eapply IHl2. lia.
+Qed.
+
+Lemma compile_wellformed Γ n s t (Σ : EAst.global_declarations) :
+    (forall i args, lookup_constructor_args Σ i = Some args ->
+            blocks_until (List.length args) args < 200) ->
+  EWellformed.wellformed (efl := extraction_env_flags) Σ n t ->
   represents Γ [] s t ->
   wellformed (map (fun '(i,_) => Kernames.string_of_kername i) Σ) Γ (compile Σ s).
 Proof.
-  intros Hwf Hrep. revert n Hwf.
+  intros Hglob Hwf Hrep. revert n Hwf.
   remember [] as E. revert HeqE.
   eapply @represents_ind with (e := E) (l := Γ) (t := s) (t0 := t) (P0 := fun _ _ _ => True); intros; simp compile;
     cbn [EWellformed.wellformed] in *;
@@ -899,8 +920,28 @@ Proof.
       destruct EGlobalEnv.lookup_inductive as [ [] | ]; cbn; eauto.
     + rtoProp. unfold EGlobalEnv.lookup_constructor_pars_args, lookup_constructor_args, EGlobalEnv.lookup_constructor in *.
       cbn -[EGlobalEnv.lookup_inductive] in *.
-      destruct EGlobalEnv.lookup_inductive as [ [] | ]; cbn; eauto.
-      rtoProp. split.
+      destruct EGlobalEnv.lookup_inductive as [ [] | ] eqn:EE; cbn; eauto.
+      rtoProp. repeat split.
+      * eapply Nat.leb_le.
+        enough ( blocks_until i (map EAst.cstr_nargs (EAst.ind_ctors o)) <= 199).
+        rewrite int_to_of_nat; eauto.
+        transitivity  (Z.of_nat 200).
+        eapply inj_lt.  lia.
+        eapply wB_200.
+        epose proof (Hglob _ _) as H3.
+        erewrite EE in H3.
+        specialize (H3 eq_refl).
+        revert H3. len.
+        destruct nth_error eqn:EEE; inversion H1.
+        eapply nth_error_Some_length in EEE.
+        unfold blocks_until.
+        intros HF.
+        match type of HF with
+        | ?l < _ => match goal with
+                   | [ |- ?r <= _ ] => enough (r <= l)
+                   end
+        end. lia.
+        eapply filter_first_lt. lia.
       * depelim a. cbn in H2. rtoProp. destruct IH as [IH0 IH]. eapply IH0; eauto.
       * depelim a.  cbn in H2. rtoProp.
         eapply All_forallb.  rewrite map_InP_spec in *. clear - a IH H3.
