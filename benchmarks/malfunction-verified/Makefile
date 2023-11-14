@@ -49,4 +49,4 @@ build: $(TESTS) mainopt
 run: build
 #	./main 10
 	@echo "Bootstrapped Malfunction with no optimisations"
-	./mainopt 50
+	./mainopt 10

@@ -51,4 +51,4 @@ tests: tests.v
 
 run: main mainopt
 	@echo "OCaml with extraction optimisations on. Native:"
-	./mainopt 50
+	./mainopt 10
