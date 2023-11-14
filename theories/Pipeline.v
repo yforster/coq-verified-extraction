@@ -31,6 +31,11 @@ Import EWcbvEval.
 
 From Malfunction Require Import Compile Serialize.
 
+Definition int_to_nat (i : Uint63.int) : nat :=
+  Z.to_nat (Uint63.to_Z i).
+
+Definition array_length := Eval cbv in PArray.max_length.
+
 Record good_for_extraction (fl : EWellformed.EEnvFlags) (p : program (list (kername × EAst.global_decl)) EAst.term) := 
   {
     few_enough_blocks :
@@ -46,60 +51,79 @@ Record good_for_extraction (fl : EWellformed.EEnvFlags) (p : program (list (kern
       EGlobalEnv.lookup_inductive p.1 i = Some (mb, ob) ->
                              (forall (n : nat) (b : EAst.constructor_body),
                                  nth_error (EAst.ind_ctors ob) n = Some b ->
-                                 EAst.cstr_nargs b < utils_array.int_to_nat PArray.max_length) ;
+                                 EAst.cstr_nargs b < int_to_nat array_length) ;
     right_flags_in_glob : @EWellformed.wf_glob fl p.1 ;
     right_flags_in_term : @EWellformed.wellformed fl p.1 0 p.2
   }.
 
-(* Inductive check_good := *)
-(* | Good *)
-(* | Error of string. *)
+Inductive check_good :=
+| Good
+| Error of string.
 
-(* Definition bind_good a b := *)
-(*   match a with *)
-(*   | Good => b *)
-(*   | Error s => Error s *)
-(*   end. *)
+Definition bind_good a b :=
+  match a with
+  | Good => b
+  | Error s => Error s
+  end.
 
-(* Notation "a &|& b" := (bind_good a b) (at level 70). *)
+Notation "a &|& b" := (bind_good a b) (at level 70).
 
-(* Definition bool_good_error a s := *)
-(*   match a with *)
-(*   | true => Good *)
-(*   | false => Error s *)
-(*   end. *)
+Definition bool_good_error a s :=
+  match a with
+  | true => Good
+  | false => Error s
+  end.
 
-(* Notation "a >>> s" := (bool_good_error a s) (at level 65). *)
+Notation "a >>> s" := (bool_good_error a s) (at level 65).
 
-(* Fixpoint check_good_for_extraction_rec (fl : EWellformed.EEnvFlags) (Σ : (list (kername × EAst.global_decl))) := *)
-(*   match Σ with *)
-(*   | nil => Good *)
-(*   | (kn, EAst.ConstantDecl d) :: Σ => *)
-(*       forallb (fun x : kername × EAst.global_decl => negb (x.1 == kn)) Σ >>> "environment re-declares names" *)
-(*       &|& *)
-(*       option_default (fun b : EAst.term => @EWellformed.wellformed fl Σ 0 b) (EAst.cst_body d) false >>> "environment contains non-extractable constant" *)
-(*       &|& *)
-(*       check_good_for_extraction_rec fl Σ *)
-(*   | (kn, EAst.InductiveDecl mind) :: Σ => *)
-(*       forallb (fun ob => #|EAst.ind_ctors ob| <? Z.to_nat Malfunction.Int63.wB) mind.(EAst.ind_bodies) >>> "inductive with too many constructors" *)
-(*       &|& *)
-(*       forallb (fun ob => forallb (fun b => EAst.cstr_nargs b <? utils_array.int_to_nat PArray.max_length ) (EAst.ind_ctors ob)) mind.(EAst.ind_bodies) >>> "inductive with too many constructor arguments" *)
-(*       &|& *)
-(*       forallb (fun x : kername × EAst.global_decl => negb (x.1 == kn)) Σ >>> "environment re-declares names" *)
-(*       &|& @EWellformed.wf_minductive fl mind >>> "environment contains non-extractable inductive" *)
-(*       &|& check_good_for_extraction_rec fl Σ *)
-(*   end. *)
+Fixpoint check_good_for_extraction_rec (fl : EWellformed.EEnvFlags) (Σ : (list (kername × EAst.global_decl))) :=
+  match Σ with
+  | nil => Good
+  | (kn, EAst.ConstantDecl d) :: Σ =>
+      forallb (fun x : kername × EAst.global_decl => negb (x.1 == kn)) Σ >>> "environment re-declares names"
+      &|&
+      option_default (fun b : EAst.term => @EWellformed.wellformed fl Σ 0 b) (EAst.cst_body d) false >>> "environment contains non-extractable constant"
+      &|&
+      check_good_for_extraction_rec fl Σ
+  | (kn, EAst.InductiveDecl mind) :: Σ =>
+      forallb (fun ob => let args := map EAst.cstr_nargs (EAst.ind_ctors ob) in
+                 blocks_until #|args| args <? 200)  mind.(EAst.ind_bodies) >>> "inductive with too many blocks"
+      &|&
+      forallb (fun ob => #|EAst.ind_ctors ob| <? Z.to_nat Malfunction.Int63.wB) mind.(EAst.ind_bodies) >>> "inductive with too many constructors"
+      &|&
+      forallb (fun ob => forallb (fun b => EAst.cstr_nargs b <? int_to_nat array_length ) (EAst.ind_ctors ob)) mind.(EAst.ind_bodies) >>> "inductive with too many constructor arguments"
+      &|&
+      forallb (fun x : kername × EAst.global_decl => negb (x.1 == kn)) Σ >>> "environment re-declares names"
+      &|& @EWellformed.wf_minductive fl mind >>> "environment contains non-extractable inductive"
+      &|& check_good_for_extraction_rec fl Σ
+  end.
 
-(* Definition check_good_for_extraction fl (p : program (list (kername × EAst.global_decl)) EAst.term) := *)
-(*   @EWellformed.wellformed fl p.1 0 p.2 >>> "term contains non-extractable constructors" *)
-(*     &|& check_good_for_extraction_rec fl p.1. *)
+Definition check_good_for_extraction fl (p : program (list (kername × EAst.global_decl)) EAst.term) :=
+  @EWellformed.wellformed fl p.1 0 p.2 >>> "term contains non-extractable constructors"
+    &|& check_good_for_extraction_rec fl p.1.
 
 (* Lemma check_good_for_extraction_correct fl (p : program (list (kername × EAst.global_decl)) EAst.term) : *)
 (*   good_for_extraction fl p <-> check_good_for_extraction fl p = Good. *)
 (* Proof. *)
+(*   enough (( *)
+(*       (  forall (i : inductive) (args : list nat), lookup_constructor_args p.1 i = Some args -> blocks_until #|args| args < 200)/\  *)
+(* ( forall (i : inductive) (mb : EAst.mutual_inductive_body) (ob : EAst.one_inductive_body), *)
+(*  EGlobalEnv.lookup_inductive p.1 i = Some (mb, ob) -> #|EAst.ind_ctors ob| < Z.to_nat Malfunction.Int63.wB) /\ *)
+(* (forall (i : inductive) (mb : EAst.mutual_inductive_body) (ob : EAst.one_inductive_body), *)
+(*  EGlobalEnv.lookup_inductive p.1 i = Some (mb, ob) -> *)
+(*  forall (n : nat) (b : EAst.constructor_body), nth_error (EAst.ind_ctors ob) n = Some b -> EAst.cstr_nargs b < int_to_nat PArray.max_length) /\ *)
+(*  EWellformed.wf_glob p.1 *)
+(*     ) <-> check_good_for_extraction_rec fl p.1 = Good). *)
 (*   split. *)
-(*   - intros []. unfold check_good_for_extraction. rtoProp. admit. *)
-(*   - unfold check_good_for_extraction. rtoProp. intros []. admit. *)
+(*   - intros []. unfold check_good_for_extraction. *)
+(*     rewrite right_flags_in_term0. cbn. eapply H. eauto. *)
+(*   - unfold check_good_for_extraction. rtoProp. *)
+(*     destruct EWellformed.wellformed eqn:E; cbn. 2: congruence. *)
+(*     intros. econstructor. *)
+(*     all: try now eapply H; eauto. *)
+(*     eauto. *)
+(*   - generalize p.1. clear p. intros Σ. induction Σ. *)
+
 (* Admitted. *)
 
 Obligation Tactic := try now program_simpl.
@@ -506,7 +530,7 @@ Section malfunction_pipeline_theorem.
                    | S _ => true
                    end) num_args_until_m| in
             Block
-              (utils_array.int_of_nat index, acc)
+              (int_of_nat index, acc)
         | None => fail "inductive not found"
         end
     end
