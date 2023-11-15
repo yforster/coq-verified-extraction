@@ -189,21 +189,21 @@ Definition PrintMLI {A} (a : A) :=
 
 Notation "'Print' 'mli' x" := (PrintMLI x) (at level 0).
 
-Record testrec :=
-  {
-    testproj1 : nat;
-    testproj2 : bool
-  }.
+(* Record testrec := *)
+(*   { *)
+(*     testproj1 : nat; *)
+(*     testproj2 : bool *)
+(*   }. *)
 
-Inductive ltree := Tree (a : nat) (b1 : ltree) (b2 : ltree) (d : bla)
-                     with bla := a (n : nat) (b : blub) with blub := B (c : bla).
+(* Inductive ltree := Tree (a : nat) (b1 : ltree) (b2 : ltree) (d : bla) *)
+(*                      with bla := a (n : nat) (b : blub) with blub := B (c : bla). *)
 
-Definition test (A : Type) (u : testrec) (a : list A) (l : ltree) := a.
+(* Definition test (A : Type) (u : testrec) (a : list A) (l : ltree) := a. *)
 
-MetaCoq Run Print mli test.
+(* MetaCoq Run Print mli test. *)
 
-Definition ho (f : bool -> bool) := f true.
+(* Definition ho (f : bool -> bool) := f true. *)
 
-MetaCoq Run Print mli ho.
+(* MetaCoq Run Print mli ho. *)
 
 (* MetaCoq Run Print mli Byte.to_nat. *)

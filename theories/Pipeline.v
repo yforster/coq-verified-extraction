@@ -159,7 +159,7 @@ From MetaCoq.Erasure Require Import EImplementBox EWellformed EProgram.
 
 Program Definition implement_box_transformation (efl := extraction_env_flags) :
   Transform.t _ _ EAst.term EAst.term _ _ (eval_eprogram block_wcbv_flags) (eval_eprogram block_wcbv_flags) :=
-  {| name := "transforming to constuctors as blocks";
+  {| name := "transforming to constructors as blocks";
     transform p _ := EImplementBox.implement_box_program p ;
     pre p := good_for_extraction extraction_env_flags p ;
     post p := good_for_extraction extraction_env_flags p /\ wf_eprogram (switch_off_box efl) p ;
@@ -498,6 +498,31 @@ Section compile_malfunction_pipeline.
   
 End compile_malfunction_pipeline. 
 
+Lemma annotate_firstorder_evalue_block Σ v_t :
+  firstorder_evalue_block Σ v_t ->
+  firstorder_evalue_block (annotate_env [] Σ) v_t.
+Proof.
+  eapply firstorder_evalue_block_elim. intros.
+  econstructor; eauto.
+  unfold EGlobalEnv.lookup_constructor_pars_args,
+    EGlobalEnv.lookup_constructor,
+    EGlobalEnv.lookup_inductive,
+    EGlobalEnv.lookup_minductive in *.
+  rewrite lookup_env_annotate.
+  destruct EGlobalEnv.lookup_env; cbn in *; try congruence.
+  destruct g; cbn in *; congruence.
+Qed.
+
+Lemma implement_box_firstorder_evalue_block {efl : EEnvFlags} Σ v_t :
+  firstorder_evalue_block Σ v_t ->
+  firstorder_evalue_block (implement_box_env Σ) v_t.
+Proof.
+  eapply firstorder_evalue_block_elim. intros.
+  econstructor; eauto.
+  erewrite lookup_constructor_pars_args_implement_box.
+  eassumption.
+Qed.
+
 Section malfunction_pipeline_theorem.
 
   Local Existing Instance CanonicalHeap.
@@ -679,8 +704,7 @@ Section malfunction_pipeline_theorem.
 
   Variable (Haxiom_free : Extract.axiom_free Σ).
 
-  Lemma verified_malfunction_pipeline_lookup (efl := extraction_env_flags)  {has_rel : has_tRel} {has_box : has_tBox} 
-    kn g : 
+  Lemma verified_malfunction_pipeline_lookup (efl := extraction_env_flags) kn g : 
     EGlobalEnv.lookup_env Σ_v kn = Some g ->
     EGlobalEnv.lookup_env Σ_t' kn = Some g. 
   Proof.
@@ -703,7 +727,7 @@ Section malfunction_pipeline_theorem.
     epose proof (correctness _ _ H4). cbn in H5. now destruct H5.
   Qed.
 
-  Lemma verified_malfunction_pipeline_compat p (efl := extraction_env_flags) {has_rel : has_tRel} {has_box : has_tBox} 
+  Lemma verified_malfunction_pipeline_compat p (efl := extraction_env_flags) 
     : firstorder_evalue_block Σ_v p -> compile_value Σ_t' (eval_fo p) = compile_value Σ_v (eval_fo p).
   Proof.
     intros H. eapply firstorder_evalue_block_elim with (P := fun p => compile_value Σ_t' (eval_fo p) = compile_value Σ_v (eval_fo p)); [|eauto] ; intros. 
@@ -726,10 +750,11 @@ Section malfunction_pipeline_theorem.
     Unshelve. all: eauto. 
   Qed. 
 
-  Lemma verified_malfunction_pipeline_theorem h (efl := extraction_env_flags) {has_rel : has_tRel} {has_box : has_tBox} :
-    ∥ SemanticsSpec.eval Σ' (fun _ => fail "notfound") h t_t h (compile_value_mf Σ Σ_v v)∥.
+  Lemma verified_malfunction_pipeline_theorem (efl := extraction_env_flags) :
+    ∥ SemanticsSpec.eval Σ' (fun _ => fail "notfound") hp t_t hp (compile_value_mf Σ Σ_v v)∥.
   Proof.
     unshelve epose proof (verified_erasure_pipeline_theorem _ _ _ _ _ _ _ _ _ _ _ _ _ Heval); eauto.
+    (* unshelve epose proof (correctness (verified_malfunction_pipeline hp)) as Hpost. *)
     rewrite compile_value_mf_eq. 
     { eapply fo_v; eauto. }
     unfold t_t, compile_malfunction_pipeline, verified_malfunction_pipeline, verified_named_erasure_pipeline in *. revert HΣ'.
@@ -742,16 +767,20 @@ Section malfunction_pipeline_theorem.
     { rewrite Himpl_obs; eauto. }
     destruct Hname as [? [Hname_eval Hname_obs]]. simpl in *. sq.
     unfold compile_named_value. rewrite <- verified_malfunction_pipeline_compat.
-    2-3: eauto. 
     2: { unfold Σ_v. repeat destruct_compose ; intros.
          unfold transform at 1; cbn -[transform]. 
          unfold transform at 1; cbn -[transform].
          unfold transform at 1; cbn -[transform].
          unshelve epose proof (verified_erasure_pipeline_firstorder_evalue_block _ _ _ _ _ _ _ _ _ _ typing _ _ _); eauto.
+         eapply annotate_firstorder_evalue_block.
+         eapply implement_box_firstorder_evalue_block.
+         eassumption.
        }
-    unfold Σ_t'. repeat destruct_compose ; intros. 
+    unfold Σ_t'. repeat destruct_compose ; intros.
     eapply compile_correct with (Γ := []); intros.
-    - todo "bounds stuff". 
+    - split.
+      + eapply H3. eassumption.
+      + eapply H3. eassumption.
     - eauto.  
     - revert HΣ'. unfold Σ_t'. repeat destruct_compose ; intros. eauto. 
     - rewrite Himpl_obs in Hname_obs. 
@@ -780,6 +809,7 @@ Section malfunction_pipeline_theorem.
 End malfunction_pipeline_theorem.
 
 About verified_malfunction_pipeline_theorem.
+Print Assumptions verified_malfunction_pipeline_theorem.
 
 Local Existing Instance CanonicalHeap.
 Local Existing Instance CanonicalPointer.
@@ -794,7 +824,7 @@ Defined.
 
 Definition compile_malfunction (cf := config.extraction_checker_flags) (p : Ast.Env.program) 
   : string :=
-  let p' := run malfunction_pipeline p (MCUtils.todo "wf_env and welltyped term"%bs) in
+  let p' := run malfunction_pipeline p (todo "assume we run compilation on a welltyped term"%bs) in
   time "Pretty printing"%bs (fun p =>(@to_string _ Serialize_module p)) p'.
 
 About compile_malfunction.
