@@ -80,7 +80,7 @@ Section Realizability.
 
   Open Scope bs. 
 
-  Definition empty_locals : Ident.Map.t := fun _ => fail "not_defined".
+  Definition empty_locals : Ident.Map.t := fun _ => fail "notfound".
 
   Close Scope bs. 
 
