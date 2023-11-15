@@ -137,6 +137,8 @@ Definition check_good_for_extraction fl (p : program (list (kername × EAst.glob
 
 #[local] Obligation Tactic := try now program_simpl.
 
+Axiom assume_can_be_extracted : forall erased_program, good_for_extraction extraction_env_flags erased_program.
+
 Program Definition enforce_extraction_conditions (efl := EWellformed.all_env_flags) `{Pointer} `{Heap} :
   t EAst.global_declarations EAst.global_declarations EAst.term EAst.term EAst.term
     EAst.term
@@ -149,7 +151,7 @@ Program Definition enforce_extraction_conditions (efl := EWellformed.all_env_fla
     obseq p1 _ p2 v1 v2 := p1 = p2 /\ v1 = v2
   |}.
 Next Obligation.
-  program_simpl. todo "assuming that pipeline is run on terms that can be extracted".
+  program_simpl. apply assume_can_be_extracted.
 Qed.
 Next Obligation.
   program_simpl. red. program_simpl.  exists v. auto.
@@ -535,6 +537,7 @@ Section malfunction_pipeline_theorem.
   Variable hp : heap.
 
   Variable Σ : global_env_ext_map.
+  Variable no_axioms : PCUICClassification.axiom_free Σ.
   Variable HΣ : PCUICTyping.wf_ext Σ.
   Variable expΣ : PCUICEtaExpand.expanded_global_env Σ.1.
 
@@ -559,7 +562,22 @@ Section malfunction_pipeline_theorem.
   Let Σ_t := (compile_malfunction_pipeline _ _ hp _ _ _ _ expΣ expt typing _).1.
   Let t_t := (compile_malfunction_pipeline _ _ hp _ _ _ _ expΣ expt typing _).2.
 
-  Variable Heval : ∥PCUICWcbvEval.eval Σ t v∥.
+  Variable v_red : ∥PCUICReduction.red Σ [] t v∥.
+  Variable v_irred : forall t', (PCUICReduction.red1 Σ [] v t') -> False.
+
+  Lemma Heval : ∥PCUICWcbvEval.eval Σ t v∥.
+  Proof.
+    sq.
+    eapply PCUICValidity.validity in typing as Hv.
+    destruct Hv as [? HA].
+    eapply PCUICValidity.inversion_mkApps in HA as (A & HA & _).
+    eapply PCUICInversion.inversion_Ind in HA as (mdecl & idecl & _ & HA & _); eauto.
+
+    eapply PCUICNormalization.wcbv_standardization_fst; eauto.
+    instantiate (1 := mdecl).
+    1: todo "declared_inductive lookup_env".
+    firstorder.
+  Qed.
 
   Let Σ_v := (transform verified_named_erasure_pipeline (Σ, v) (precond2 _ _ _ _ expΣ expt typing _ _ Heval)).1.
   Let Σ_t' := (transform verified_named_erasure_pipeline (Σ, t) (precond _ _ _ _ expΣ expt typing _)).1.
@@ -756,7 +774,7 @@ Section malfunction_pipeline_theorem.
     unshelve epose proof (verified_erasure_pipeline_theorem _ _ _ _ _ _ _ _ _ _ _ _ _ Heval); eauto.
     (* unshelve epose proof (correctness (verified_malfunction_pipeline hp)) as Hpost. *)
     rewrite compile_value_mf_eq. 
-    { eapply fo_v; eauto. }
+    { eapply fo_v; eauto. eapply Heval. }
     unfold t_t, compile_malfunction_pipeline, verified_malfunction_pipeline, verified_named_erasure_pipeline in *. revert HΣ'.
     repeat destruct_compose ; intros.
     unfold compile_to_malfunction. unfold transform at 1. simpl.
@@ -772,6 +790,7 @@ Section malfunction_pipeline_theorem.
          unfold transform at 1; cbn -[transform].
          unfold transform at 1; cbn -[transform].
          unshelve epose proof (verified_erasure_pipeline_firstorder_evalue_block _ _ _ _ _ _ _ _ _ _ typing _ _ _); eauto.
+         eapply Heval.
          eapply annotate_firstorder_evalue_block.
          eapply implement_box_firstorder_evalue_block.
          eassumption.
@@ -784,8 +803,8 @@ Section malfunction_pipeline_theorem.
     - eauto.  
     - revert HΣ'. unfold Σ_t'. repeat destruct_compose ; intros. eauto. 
     - rewrite Himpl_obs in Hname_obs. 
-      rewrite <- implement_box_fo in Hname_obs. 2: { eapply fo_v; eauto. }
-      eapply represent_value_eval_fo in Hname_obs. 2: { eapply fo_v; eauto. }
+      rewrite <- implement_box_fo in Hname_obs. 2: { eapply fo_v; eauto. eapply Heval. }
+      eapply represent_value_eval_fo in Hname_obs. 2: { eapply fo_v; eauto. eapply Heval. }
       unfold compile_named_value. rewrite <- Hname_obs. exact Hname_eval.
   Qed. 
 
@@ -794,7 +813,7 @@ Section malfunction_pipeline_theorem.
   Proof.
     unfold Σ_v, verified_named_erasure_pipeline.
     repeat (destruct_compose; simpl; intro).
-    unshelve epose proof ErasureCorrectness.verified_erasure_pipeline_firstorder_evalue_block _ _ _ _ _ _ _ _ _ _ typing _ _ _; eauto.
+    unshelve epose proof ErasureCorrectness.verified_erasure_pipeline_firstorder_evalue_block _ _ _ _ _ _ _ _ _ _ typing _ _ _; eauto using Heval.
     assert (Hexpand: PCUICExpandLets.trans_global_env Σ = Σ) by todo "expand".
     rewrite Hexpand in H2. set (v' := compile_value_box _ _ _) in *. clearbody v'.
     clear -H2. eapply firstorder_evalue_block_elim; eauto. clear. intros; econstructor; eauto. 
