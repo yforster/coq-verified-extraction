@@ -48,7 +48,7 @@ Section fix_global.
     | l => "(" ++ String.concat sep l ++ ") "
     end.
 
-  Fixpoint print_type_def (names : list ident) (t : term) {struct t} :=
+  Fixpoint print_type_def (printf : bool) (names : list ident) (t : term) {struct t} :=
     let def := "Obj.t (* not supported *)" in
     match t with
     | tConst kn univs =>
@@ -60,7 +60,7 @@ Section fix_global.
         else
         match lookup_global Σ kn with
                     | Some (ConstantDecl d) => match d.(cst_body) with
-                               | Some b => print_type_def [] b
+                               | Some b => print_type_def true [] b
                                | _ => "<constant doesn't have a body>"
                                end
                     | Some _ => "<constant not a decl>"
@@ -68,16 +68,20 @@ Section fix_global.
                     end
     | tInd {| inductive_mind := (_, i) |} _ => uncapitalize i
     | tProd {| binder_name := nNamed na |}  A B =>
-        print_type_def names A ++ " -> " ++ print_type_def (("'" ++ uncapitalize na) :: names) B
+        (if printf then "" else "(") ++
+        print_type_def false names A ++ " -> " ++ print_type_def printf (("'" ++ uncapitalize na) :: names) B
+            ++ if printf then "" else ") (* higher-order functions are not safe to extract *)" 
     | tProd _ A B =>
-        print_type_def names A ++ " -> " ++ print_type_def ("Obj.t" :: names) B
+        (if printf then "" else "(") ++
+          print_type_def false names A ++ " -> " ++ print_type_def printf ("Obj.t" :: names) B
+            ++ if printf then "" else ") (* higher-order functions are not safe to extract *)" 
     | tApp f args =>
           if f === <% prod %> then
-            match args with [A; B] => "(" ++ print_type_def names A ++ " * " ++ print_type_def names B ++ ")"
+            match args with [A; B] => "(" ++ print_type_def printf names A ++ " * " ++ print_type_def printf names B ++ ")"
                        | _ => def
             end
           else
-            print_parens_around ", " (map (print_type_def names) args) ++ " " ++ print_type_def names f
+            print_parens_around ", " (map (print_type_def printf names) args) ++ " " ++ print_type_def printf names f
     | tSort _ =>
         "Obj.t"
     | tRel n =>
@@ -91,13 +95,13 @@ Section fix_global.
     | _ => "<IMPOSSIBLE>"
     end.
 
-  Definition print_type := print_type_def [].
+  Definition print_type := print_type_def true [].
 
   Fixpoint print_types names (ctx : context) :=
     match ctx with
     | [] => ""
-    | [{| decl_type := T |}] => print_type_def names T
-    | {| decl_type := T ; decl_name := na |} :: l => print_type_def names T ++ " * " ++ print_types ((typevariable_from_aname na) :: names) l
+    | [{| decl_type := T |}] => print_type_def true names T
+    | {| decl_type := T ; decl_name := na |} :: l => print_type_def true names T ++ " * " ++ print_types ((typevariable_from_aname na) :: names) l
     end.
 
   Definition print_constructor na (names : list ident) (ctx : context) :=
@@ -118,7 +122,7 @@ Section fix_global.
     match ctx with
     | {| decl_name := {| binder_name := nNamed na |} ;
         decl_type := A
-      |} :: ctx => na ++ " : " ++ print_type_def nms A ++ " ; " ++ print_record (na :: nms) ctx
+      |} :: ctx => na ++ " : " ++ print_type_def true nms A ++ " ; " ++ print_record (na :: nms) ctx
     | _ => ""
     end.
 
@@ -185,16 +189,21 @@ Definition PrintMLI {A} (a : A) :=
 
 Notation "'Print' 'mli' x" := (PrintMLI x) (at level 0).
 
-(* Record testrec := *)
-(*   { *)
-(*     testproj1 : nat; *)
-(*     testproj2 : bool *)
-(*   }. *)
+Record testrec :=
+  {
+    testproj1 : nat;
+    testproj2 : bool
+  }.
 
-(* Inductive ltree := Tree (a : nat) (b1 : ltree) (b2 : ltree) (d : bla) *)
-(*                      with bla := a (n : nat) (b : blub) with blub := B (c : bla). *)
+Inductive ltree := Tree (a : nat) (b1 : ltree) (b2 : ltree) (d : bla)
+                     with bla := a (n : nat) (b : blub) with blub := B (c : bla).
 
-(* Definition test (A : Type) (u : testrec) (a : list A) (l : ltree) := a. *)
+Definition test (A : Type) (u : testrec) (a : list A) (l : ltree) := a.
 
-(* MetaCoq Run Print mli test. *)
+MetaCoq Run Print mli test.
+
+Definition ho (f : bool -> bool) := f true.
+
+MetaCoq Run Print mli ho.
+
 (* MetaCoq Run Print mli Byte.to_nat. *)
