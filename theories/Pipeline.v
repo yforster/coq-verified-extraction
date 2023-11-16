@@ -2,7 +2,8 @@
 From Coq Require Import Program ssreflect ssrbool.
 From MetaCoq.Common Require Import Transform config.
 From MetaCoq.Utils Require Import bytestring utils.
-From MetaCoq.PCUIC Require Import PCUICAst PCUICTyping PCUICReduction PCUICAstUtils PCUICTyping PCUICProgram PCUICFirstorder.
+From MetaCoq.PCUIC Require Import PCUICAst PCUICTyping PCUICReduction PCUICAstUtils PCUICSN
+    PCUICTyping PCUICProgram PCUICFirstorder PCUICEtaExpand.
 From MetaCoq.SafeChecker Require Import PCUICErrors PCUICWfEnvImpl.
 From MetaCoq.Erasure Require EAstUtils ErasureFunction ErasureCorrectness EPretty Extract.
 From MetaCoq Require Import ETransform EConstructorsAsBlocks.
@@ -480,7 +481,7 @@ Section compile_malfunction_pipeline.
   Local Existing Instance CanonicalHeap.
 
   Instance cf_ : checker_flags := extraction_checker_flags.
-  Instance nf_ : PCUICSN.normalizing_flags := PCUICSN.extraction_normalizing.
+  Instance nf_ : normalizing_flags := extraction_normalizing.
 
   Variable HP : Pointer.
   Variable HH : Heap.
@@ -491,16 +492,17 @@ Section compile_malfunction_pipeline.
   Variable T : term.
 
   Variable HΣ : wf_ext Σ.
-  Variable expΣ : PCUICEtaExpand.expanded_global_env Σ.1.
-  Variable expt : PCUICEtaExpand.expanded Σ.1 [] t.
+  Variable expΣ : expanded_global_env Σ.1.
+  Variable expt : expanded Σ.1 [] t.
   Variable typing : Σ ;;; [] |- t : T.
 
-  Variable Normalisation : forall Σ0 : PCUICAst.PCUICEnvironment.global_env_ext,
-  PCUICTyping.wf_ext Σ0 -> PCUICSN.NormalizationIn Σ0.
+  Variable Normalisation : forall Σ0 : global_env_ext, wf_ext Σ0 -> NormalizationIn Σ0.
 
   Definition compile_malfunction_pipeline := transform (verified_malfunction_pipeline hp) (Σ, t) (precond _ _ _ _ expΣ expt typing _).
   
 End compile_malfunction_pipeline. 
+
+Arguments compile_malfunction_pipeline {_ _} _ {_ _ _ _} _ _ _ {_}.
 
 Lemma annotate_firstorder_evalue_block Σ v_t :
   firstorder_evalue_block Σ v_t ->
@@ -532,7 +534,7 @@ Section malfunction_pipeline_theorem.
   Local Existing Instance CanonicalHeap.
 
   Instance cf__ : checker_flags := extraction_checker_flags.
-  Instance nf__ : PCUICSN.normalizing_flags := PCUICSN.extraction_normalizing.
+  Instance nf__ : normalizing_flags := extraction_normalizing.
 
   Variable HP : Pointer.
   Variable HH : Heap.
@@ -540,29 +542,27 @@ Section malfunction_pipeline_theorem.
 
   Variable Σ : global_env_ext_map.
   Variable no_axioms : PCUICClassification.axiom_free Σ.
-  Variable HΣ : PCUICTyping.wf_ext Σ.
-  Variable expΣ : PCUICEtaExpand.expanded_global_env Σ.1.
+  Variable HΣ : wf_ext Σ.
+  Variable expΣ : expanded_global_env Σ.1.
 
-  Variable t : PCUICAst.term.
-  Variable expt : PCUICEtaExpand.expanded Σ.1 [] t.
+  Variable t : term.
+  Variable expt : expanded Σ.1 [] t.
 
-  Variable v : PCUICAst.term.
+  Variable v : term.
 
-  Variable i : Kernames.inductive.
-  Variable u : Universes.Instance.t.
-  Variable args : list PCUICAst.term.
+  Variable i : inductive.
+  Variable u : Instance.t.
+  Variable args : list term.
 
-  Variable typing : Σ ;;; [] |- t : PCUICAst.mkApps (PCUICAst.tInd i u) args.
+  Variable typing : Σ ;;; [] |- t : mkApps (tInd i u) args.
 
   Variable fo : firstorder_ind Σ (firstorder_env Σ) i.
 
   Variable noParam : forall i mdecl, lookup_env Σ i = Some (InductiveDecl mdecl) -> ind_npars mdecl = 0. 
 
-  Variable Normalisation : forall Σ0 : PCUICAst.PCUICEnvironment.global_env_ext,
-  PCUICTyping.wf_ext Σ0 -> PCUICSN.NormalizationIn Σ0.
+  Variable Normalisation : forall Σ0 : global_env_ext, wf_ext Σ0 -> NormalizationIn Σ0.
 
-  Let Σ_t := (compile_malfunction_pipeline _ _ hp _ _ _ _ expΣ expt typing _).1.
-  Let t_t := (compile_malfunction_pipeline _ _ hp _ _ _ _ expΣ expt typing _).2.
+  Let Σ_t := (compile_malfunction_pipeline hp expΣ expt typing).1.
 
   Variable v_red : ∥Σ;;; [] |- t ⇝* v∥.
   Variable v_irred : forall t', (Σ;;; [] |- v ⇝ t') -> False.
@@ -606,7 +606,7 @@ Section malfunction_pipeline_theorem.
     | _ => not_evaluated
     end.
 
-  Definition compile_value_mf Σ Σb t :=   
+  Definition compile_value_mf' Σ Σb t :=   
     compile_value_mf_aux Σb (compile_value_box (PCUICExpandLets.trans_global_env Σ) t []).
 
   Lemma compile_value_box_mkApps Σb i0 n ui args0: 
@@ -694,14 +694,17 @@ Section malfunction_pipeline_theorem.
 
   Opaque compose.   
 
+  Let compile_value_mf Σ v := compile_value_mf' Σ Σ_v v.
+
+
   Lemma compile_value_mf_eq {Henvflags: EWellformed.EEnvFlags} p : 
     PCUICFirstorder.firstorder_value Σ [] p ->
-    compile_value_mf Σ Σ_v p = compile_value Σ_v (compile_named_value p).
+    compile_value_mf Σ p = compile_value Σ_v (compile_named_value p).
   Proof.
     intros H. refine (PCUICFirstorder.firstorder_value_inds _ _ 
-      (fun p => compile_value_mf Σ Σ_v p = compile_value Σ_v (compile_named_value p)) _ _ H).
+      (fun p => compile_value_mf Σ p = compile_value Σ_v (compile_named_value p)) _ _ H).
     unfold compile_named_value.
-    intros. unfold compile_value_mf. repeat rewrite compile_value_box_mkApps. 
+    intros. unfold compile_value_mf, compile_value_mf'. repeat rewrite compile_value_box_mkApps. 
     clear H. cbn. specialize (noParam (inductive_mind i0)). 
     unfold pcuic_lookup_inductive_pars. rewrite PCUICExpandLetsCorrectness.trans_lookup.
     eapply PCUICValidity.validity in X. eapply PCUICInductiveInversion.wt_ind_app_variance in X as [mdecl [? _]].  
@@ -770,15 +773,17 @@ Section malfunction_pipeline_theorem.
     }
     Unshelve. all: eauto. 
   Qed. 
-
+  
+  From Malfunction Require Import SemanticsSpec.
+ 
   Lemma verified_malfunction_pipeline_theorem (efl := extraction_env_flags) :
-    ∥ SemanticsSpec.eval Σ' (fun _ => fail "notfound") hp t_t hp (compile_value_mf Σ Σ_v v)∥.
+    ∥ eval Σ' (fun _ => fail "notfound") hp  (compile_malfunction_pipeline hp expΣ expt typing).2  hp (compile_value_mf Σ v)∥.
   Proof.
     unshelve epose proof (verified_erasure_pipeline_theorem _ _ _ _ _ _ _ _ _ _ _ _ _ Heval); eauto.
     (* unshelve epose proof (correctness (verified_malfunction_pipeline hp)) as Hpost. *)
     rewrite compile_value_mf_eq. 
     { eapply fo_v; eauto. eapply Heval. }
-    unfold t_t, compile_malfunction_pipeline, verified_malfunction_pipeline, verified_named_erasure_pipeline in *. revert HΣ'.
+    unfold compile_malfunction_pipeline, verified_malfunction_pipeline, verified_named_erasure_pipeline in *. revert HΣ'.
     repeat destruct_compose ; intros.
     unfold compile_to_malfunction. unfold transform at 1. simpl.
     unshelve epose proof (Himpl := implement_box_transformation.(preservation) _ _ _ _); try eapply H1; eauto.
