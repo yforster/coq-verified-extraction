@@ -677,7 +677,6 @@ Section malfunction_pipeline_theorem.
 
   Let compile_value_mf Σ v := compile_value_mf' Σ Σ_v v.
 
-
   Lemma compile_value_mf_eq {Henvflags: EWellformed.EEnvFlags} p : 
     PCUICFirstorder.firstorder_value Σ [] p ->
     compile_value_mf Σ p = compile_value Σ_v (compile_named_value p).
@@ -757,7 +756,7 @@ Section malfunction_pipeline_theorem.
   
   From Malfunction Require Import SemanticsSpec.
   
-  Lemma verified_malfunction_pipeline_theorem (efl := extraction_env_flags) : 
+  Lemma verified_malfunction_pipeline_theorem_gen (efl := extraction_env_flags) : 
     forall (h:heap), forall h, ∥ eval Σ' empty_locals h (compile_malfunction_pipeline expΣ expt typing).2 h (compile_value_mf Σ v)∥.
   Proof.
     unshelve epose proof (verified_erasure_pipeline_theorem _ _ _ _ _ _ _ _ _ _ _ _ _ Heval); eauto.
@@ -812,6 +811,42 @@ Section malfunction_pipeline_theorem.
     
   Transparent compose. 
   
+End malfunction_pipeline_theorem.
+
+Section malfunction_pipeline_theorem_red.
+
+  Local Existing Instance CanonicalHeap.
+
+  Instance cf___ : checker_flags := extraction_checker_flags.
+  Instance nf___ : normalizing_flags := extraction_normalizing.
+
+  Variable HP : Pointer.
+  Variable HH : Heap.
+
+  Variable Σ : global_env_ext_map.
+  Variable no_axioms : PCUICClassification.axiom_free Σ.
+  Variable HΣ : wf_ext Σ.
+  Variable expΣ : expanded_global_env Σ.1.
+
+  Variable t : term.
+  Variable expt : expanded Σ.1 [] t.
+
+  Variable v : term.
+
+  Variable i : inductive.
+  Variable u : Instance.t.
+  Variable args : list term.
+
+  Variable typing : Σ ;;; [] |- t : mkApps (tInd i u) args.
+
+  Variable fo : firstorder_ind Σ (firstorder_env Σ) i.
+
+  Variable noParam : forall i mdecl, lookup_env Σ i = Some (InductiveDecl mdecl) -> ind_npars mdecl = 0. 
+
+  Variable Normalisation : forall Σ0 : global_env_ext, wf_ext Σ0 -> NormalizationIn Σ0.
+
+  Let Σ_t := (compile_malfunction_pipeline expΣ expt typing).1.
+
   Variable v_red : ∥Σ;;; [] |- t ⇝* v∥.
   Variable v_irred : forall t', (Σ;;; [] |- v ⇝ t') -> False.
 
@@ -830,8 +865,30 @@ Section malfunction_pipeline_theorem.
     intros [t' ht]. eauto.
   Qed.
 
+  Let Σ_v := (transform verified_named_erasure_pipeline (Σ, v) (precond2 _ _ _ _ expΣ expt typing _ _ red_eval)).1.
+  Let Σ_t' := (transform verified_named_erasure_pipeline (Σ, t) (precond _ _ _ _ expΣ expt typing _)).1.
 
-End malfunction_pipeline_theorem.
+  Let compile_value_mf Σ v := compile_value_mf' _ Σ Σ_v v.
+
+  Variables (Σ' : _) (Henvflags:EWellformed.EEnvFlags)  (HΣ' : (forall (c : Kernames.kername) (decl : EAst.constant_body) 
+                               (body : EAst.term) (v : EWcbvEvalNamed.value),
+                                EGlobalEnv.declared_constant Σ_t' c decl ->
+                                EAst.cst_body decl = Some body ->
+                                EWcbvEvalNamed.eval Σ_t' [] body v ->
+                                In (Kernames.string_of_kername c, compile_value Σ_t' v) Σ')).
+
+  Variable (Haxiom_free : Extract.axiom_free Σ).
+
+  From Malfunction Require Import SemanticsSpec.
+
+  Lemma verified_malfunction_pipeline_theorem (efl := extraction_env_flags) : 
+    forall (h:heap), forall h, ∥ eval Σ' empty_locals h (compile_malfunction_pipeline expΣ expt typing).2 h (compile_value_mf Σ v)∥.
+  Proof. 
+    eapply verified_malfunction_pipeline_theorem_gen; eauto.
+  Qed.  
+
+End malfunction_pipeline_theorem_red.
+
 
 About verified_malfunction_pipeline_theorem.
 Print Assumptions verified_malfunction_pipeline_theorem.
