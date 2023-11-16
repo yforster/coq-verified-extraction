@@ -386,7 +386,7 @@ Module evalnamed.
 
 End evalnamed.
 
-Program Definition compile_to_malfunction (efl := named_extraction_env_flags) `{Heap} {hh : heap}:
+Program Definition compile_to_malfunction (efl := named_extraction_env_flags) `{Heap}:
   Transform.t (list (Kernames.kername × EAst.global_decl)) _ _ _
     EWcbvEvalNamed.value SemanticsSpec.value
     (fun p v => ∥EWcbvEvalNamed.eval p.1 [] p.2 v∥) (fun _ _ => True) :=
@@ -395,7 +395,7 @@ Program Definition compile_to_malfunction (efl := named_extraction_env_flags) `{
                        good_for_extraction named_extraction_env_flags p ;
       transform p _ := compile_program p ;
       post := fun p => CompileCorrect.wellformed (map (fun '(i,_) => i) p.1) [] p.2 ;
-      obseq p _ p' v v' := v' = CompileCorrect.compile_value p.1 v
+      obseq p _ p' v v' := forall (hh:heap), v' = CompileCorrect.compile_value p.1 v
   |}.
 Next Obligation. sq.
   erewrite map_ext.
@@ -446,12 +446,12 @@ Next Obligation.
         ++ subst. invs H0. 
         ++ eauto.
   } 
-  eapply compile_correct in H.
-  - eauto.
+  eexists. split; [eauto|]. intro h.  
+  eapply compile_correct in H; eauto. 
   - intros. split.
     eapply pr. eauto. eapply pr. eauto.
   - intros. unfold lookup. cbn. instantiate (1 := fun _ =>  SemanticsSpec.fail "notfound"). reflexivity.
-  - intros. eapply HΣ'; eauto. Unshelve. assumption.
+  Unshelve. assumption.
 Qed.
 
 Program Definition verified_named_erasure_pipeline (efl := EWellformed.all_env_flags) `{Heap}:
@@ -463,12 +463,12 @@ Program Definition verified_named_erasure_pipeline (efl := EWellformed.all_env_f
   implement_box_transformation ▷
   name_annotation.
 
-Program Definition verified_malfunction_pipeline (efl := EWellformed.all_env_flags) `{Heap} hh :
+Program Definition verified_malfunction_pipeline (efl := EWellformed.all_env_flags) `{Heap} :
  Transform.t global_env_ext_map _ _ _ _ SemanticsSpec.value 
              PCUICTransform.eval_pcuic_program
              (fun _ _ => True) :=
   verified_named_erasure_pipeline ▷
-  compile_to_malfunction (hh := hh).
+  compile_to_malfunction.
 Next Obligation.
   cbn. intros.
   destruct p as [Σ t]. split. apply H1. sq. split. 2: eauto.
@@ -485,7 +485,6 @@ Section compile_malfunction_pipeline.
 
   Variable HP : Pointer.
   Variable HH : Heap.
-  Variable hp : heap.
 
   Variable Σ : global_env_ext_map.
   Variable t : term.
@@ -498,11 +497,11 @@ Section compile_malfunction_pipeline.
 
   Variable Normalisation : forall Σ0 : global_env_ext, wf_ext Σ0 -> NormalizationIn Σ0.
 
-  Definition compile_malfunction_pipeline := transform (verified_malfunction_pipeline hp) (Σ, t) (precond _ _ _ _ expΣ expt typing _).
+  Definition compile_malfunction_pipeline := transform verified_malfunction_pipeline (Σ, t) (precond _ _ _ _ expΣ expt typing _).
   
 End compile_malfunction_pipeline. 
 
-Arguments compile_malfunction_pipeline {_ _} _ {_ _ _ _} _ _ _ {_}.
+Arguments compile_malfunction_pipeline {_ _ _ _ _ _} _ _ _ {_}.
 
 Lemma annotate_firstorder_evalue_block Σ v_t :
   firstorder_evalue_block Σ v_t ->
@@ -538,7 +537,6 @@ Section malfunction_pipeline_theorem.
 
   Variable HP : Pointer.
   Variable HH : Heap.
-  Variable hp : heap.
 
   Variable Σ : global_env_ext_map.
   Variable no_axioms : PCUICClassification.axiom_free Σ.
@@ -562,7 +560,7 @@ Section malfunction_pipeline_theorem.
 
   Variable Normalisation : forall Σ0 : global_env_ext, wf_ext Σ0 -> NormalizationIn Σ0.
 
-  Let Σ_t := (compile_malfunction_pipeline hp expΣ expt typing).1.
+  Let Σ_t := (compile_malfunction_pipeline expΣ expt typing).1.
 
   Variable v_red : ∥Σ;;; [] |- t ⇝* v∥.
   Variable v_irred : forall t', (Σ;;; [] |- v ⇝ t') -> False.
@@ -776,8 +774,8 @@ Section malfunction_pipeline_theorem.
   
   From Malfunction Require Import SemanticsSpec.
  
-  Lemma verified_malfunction_pipeline_theorem (efl := extraction_env_flags) :
-    ∥ eval Σ' (fun _ => fail "notfound") hp  (compile_malfunction_pipeline hp expΣ expt typing).2  hp (compile_value_mf Σ v)∥.
+  Lemma verified_malfunction_pipeline_theorem (efl := extraction_env_flags) : 
+    forall h, ∥ eval Σ' (fun _ => fail "notfound") h (compile_malfunction_pipeline expΣ expt typing).2 h (compile_value_mf Σ v)∥.
   Proof.
     unshelve epose proof (verified_erasure_pipeline_theorem _ _ _ _ _ _ _ _ _ _ _ _ _ Heval); eauto.
     (* unshelve epose proof (correctness (verified_malfunction_pipeline hp)) as Hpost. *)
