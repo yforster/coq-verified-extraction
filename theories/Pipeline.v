@@ -773,10 +773,9 @@ Section malfunction_pipeline_theorem.
   Qed. 
   
   From Malfunction Require Import SemanticsSpec.
- 
+  
   Lemma verified_malfunction_pipeline_theorem (efl := extraction_env_flags) : 
-    forall (h:heap), let empty_locals := fun _ => fail "notfound" in
-    forall h, ∥ eval Σ' empty_locals h (compile_malfunction_pipeline expΣ expt typing).2 h (compile_value_mf Σ v)∥.
+    forall (h:heap), forall h, ∥ eval Σ' empty_locals h (compile_malfunction_pipeline expΣ expt typing).2 h (compile_value_mf Σ v)∥.
   Proof.
     unshelve epose proof (verified_erasure_pipeline_theorem _ _ _ _ _ _ _ _ _ _ _ _ _ Heval); eauto.
     (* unshelve epose proof (correctness (verified_malfunction_pipeline hp)) as Hpost. *)

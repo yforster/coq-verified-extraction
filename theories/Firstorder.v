@@ -420,7 +420,7 @@ ind_universes0 ind_variance0) x Hparam Hfo'); eauto.
   (Σ:global_env_ext_map) h h' f v na A B,
   ∥ Σ ;;; [] |- f : tProd na A B ∥ ->
   ~ ∥Extract.isErasable Σ [] f∥ ->
-  eval [] (empty_locals _) h (compile_pipeline Σ f) h' v ->
+  eval [] empty_locals h (compile_pipeline Σ f) h' v ->
   isFunction v = true.    
 
   Lemma filter_length_nil ind k mind Eind Hparam Hfo :
@@ -763,7 +763,7 @@ Proof.
     realize_ADT _ _ [] [] adt [] All_nil ind v ->
     exists t, forall h,  
     ∥ Σ ;;; [] |- t : tInd (mkInd kn ind) [] ∥ /\ 
-    eval [] (empty_locals _) h (compile_pipeline Σ t) h v.
+    eval [] empty_locals h (compile_pipeline Σ t) h v.
   Proof. 
     rename H into HP; rename H0 into HHeap; rename H1 into H. 
     intros adt Σ wfΣ Hflag v ind Eind Hind Hlookup [step Hrel].
@@ -884,7 +884,7 @@ Proof.
         subst.
         assert (Forall2 (fun v T => 
         (exists t, forall h,  ∥ (Σ , univ_decl) ;;; [] |- fst t : tInd (mkInd kn (#|ind_bodies mind| - S (snd t))) [] ∥ /\ 
-        eval [] (empty_locals _) h (compile_pipeline Σ (fst t)) h v
+        eval [] empty_locals h (compile_pipeline Σ (fst t)) h v
         /\ (0 <= snd t) /\ (snd t < #|ind_bodies mind|) /\ T = Rel (#|ind_bodies mind| - S (snd t)))) v' (T::Ts)).
         { 
           assert (Forall (fun T => exists l l', In (l ++ [T] ++ l') (nth ind (CoqType_to_camlType' mind Hparam Hfo) [])) (T::Ts)).
@@ -952,7 +952,7 @@ Proof.
             rewrite <- (map_id v'). apply Forall2_map. 
             rewrite Forall2_map_left. 
             epose (Forall2_map_right (fun a b =>
-            eval [] (empty_locals _) h
+            eval [] empty_locals h
               (compile_pipeline Σ a.1) h b) fst _ _). destruct i as [? ?].
             eapply H2 in Heval. 
             rewrite zip_fst in Heval; eauto. 
@@ -1058,7 +1058,7 @@ Proof.
   (expt : PCUICEtaExpand.expanded Σ [] t), 
   forall h v (Heval : ∥PCUICWcbvEval.eval Σ t v∥),  
   let Σb := (Transform.transform verified_named_erasure_pipeline (Σ, v) (ErasureCorrectness.precond2 _ _ _ _ expΣ expt wt Normalisation _ Heval)).1 in
-  ∥ eval [] (fun _ => fail "notfound") h (compile_pipeline Σ t) h (compile_value_mf _ Σ Σb v)∥.
+  ∥ eval [] (fun _ => fail "notfound") h (compile_pipeline Σ t) h (compile_value_mf' _ Σ Σb v)∥.
   Admitted.
   
 
@@ -1104,7 +1104,7 @@ Proof.
     (expΣ : PCUICEtaExpand.expanded_global_env Σ)
     (expt : PCUICEtaExpand.expanded Σ [] t), 
       forall h v, R_heap h h ->
-      eval [] (empty_locals _) h (compile_pipeline Σ t) h v
+      eval [] empty_locals h (compile_pipeline Σ t) h v
       -> realize_ADT _ _ [] [] adt [] All_nil ind v.
   Proof.
 (*    intros ? ? HΣ ? ? ? ? ? Hlookup ? ? ? ? ? ? Heval_compile.  pose proof Normalisation. 
@@ -1204,11 +1204,11 @@ Lemma compile_compose {P:Pointer} {H:Heap} {HP : @CompatiblePtr P P} (efl := ext
   (Σ:global_env_ext_map) h h' t u' u v w na A B :
   ∥ Σ ;;; [] |- t : tProd na A B ∥ ->
   ~ ∥Extract.isErasable Σ [] t∥ -> 
-  eval [] (empty_locals _) h (compile_pipeline Σ u) h v ->
-  eval [] (empty_locals _) h u' h' v ->
-  eval [] (empty_locals _) h (Mapply (compile_pipeline Σ t, [u'])) h' w ->
+  eval [] empty_locals h (compile_pipeline Σ u) h v ->
+  eval [] empty_locals h u' h' v ->
+  eval [] empty_locals h (Mapply (compile_pipeline Σ t, [u'])) h' w ->
   ∥{w' & vrel w w' /\ 
-        eval [] (empty_locals _) h (compile_pipeline Σ (tApp t u)) h w'}∥.
+        eval [] empty_locals h (compile_pipeline Σ (tApp t u)) h w'}∥.
 Proof.
   intros Htyp Herase Hu Hu' Happ.
   erewrite compile_app; eauto.
@@ -1308,24 +1308,28 @@ Lemma CoqFunction_to_CamlFunction {funext:Funext} {P:Pointer} {H:Heap} {HP : @Co
   (Hindices : Forall (fun ind => ind_indices ind = []) (ind_bodies mind))
   (Hnparam : ind_npars mind = 0)
   (Hmono : ind_universes mind = Monomorphic_ctx)
-  (Hfo : is_true (forallb (@firstorder_oneind [] mind) (ind_bodies mind))) ind Eind f na l:
+  (Hfo : is_true (forallb (@firstorder_oneind [] mind) (ind_bodies mind))) ind ind' Eind Eind' f na l:
   let adt := CoqType_to_camlType mind Hparam Hfo in
   let Σ : global_env_ext_map := (build_global_env_map (mk_global_env univ [(kn , InductiveDecl mind)] retro), univ_decl) in
   let global_adt := add_ADT _ _ [] [] kn adt in 
   ind_sort Eind = Universe.lType l ->
+  ind_sort Eind' = Universe.lType l ->
   PCUICTyping.wf_ext (Σ,univ_decl) ->
   with_constructor_as_block = true ->
   ind < List.length (snd adt) ->
+  ind' < List.length (snd adt) ->
   lookup_inductive Σ (mkInd kn ind) = Some (mind, Eind) ->
-  ∥ Σ ;;; [] |- f : tProd na (tInd (mkInd kn ind) []) (tInd (mkInd kn ind) []) ∥ ->
+  lookup_inductive Σ (mkInd kn ind') = Some (mind, Eind') ->
+  ∥ Σ ;;; [] |- f : tProd na (tInd (mkInd kn ind) []) (tInd (mkInd kn ind') []) ∥ ->
   realize_term _ _ [] []
-        global_adt (Arrow (Adt kn ind []) (Adt kn ind [])) 
-        (compile_pipeline Σ  f).
+        global_adt (Arrow (Adt kn ind []) (Adt kn ind' [])) 
+        (compile_pipeline Σ f).
 Proof.
-  intros ? ? ? Hind_sort wfΣ ? ? Hlookup. intros. cbn. rewrite ReflectEq.eqb_refl. 
+  intros ? ? ? ? Hind_sort wfΣ ? ? ? Hlookup Hlookup'. intros. simpl. rewrite ReflectEq.eqb_refl.
+  unfold to_realize_term. cbn. 
   pose proof (wfΣ_ext := wfΣ). destruct wfΣ as [wfΣ ?].
   intros t Ht. unfold to_realize_term in *. intros h h' v Heval.
-  pose proof (Hlookup' := Hlookup).
+  pose proof (Hlookup'' := Hlookup).
   unfold lookup_inductive, lookup_inductive_gen, lookup_minductive_gen in Hlookup. cbn in Hlookup.
   rewrite ReflectEq.eqb_refl in Hlookup.
   assert (HEind : nth_error (ind_bodies mind) ind = Some Eind).

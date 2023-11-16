@@ -222,6 +222,8 @@ Fixpoint get (n : nat) (s : string) {struct s} : option Byte.byte :=
       end
   end.
 
+Definition empty_locals `{Pointer} : Ident.Map.t := fun _ => fail "notfound".
+
 Section eval.
 
 Variable _Pointer:Pointer.
