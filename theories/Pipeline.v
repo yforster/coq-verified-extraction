@@ -842,9 +842,6 @@ Local Existing Instance CanonicalPointer.
 Program Definition malfunction_pipeline (efl := EWellformed.all_env_flags) :
  Transform.t _ _ _ _ _ _ TemplateProgram.eval_template_program
              (fun _ _ => True) :=
-  pre_erasure_pipeline ▷ (verified_malfunction_pipeline _).
-Next Obligation.
-  exact (int_of_nat 0, fun _ => []).
-Defined.
+  pre_erasure_pipeline ▷ verified_malfunction_pipeline.
 
 About compile_malfunction.
