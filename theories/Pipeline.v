@@ -2,7 +2,7 @@
 From Coq Require Import Program ssreflect ssrbool.
 From MetaCoq.Common Require Import Transform config.
 From MetaCoq.Utils Require Import bytestring utils.
-From MetaCoq.PCUIC Require Import PCUICAst PCUICAstUtils PCUICTyping PCUICProgram.
+From MetaCoq.PCUIC Require Import PCUICAst PCUICTyping PCUICReduction PCUICAstUtils PCUICTyping PCUICProgram PCUICFirstorder.
 From MetaCoq.SafeChecker Require Import PCUICErrors PCUICWfEnvImpl.
 From MetaCoq.Erasure Require EAstUtils ErasureFunction ErasureCorrectness EPretty Extract.
 From MetaCoq Require Import ETransform EConstructorsAsBlocks.
@@ -138,6 +138,8 @@ Definition check_good_for_extraction fl (p : program (list (kername × EAst.glob
 #[local] Obligation Tactic := try now program_simpl.
 
 Axiom assume_can_be_extracted : forall erased_program, good_for_extraction extraction_env_flags erased_program.
+
+
 
 Program Definition enforce_extraction_conditions (efl := EWellformed.all_env_flags) `{Pointer} `{Heap} :
   t EAst.global_declarations EAst.global_declarations EAst.term EAst.term EAst.term
@@ -485,13 +487,13 @@ Section compile_malfunction_pipeline.
   Variable hp : heap.
 
   Variable Σ : global_env_ext_map.
-  Variable t : PCUICAst.term.
-  Variable T : PCUICAst.term.
+  Variable t : term.
+  Variable T : term.
 
-  Variable HΣ : PCUICTyping.wf_ext Σ.
+  Variable HΣ : wf_ext Σ.
   Variable expΣ : PCUICEtaExpand.expanded_global_env Σ.1.
   Variable expt : PCUICEtaExpand.expanded Σ.1 [] t.
-  Variable typing : PCUICTyping.typing Σ [] t T.
+  Variable typing : Σ ;;; [] |- t : T.
 
   Variable Normalisation : forall Σ0 : PCUICAst.PCUICEnvironment.global_env_ext,
   PCUICTyping.wf_ext Σ0 -> PCUICSN.NormalizationIn Σ0.
@@ -550,9 +552,9 @@ Section malfunction_pipeline_theorem.
   Variable u : Universes.Instance.t.
   Variable args : list PCUICAst.term.
 
-  Variable typing : PCUICTyping.typing Σ [] t (PCUICAst.mkApps (PCUICAst.tInd i u) args).
+  Variable typing : Σ ;;; [] |- t : PCUICAst.mkApps (PCUICAst.tInd i u) args.
 
-  Variable fo : @PCUICFirstorder.firstorder_ind Σ (PCUICFirstorder.firstorder_env Σ) i.
+  Variable fo : firstorder_ind Σ (firstorder_env Σ) i.
 
   Variable noParam : forall i mdecl, lookup_env Σ i = Some (InductiveDecl mdecl) -> ind_npars mdecl = 0. 
 
@@ -562,8 +564,8 @@ Section malfunction_pipeline_theorem.
   Let Σ_t := (compile_malfunction_pipeline _ _ hp _ _ _ _ expΣ expt typing _).1.
   Let t_t := (compile_malfunction_pipeline _ _ hp _ _ _ _ expΣ expt typing _).2.
 
-  Variable v_red : ∥PCUICReduction.red Σ [] t v∥.
-  Variable v_irred : forall t', (PCUICReduction.red1 Σ [] v t') -> False.
+  Variable v_red : ∥Σ;;; [] |- t ⇝* v∥.
+  Variable v_irred : forall t', (Σ;;; [] |- v ⇝ t') -> False.
 
   Lemma Heval : ∥PCUICWcbvEval.eval Σ t v∥.
   Proof.
@@ -840,10 +842,5 @@ Program Definition malfunction_pipeline (efl := EWellformed.all_env_flags) :
 Next Obligation.
   exact (int_of_nat 0, fun _ => []).
 Defined.
-
-Definition compile_malfunction (cf := config.extraction_checker_flags) (p : Ast.Env.program) 
-  : string :=
-  let p' := run malfunction_pipeline p (todo "assume we run compilation on a welltyped term"%bs) in
-  time "Pretty printing"%bs (fun p =>(@to_string _ Serialize_module p)) p'.
 
 About compile_malfunction.

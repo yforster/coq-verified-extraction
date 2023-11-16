@@ -37,6 +37,11 @@ Extract Constant PCUICTyping.guard_checking => "(fun _ _ _ _ -> true)". *)
 
 Cd "plugin/extraction".
 
+Definition compile_malfunction (cf := config.extraction_checker_flags) (p : Ast.Env.program) 
+  : string :=
+  let p' := Transform.Transform.run malfunction_pipeline p (todo "assume we run compilation on a welltyped term"%bs) in
+  Transform.time "Pretty printing"%bs (fun p =>(@CeresSerialize.to_string _ Serialize.Serialize_module p)) p'.
+
 Separate Extraction compile_malfunction 
          (* The following directives ensure separate extraction does not produce name clashes *)
          Coq.Strings.String utils Template.UnivSubst ELiftSubst EGlobalEnv.
