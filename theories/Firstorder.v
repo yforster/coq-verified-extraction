@@ -1299,7 +1299,7 @@ Proof.
   etransitivity; eauto. eapply PCUICContextConversion.ws_cumul_pb_eq_le; symmetry; eauto.
 Qed.  
 
-Lemma CoqFunction_to_CamlFunction {funext:Funext} {P:Pointer} {H:Heap} {HP : @CompatiblePtr P P}
+Lemma interoperability_firstorder_function {funext:Funext} {P:Pointer} {H:Heap} {HP : @CompatiblePtr P P}
   {HH : @CompatibleHeap _ _ _ H H} 
   (Hvrel_refl : forall v, vrel v v)
   (Hheap_refl : forall h, R_heap h h) `{WcbvFlags} (efl := extraction_env_flags) (cf:=config.extraction_checker_flags)
