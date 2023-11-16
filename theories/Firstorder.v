@@ -373,14 +373,6 @@ ind_universes0 ind_variance0) x Hparam Hfo'); eauto.
       + cbn in *. now eapply IHind_ctors0. 
   Qed. 
 
-  Axiom ctors_max_length : forall mind j k ind ctors,
-    nth_error mind j = Some ind ->
-    nth_error (ind_ctors ind) k = Some ctors -> 
-    #|cstr_args ctors| < int_to_nat max_length.
-  Axiom ind_ctors_wB : forall mind j ind,
-    nth_error mind j = Some ind ->
-    #|ind_ctors ind| <= Z.to_nat Uint63.wB.
-
   #[local] Instance cf_ : checker_flags := extraction_checker_flags.
   #[local] Instance nf_ : PCUICSN.normalizing_flags := PCUICSN.extraction_normalizing.
 
@@ -746,6 +738,12 @@ Proof.
       * cbn in H0. destruct ind0. inversion H0.
   Qed. 
 
+  Record pcuic_good_for_extraction {Σ : global_env} := 
+    { ctors_max_length : forall mind j k ind ctors, nth_error mind j = Some ind -> nth_error (ind_ctors ind) k = Some ctors -> 
+        #|cstr_args ctors| < int_to_nat max_length;
+      ind_ctors_wB : forall mind j ind, nth_error mind j = Some ind -> #|ind_ctors ind| <= Z.to_nat Uint63.wB }.
+  Arguments pcuic_good_for_extraction : clear implicits.
+
   Lemma camlValue_to_CoqValue_nil `{Heap} `{WcbvFlags} (cf:=config.extraction_checker_flags)
     univ retro univ_decl kn mind
     (Hparam : ind_params mind = [])
@@ -755,6 +753,7 @@ Proof.
     (Hfo : is_true (forallb (@firstorder_oneind [] mind) (ind_bodies mind))) :
     let adt := CoqType_to_camlType mind Hparam Hfo in
     let Σ : global_env_ext_map := (build_global_env_map (mk_global_env univ [(kn , InductiveDecl mind)] retro), univ_decl) in
+    pcuic_good_for_extraction Σ ->
     PCUICTyping.wf Σ ->
     with_constructor_as_block = true ->
     forall v ind Eind, 
@@ -766,8 +765,8 @@ Proof.
     eval [] empty_locals h (compile_pipeline Σ t) h v.
   Proof. 
     rename H into HP; rename H0 into HHeap; rename H1 into H. 
-    intros adt Σ wfΣ Hflag v ind Eind Hind Hlookup [step Hrel].
-    revert kn mind Hparam Hindices Hnparam Hmono Hfo v ind Eind adt Σ wfΣ Hflag Hind Hlookup Hrel. 
+    intros adt Σ good wfΣ Hflag v ind Eind Hind Hlookup [step Hrel].
+    revert kn mind Hparam Hindices Hnparam Hmono Hfo v ind Eind adt Σ good wfΣ Hflag Hind Hlookup Hrel. 
     induction step; intros;  [inversion Hrel|].
     apply leb_correct in Hind. simpl in Hrel, Hind. 
     unfold Nat.ltb in Hrel. rewrite Hind in Hrel.
@@ -868,7 +867,7 @@ Proof.
         rewrite firstn_length.
         unshelve erewrite CoqType_to_camlType'_nth_length in Hk'; eauto.
         etransitivity. apply Nat.le_min_l.
-        apply ind_ctors_wB in e. lia.
+        apply good.(ind_ctors_wB) in e. lia.
         unshelve erewrite CoqType_to_camlType'_nth in Hk'; eauto.
         rewrite -> H1 at 2. rewrite <- Int63.of_Z_spec. 
         econstructor.
@@ -1079,9 +1078,8 @@ Proof.
   forall (wt : Σ ;;; [] |- t : tInd (mkInd kn ind) [])
   (expΣ : PCUICEtaExpand.expanded_global_env Σ)
   (expt : PCUICEtaExpand.expanded Σ [] t), 
-  forall v v_red v_irred,
-  let Σb := (Transform.transform verified_named_erasure_pipeline (Σ, v) (ErasureCorrectness.precond2 _ _ _ _ expΣ expt wt Normalisation _ 
-    (Pipeline.Heval v_red v_irred)).1 in
+  forall v Heval,
+  let Σb := (Transform.transform verified_named_erasure_pipeline (Σ, v) (ErasureCorrectness.precond2 _ _ _ _ expΣ expt wt Normalisation _ Heval)).1 in
   ErasureCorrectness.firstorder_evalue_block Σb (ErasureCorrectness.compile_value_box Σ v []).
   Admitted. 
 
@@ -1120,9 +1118,8 @@ Proof.
     Opaque verified_named_erasure_pipeline. 
     simpl in Heval', Hfo'. sq. 
     set (Σp := {| universes := _ |}) in *.
-    epose proof (compile_value_mf_eq _ _ _ _ _ _ _ _ _ _ _ [] wt). cbn in H7,Heval'; eauto.
-    rewrite H7 in Heval'.
-    2-3: todo "".   
+    rewrite (compile_value_mf_eq _ _ _ _ _ _ _ _ _ _ [] wt) in Heval'; eauto.
+    1-2: todo "".   
     unshelve eapply eval_det in Heval'; eauto.
     2: { intros ? ? ? X. inversion X. }
     2: { econstructor. }
@@ -1141,7 +1138,8 @@ Proof.
     eapply PCUICInductiveInversion.Construct_Ind_ind_eq' with (args' := []) in wtv; eauto.
     repeat destruct wtv as [? wtv]. repeat destruct p.
     subst. 
-    unfold compile_value_mf in Heval'. rewrite compile_value_box_mkApps in Heval'. 
+    unfold compile_value_mf in Heval'.
+    rewrite compile_value_box_mkApps in Heval'. 
     simpl in *.
     unfold ErasureCorrectness.pcuic_lookup_inductive_pars in Heval'.
     rewrite PCUICExpandLetsCorrectness.trans_lookup in Heval'.
