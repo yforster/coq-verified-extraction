@@ -575,7 +575,8 @@ Section malfunction_pipeline_theorem.
 
     eapply PCUICNormalization.wcbv_standardization_fst; eauto.
     instantiate (1 := mdecl).
-    1: todo "declared_inductive lookup_env".
+    1: { destruct HΣ. 
+         unshelve eapply declared_inductive_to_gen in HA; eauto. }
     firstorder.
   Qed.
 
@@ -809,13 +810,12 @@ Section malfunction_pipeline_theorem.
   Qed. 
 
   Lemma verified_named_erasure_pipeline_fo :
-    firstorder_evalue_block Σ_v (compile_value_box Σ v []).
+    firstorder_evalue_block Σ_v (compile_value_box (PCUICExpandLets.trans_global_env Σ) v []).
   Proof.
     unfold Σ_v, verified_named_erasure_pipeline.
     repeat (destruct_compose; simpl; intro).
     unshelve epose proof ErasureCorrectness.verified_erasure_pipeline_firstorder_evalue_block _ _ _ _ _ _ _ _ _ _ typing _ _ _; eauto using Heval.
-    assert (Hexpand: PCUICExpandLets.trans_global_env Σ = Σ) by todo "expand".
-    rewrite Hexpand in H2. set (v' := compile_value_box _ _ _) in *. clearbody v'.
+    set (v' := compile_value_box _ _ _) in *. clearbody v'.
     clear -H2. eapply firstorder_evalue_block_elim; eauto. clear. intros; econstructor; eauto. 
     clear -H. cbn in *. rewrite lookup_env_annotate lookup_env_implement_box.
     unfold enforce_extraction_conditions. unfold transform at 1.
