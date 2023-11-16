@@ -1079,8 +1079,9 @@ Proof.
   forall (wt : Σ ;;; [] |- t : tInd (mkInd kn ind) [])
   (expΣ : PCUICEtaExpand.expanded_global_env Σ)
   (expt : PCUICEtaExpand.expanded Σ [] t), 
-  forall v (Heval : ∥PCUICWcbvEval.eval Σ t v∥),  
-  let Σb := (Transform.transform verified_named_erasure_pipeline (Σ, v) (ErasureCorrectness.precond2 _ _ _ _ expΣ expt wt Normalisation _ Heval)).1 in
+  forall v v_red v_irred,
+  let Σb := (Transform.transform verified_named_erasure_pipeline (Σ, v) (ErasureCorrectness.precond2 _ _ _ _ expΣ expt wt Normalisation _ 
+    (Pipeline.Heval v_red v_irred)).1 in
   ErasureCorrectness.firstorder_evalue_block Σb (ErasureCorrectness.compile_value_box Σ v []).
   Admitted. 
 
@@ -1107,7 +1108,7 @@ Proof.
       eval [] empty_locals h (compile_pipeline Σ t) h v
       -> realize_ADT _ _ [] [] adt [] All_nil ind v.
   Proof.
-(*    intros ? ? HΣ ? ? ? ? ? Hlookup ? ? ? ? ? ? Heval_compile.  pose proof Normalisation. 
+    intros ? ? HΣ ? ? ? ? ? Hlookup ? ? ? ? ? ? Heval_compile.  pose proof Normalisation. 
     assert (Hax: PCUICClassification.axiom_free Σ).
     { intros ? ? X. now inversion X. }
     unshelve epose proof (PCUICNormalization.wcbv_normalization HΣ _ wt) as [tv Heval]; eauto.
@@ -1118,7 +1119,9 @@ Proof.
     Hmono Hfo HΣ _ t ind Eind _ _ wt expΣ expt tv (sq Heval)); eauto. 
     Opaque verified_named_erasure_pipeline. 
     simpl in Heval', Hfo'. sq. 
-    erewrite (compile_value_mf_eq _ _ _ _ _ _ _ _ _ _ [] wt) in Heval'; eauto.
+    set (Σp := {| universes := _ |}) in *.
+    epose proof (compile_value_mf_eq _ _ _ _ _ _ _ _ _ _ _ [] wt). cbn in H7,Heval'; eauto.
+    rewrite H7 in Heval'.
     2-3: todo "".   
     unshelve eapply eval_det in Heval'; eauto.
     2: { intros ? ? ? X. inversion X. }
@@ -1255,8 +1258,8 @@ Qed.
 
 From MetaCoq.PCUIC Require Import PCUICWellScopedCumulativity. 
 
-Lemma Prod_ind_irred `{checker_flags} Σ Γ f na kn ind X :
-  let PiType := tProd na (tInd (mkInd kn ind) []) (tInd (mkInd kn ind) []) in
+Lemma Prod_ind_irred `{checker_flags} Σ Γ f na kn ind ind' X :
+  let PiType := tProd na (tInd (mkInd kn ind) []) (tInd (mkInd kn ind') []) in
   wf_ext Σ ->
   Σ ;;; Γ |- f : PiType ->
   Σ ;;; Γ ⊢ PiType ⇝ X ->
@@ -1273,8 +1276,8 @@ Proof.
     inversion o.
 Qed. 
 
-Lemma Prod_ind_principal `{checker_flags} Σ Γ f na kn ind :
-  let PiType := tProd na (tInd (mkInd kn ind) []) (tInd (mkInd kn ind) []) in
+Lemma Prod_ind_principal `{checker_flags} Σ Γ f na kn ind ind' :
+  let PiType := tProd na (tInd (mkInd kn ind) []) (tInd (mkInd kn ind') []) in
   wf_ext Σ ->
   Σ ;;; Γ |- f : PiType ->
   forall B, Σ ;;; Γ |- f : B -> Σ ;;; Γ ⊢ PiType ≤ B.
@@ -1307,6 +1310,7 @@ Lemma interoperability_firstorder_function {funext:Funext} {P:Pointer} {H:Heap} 
   (Hparam : ind_params mind = [])
   (Hindices : Forall (fun ind => ind_indices ind = []) (ind_bodies mind))
   (Hnparam : ind_npars mind = 0)
+  (Hfinite : ind_finite mind == Finite)
   (Hmono : ind_universes mind = Monomorphic_ctx)
   (Hfo : is_true (forallb (@firstorder_oneind [] mind) (ind_bodies mind))) ind ind' Eind Eind' f na l:
   let adt := CoqType_to_camlType mind Hparam Hfo in
@@ -1315,6 +1319,8 @@ Lemma interoperability_firstorder_function {funext:Funext} {P:Pointer} {H:Heap} 
   ind_sort Eind = Universe.lType l ->
   ind_sort Eind' = Universe.lType l ->
   PCUICTyping.wf_ext (Σ,univ_decl) ->
+  PCUICEtaExpand.expanded_global_env Σ ->
+  PCUICEtaExpand.expanded Σ [] f ->
   with_constructor_as_block = true ->
   ind < List.length (snd adt) ->
   ind' < List.length (snd adt) ->
@@ -1325,13 +1331,14 @@ Lemma interoperability_firstorder_function {funext:Funext} {P:Pointer} {H:Heap} 
         global_adt (Arrow (Adt kn ind []) (Adt kn ind' [])) 
         (compile_pipeline Σ f).
 Proof.
-  intros ? ? ? ? Hind_sort wfΣ ? ? ? Hlookup Hlookup'. intros. simpl. rewrite ReflectEq.eqb_refl.
+  intros ? ? ? ? Hind_sort wfΣ expΣ expf ? ? ? Hlookup Hlookup'. intros. simpl. rewrite ReflectEq.eqb_refl.
   unfold to_realize_term. cbn. 
   pose proof (wfΣ_ext := wfΣ). destruct wfΣ as [wfΣ ?].
   intros t Ht. unfold to_realize_term in *. intros h h' v Heval.
   pose proof (Hlookup'' := Hlookup).
-  unfold lookup_inductive, lookup_inductive_gen, lookup_minductive_gen in Hlookup. cbn in Hlookup.
-  rewrite ReflectEq.eqb_refl in Hlookup.
+  pose proof (Hlookup''' := Hlookup').
+  unfold lookup_inductive, lookup_inductive_gen, lookup_minductive_gen in Hlookup, Hlookup'. cbn in Hlookup, Hlookup'.
+  rewrite ReflectEq.eqb_refl in Hlookup, Hlookup'.
   assert (HEind : nth_error (ind_bodies mind) ind = Some Eind).
   { destruct (nth_error (ind_bodies mind) ind); now inversion Hlookup. }
   assert (Htype_ind : (Σ, univ_decl);;; []
@@ -1349,71 +1356,77 @@ Proof.
       inversion onInductives. cbn in *.
       eapply nth_error_forall in Hindices; eauto. cbn in Hindices. rewrite Hindices in ind_arity_eq.                       
       cbn in ind_arity_eq. rewrite Hparam in ind_arity_eq. cbn in ind_arity_eq.
-      now rewrite ind_arity_eq in X. }     
-  assert (Htype_ind' : (Σ, univ_decl);;;
-  [],,
-  vass na
-    (tInd {| inductive_mind := kn; inductive_ind := ind |}
-       [])
-  |- tInd {| inductive_mind := kn; inductive_ind := ind |}
-       [] : tSort (subst_instance_univ [] (ind_sort Eind))).
-  {     unshelve epose proof (type_Ind (Σ,univ_decl) 
-  ([],,vass na (tInd {| inductive_mind := kn; inductive_ind := ind |} [])) (mkInd kn ind) [] mind Eind _ _ _).
-  *** econstructor. econstructor. cbn. unfold infer_sort.
-      eexists; eauto.   
+      now rewrite ind_arity_eq in X. }
+  assert (HEind' : nth_error (ind_bodies mind) ind' = Some Eind').
+  { destruct (nth_error (ind_bodies mind) ind'); now inversion Hlookup'. }
+  assert (Htype_ind' : (Σ, univ_decl);;; []
+  |- tInd {| inductive_mind := kn; inductive_ind := ind' |}
+        [] : (tSort (ind_sort Eind'))@[[]]).
+  {  unshelve epose proof (type_Ind (Σ,univ_decl) [] (mkInd kn ind') [] mind Eind' _ _ _).
+  *** econstructor.
   *** unfold declared_constructor, declared_inductive. subst. now cbn.
   *** unfold consistent_instance_ext, consistent_instance; cbn.
       now rewrite Hmono.
-  *** unfold ind_type in X. destruct Eind; cbn in *.
+  *** unfold ind_type in X. destruct Eind'; cbn in *.
       unfold PCUICTyping.wf in wfΣ. inversion wfΣ as [_ wfΣ'].
       cbn in wfΣ'. inversion wfΣ'. clear X0. inversion X1. inversion on_global_decl_d.
       eapply Alli_nth_error in onInductives; eauto. cbn in onInductives.
       inversion onInductives. cbn in *.
       eapply nth_error_forall in Hindices; eauto. cbn in Hindices. rewrite Hindices in ind_arity_eq.                       
       cbn in ind_arity_eq. rewrite Hparam in ind_arity_eq. cbn in ind_arity_eq.
-      now rewrite ind_arity_eq in X.  }      
+      now rewrite ind_arity_eq in X. } 
+  assert (Htype_ind'' : (Σ, univ_decl);;;
+  [],,
+  vass na
+    (tInd {| inductive_mind := kn; inductive_ind := ind |}
+       [])
+  |- tInd {| inductive_mind := kn; inductive_ind := ind' |}
+       [] : tSort (subst_instance_univ [] (ind_sort Eind'))).
+  { eapply (PCUICWeakeningTyp.weakening  _ _ ([vass na (tInd {| inductive_mind := kn; inductive_ind := ind |} [])])) in Htype_ind'; cbn in Htype_ind'; eauto.
+    repeat constructor. cbn. now eexists. }
   assert (Herase: ~ ∥ Extract.isErasable (Σ, univ_decl) [] f ∥).
-  { sq. eapply EArities.not_isErasable with (u := subst_instance_univ [] (ind_sort Eind)) ; cbn; eauto; intros. 
-    - sq. eapply Prod_ind_irred; eauto.
+  { sq. eapply EArities.not_isErasable with (u := subst_instance_univ [] (Universe.lType l)); eauto; intros. 
+    - sq. eapply Prod_ind_irred ; eauto.
     - sq. eapply Prod_ind_principal; eauto. 
     - intro; sq; eauto.
-    - sq. rewrite <- (sort_of_product_idem (subst_instance_univ [] (ind_sort Eind))). eapply type_Prod; eauto.
-    - unfold subst_instance_univ. now rewrite Hind_sort. }
+    - sq. rewrite <- (sort_of_product_idem (subst_instance_univ [] (Universe.lType l))). eapply type_Prod; eauto.
+      now rewrite -H1. now rewrite -Hind_sort. }
   inversion Heval; subst.
-  - specialize (Ht _ _ _ H8).
-    unshelve eapply camlValue_to_CoqValue_nil in Ht; eauto; cbn.
+  - specialize (Ht _ _ _ H10).
+    unshelve eapply camlValue_to_CoqValue_nil in Ht. 13:eauto. all:eauto; cbn.
     destruct Ht as [t_coq Ht]. specialize (Ht h2). destruct Ht as [Ht_typ Ht_eval].
-    eapply isPure_heap in H6; try eapply compile_pure; intros; cbn; eauto. cbn in H6.
-    destruct H6 as [[? ? ] ?]. eapply isPure_heap in H11 as [? ?]; eauto.
+    eapply isPure_heap in H8; try eapply compile_pure; intros; cbn; eauto. cbn in H8.
+    destruct H8 as [[? ? ] ?]. eapply isPure_heap in H13 as [? ?]; eauto.
     2: { unfold Ident.Map.add; intro. destruct (Ident.eqb s x); eauto.
       eapply isPure_heap in Ht_eval; try eapply compile_pure; intros; cbn; eauto. now destruct Ht_eval. } 
-    subst. eapply compile_compose in H8 as [[? [? ?]]]; eauto.
+    subst. eapply compile_compose in H10 as [[? [? ?]]]; eauto.
     2: { eapply isPure_heap_irr,  Ht_eval; try eapply compile_pure; intros; cbn; eauto. }
     assert (v = x0). { unshelve eapply isPure_value_vrel_eq; eauto. }
-    subst. unshelve eapply CoqValue_to_CamlValue; try exact H8; eauto.
-    sq. unshelve epose proof (type_App _ _ _ _ _ _ _ _ _ H3 Ht_typ); try exact (subst_instance_univ [] (ind_sort Eind)); eauto.
-    rewrite <- (sort_of_product_idem _). eapply type_Prod; eauto.
-  - specialize (Ht _ _ _ H7).
+    subst. sq. unshelve eapply CoqValue_to_CamlValue with (t := tApp f t_coq). all:eauto.
+    unshelve epose proof (type_App _ _ _ _ _ _ _ _ _ H5 Ht_typ); try exact (subst_insatance_univ [] (ind_sort Eind)); eauto.
+    eapply PCUICEtaExpand.expanded_tApp; eauto.
+    econstructor.
+  - specialize (Ht _ _ _ H9).
     eapply camlValue_to_CoqValue_nil in Ht; eauto; cbn.
     destruct Ht as [t_coq Ht].
     specialize (Ht h2).  destruct Ht as [Ht_typ Ht_eval].
-    eapply isPure_heap in H6; try eapply compile_pure; intros; cbn; eauto.
-    cbn in H6. destruct H6 as [[? ? ] ?]. rewrite nth_nth_error in H9. 
-    case_eq (nth_error mfix n); intros;  [|rewrite H8 in H9; inversion H9].
-    pose proof (H5_copy := H5). eapply (nth_error_forall (n:=n)) in H5; eauto.
-    rewrite H8 in H9. subst. 
-    eapply isPure_heap in H12 as [? ?]; eauto.
+    eapply isPure_heap in H8; try eapply compile_pure; intros; cbn; eauto.
+    cbn in H8. destruct H8 as [[? ? ] ?]. rewrite nth_nth_error in H11. 
+    case_eq (nth_error mfix n); intros;  [|rewrite H10 in H11; inversion H11].
+    pose proof (H5_copy := H7). eapply (nth_error_forall (n:=n)) in H7; eauto.
+    rewrite H10 in H11. subst. 
+    eapply isPure_heap in H14 as [? ?]; eauto.
     2: { unfold Ident.Map.add; intro; destruct (Ident.eqb s y); eauto.
          eapply isPure_heap in Ht_eval; try eapply compile_pure; intros; cbn; eauto. 
          now destruct Ht_eval as [? _]. eapply isPure_add_self; eauto. }
-    cbn in H5. subst. eapply compile_compose in H7 as [[? [? ?]]]; eauto.
+    cbn in H7. subst. eapply compile_compose in H9 as [[? [? ?]]]; eauto.
     2: { eapply isPure_heap_irr,  Ht_eval; try eapply compile_pure; intros; cbn; eauto. }
     assert (v = x). { unshelve eapply isPure_value_vrel_eq; eauto. }
-    subst. unshelve eapply CoqValue_to_CamlValue; try exact H9; eauto.
-    sq. unshelve epose proof (type_App _ _ _ _ _ _ _ _ _ H3 Ht_typ); try exact (subst_instance_univ [] (ind_sort Eind)); eauto. 
-    rewrite <- (sort_of_product_idem _).
-    eapply type_Prod; eauto.
-  - rewrite (compile_function _ _ _ _ _ _ _ _ H3 _ H7) in H10; eauto. inversion H10.
-  Qed.
+    subst. sq. unshelve eapply CoqValue_to_CamlValue; try exact H11; eauto.
+    sq. unshelve epose proof (type_App _ _ _ _ _ _ _ _ _ H5 Ht_typ); try exact (subst_instance_univ [] (ind_sort Eind)); eauto. 
+    rewrite <- (sort_of_product_idem _). rewrite {2}H1 -Hind_sort.
+    eapply type_Prod; eauto. all:admit.
+  - rewrite (compile_function _ _ _ _ _ _ _ _ H5 _ H9) in H12; eauto. inversion H12.
+Qed.
 
   

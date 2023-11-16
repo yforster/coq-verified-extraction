@@ -562,24 +562,7 @@ Section malfunction_pipeline_theorem.
 
   Let Σ_t := (compile_malfunction_pipeline expΣ expt typing).1.
 
-  Variable v_red : ∥Σ;;; [] |- t ⇝* v∥.
-  Variable v_irred : forall t', (Σ;;; [] |- v ⇝ t') -> False.
-
-  Lemma Heval : ∥PCUICWcbvEval.eval Σ t v∥.
-  Proof.
-    sq.
-    eapply PCUICValidity.validity in typing as Hv.
-    destruct Hv as [? HA].
-    eapply PCUICValidity.inversion_mkApps in HA as (A & HA & _).
-    eapply PCUICInversion.inversion_Ind in HA as (mdecl & idecl & _ & HA & _); eauto.
-
-    eapply PCUICNormalization.wcbv_standardization_fst; eauto.
-    instantiate (1 := mdecl).
-    1: { destruct HΣ. 
-         unshelve eapply declared_inductive_to_gen in HA; eauto. }
-    firstorder.
-  Qed.
-
+  Variable Heval : ∥PCUICWcbvEval.eval Σ t v∥.
   Let Σ_v := (transform verified_named_erasure_pipeline (Σ, v) (precond2 _ _ _ _ expΣ expt typing _ _ Heval)).1.
   Let Σ_t' := (transform verified_named_erasure_pipeline (Σ, t) (precond _ _ _ _ expΣ expt typing _)).1.
 
@@ -780,7 +763,7 @@ Section malfunction_pipeline_theorem.
     unshelve epose proof (verified_erasure_pipeline_theorem _ _ _ _ _ _ _ _ _ _ _ _ _ Heval); eauto.
     (* unshelve epose proof (correctness (verified_malfunction_pipeline hp)) as Hpost. *)
     rewrite compile_value_mf_eq. 
-    { eapply fo_v; eauto. eapply Heval. }
+    { eapply fo_v; eauto. }
     unfold compile_malfunction_pipeline, verified_malfunction_pipeline, verified_named_erasure_pipeline in *. revert HΣ'.
     repeat destruct_compose ; intros.
     unfold compile_to_malfunction. unfold transform at 1. simpl.
@@ -796,7 +779,6 @@ Section malfunction_pipeline_theorem.
          unfold transform at 1; cbn -[transform].
          unfold transform at 1; cbn -[transform].
          unshelve epose proof (verified_erasure_pipeline_firstorder_evalue_block _ _ _ _ _ _ _ _ _ _ typing _ _ _); eauto.
-         eapply Heval.
          eapply annotate_firstorder_evalue_block.
          eapply implement_box_firstorder_evalue_block.
          eassumption.
@@ -809,8 +791,8 @@ Section malfunction_pipeline_theorem.
     - eauto.  
     - revert HΣ'. unfold Σ_t'. repeat destruct_compose ; intros. eauto. 
     - rewrite Himpl_obs in Hname_obs. 
-      rewrite <- implement_box_fo in Hname_obs. 2: { eapply fo_v; eauto. eapply Heval. }
-      eapply represent_value_eval_fo in Hname_obs. 2: { eapply fo_v; eauto. eapply Heval. }
+      rewrite <- implement_box_fo in Hname_obs. 2: { eapply fo_v; eauto. }
+      eapply represent_value_eval_fo in Hname_obs. 2: { eapply fo_v; eauto. }
       unfold compile_named_value. rewrite <- Hname_obs. exact Hname_eval.
   Qed. 
 
@@ -829,6 +811,25 @@ Section malfunction_pipeline_theorem.
   Qed.    
     
   Transparent compose. 
+  
+  Variable v_red : ∥Σ;;; [] |- t ⇝* v∥.
+  Variable v_irred : forall t', (Σ;;; [] |- v ⇝ t') -> False.
+
+  Lemma red_eval : ∥PCUICWcbvEval.eval Σ t v∥.
+  Proof.
+    sq.
+    eapply PCUICValidity.validity in typing as Hv.
+    destruct Hv as [? HA].
+    eapply PCUICValidity.inversion_mkApps in HA as (A & HA & _).
+    eapply PCUICInversion.inversion_Ind in HA as (mdecl & idecl & _ & HA & _); eauto.
+
+    eapply PCUICNormalization.wcbv_standardization_fst; eauto.
+    instantiate (1 := mdecl).
+    1: { destruct HΣ. 
+         unshelve eapply declared_inductive_to_gen in HA; eauto. }
+    intros [t' ht]. eauto.
+  Qed.
+
 
 End malfunction_pipeline_theorem.
 
