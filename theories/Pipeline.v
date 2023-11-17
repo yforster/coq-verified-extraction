@@ -811,26 +811,24 @@ Section malfunction_pipeline_theorem.
     
   Transparent compose. 
   
-  Lemma verified_named_erasure_pipeline_lookup_env_in kn decl 
-  (efl := EInlineProjections.switch_no_params all_env_flags)  {has_rel : has_tRel} {has_box : has_tBox}  :
-  EGlobalEnv.lookup_env Σ_v kn = Some (EAst.InductiveDecl decl) ->
-  exists decl', 
-    PCUICAst.PCUICEnvironment.lookup_global (PCUICExpandLets.trans_global_decls
-    (PCUICAst.PCUICEnvironment.declarations
-       Σ.1)) kn = Some (PCUICAst.PCUICEnvironment.InductiveDecl decl')
-     /\ decl = ERemoveParams.strip_inductive_decl (ErasureFunction.erase_mutual_inductive_body decl').
-  Proof.
-    unfold Σ_v, verified_named_erasure_pipeline.
-    repeat (destruct_compose; simpl; intro).
-    unshelve epose proof ErasureCorrectness.verified_erasure_pipeline_firstorder_evalue_block _ _ _ _ _ _ _ _ _ _ typing _ _ _; eauto using Heval.
-    set (v' := compile_value_box _ _ _) in *. clearbody v'.
-    clear -H2. eapply firstorder_evalue_block_elim; eauto. clear. intros; econstructor; eauto. 
-    clear -H. cbn in *. rewrite lookup_env_annotate lookup_env_implement_box.
-    unfold enforce_extraction_conditions. unfold transform at 1.
-    destruct EGlobalEnv.lookup_env; [|inversion H].
-    destruct g; inversion H; subst; eauto.   
-
-
+  (* Lemma verified_named_erasure_pipeline_lookup_env_in kn decl  *)
+  (* (efl := EInlineProjections.switch_no_params all_env_flags)  {has_rel : has_tRel} {has_box : has_tBox}  : *)
+  (* EGlobalEnv.lookup_env Σ_v kn = Some (EAst.InductiveDecl decl) -> *)
+  (* exists decl',  *)
+  (*   PCUICAst.PCUICEnvironment.lookup_global (PCUICExpandLets.trans_global_decls *)
+  (*   (PCUICAst.PCUICEnvironment.declarations *)
+  (*      Σ.1)) kn = Some (PCUICAst.PCUICEnvironment.InductiveDecl decl') *)
+  (*    /\ decl = ERemoveParams.strip_inductive_decl (ErasureFunction.erase_mutual_inductive_body decl'). *)
+  (* Proof. *)
+  (*   unfold Σ_v, verified_named_erasure_pipeline. *)
+  (*   repeat (destruct_compose; simpl; intro). *)
+  (*   unshelve epose proof ErasureCorrectness.verified_erasure_pipeline_firstorder_evalue_block _ _ _ _ _ _ _ _ _ _ typing _ _ _; eauto using Heval. *)
+  (*   set (v' := compile_value_box _ _ _) in *. clearbody v'. *)
+  (*   clear -H2. eapply firstorder_evalue_block_elim; eauto. clear. intros; econstructor; eauto.  *)
+  (*   clear -H. cbn in *. rewrite lookup_env_annotate lookup_env_implement_box. *)
+  (*   unfold enforce_extraction_conditions. unfold transform at 1. *)
+  (*   destruct EGlobalEnv.lookup_env; [|inversion H]. *)
+  (*   destruct g; inversion H; subst; eauto.    *)
 
 End malfunction_pipeline_theorem.
 
