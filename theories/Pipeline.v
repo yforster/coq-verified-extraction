@@ -920,4 +920,9 @@ Program Definition malfunction_pipeline (efl := EWellformed.all_env_flags) :
              (fun _ _ => True) :=
   pre_erasure_pipeline ▷ verified_malfunction_pipeline.
 
+Definition compile_malfunction (cf := config.extraction_checker_flags) (p : Ast.Env.program) 
+  : string :=
+  let p' := run malfunction_pipeline p (todo "assume we run compilation on a welltyped term"%bs) in
+  time "Pretty printing"%bs (fun p =>(@to_string _ Serialize_module p)) p'.
+
 About compile_malfunction.
