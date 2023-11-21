@@ -53,16 +53,27 @@ Inductive Existsi {A : Type} (P : nat -> A -> Prop) (n : nat)
   | Existsi_cons_tl : forall (x : A) (l : list A),
                      Existsi P (S n) l -> Existsi P n (x :: l).
 
-Lemma Existsi_spec A (P : nat -> A -> Prop) n (l:list A) : Existsi P n l -> 
+Lemma Existsi_spec A (P : nat -> A -> Prop) n (l:list A) : Existsi P n l <-> 
   exists k x, n <= k /\ k < n + List.length l /\ P k x /\ nth_error l (k-n) = Some x.
 Proof.
-  induction 1.
-  - exists n; exists x. cbn; repeat split; eauto. lia.
-    now rewrite Nat.sub_diag.   
-  - destruct IHExistsi as [k [a [Hk [Hk' [HP Ha]]]]].
-    exists k; exists a. repeat split; eauto; cbn; try lia.
-    assert (k - n = S (k - S n)) by lia.
-    now rewrite H0. 
+  split. 
+  { induction 1.
+    - exists n; exists x. cbn; repeat split; eauto. lia.
+      now rewrite Nat.sub_diag.   
+    - destruct IHExistsi as [k [a [Hk [Hk' [HP Ha]]]]].
+      exists k; exists a. repeat split; eauto; cbn; try lia.
+      assert (k - n = S (k - S n)) by lia.
+      now rewrite H0. 
+  }
+  { revert n. induction l; intros n [k [? [? [? [? ?]]]]]. 
+    - rewrite nth_error_nil in H2. inversion H2.
+    - case_eq (k =? n); intro Hk. 
+      + eapply Nat.eqb_eq in Hk. econstructor. assert (k - n = 0) by lia.
+        rewrite H3 in H2. cbn in H2. now inversion H2.
+      + eapply EqNat.beq_nat_false_stt in Hk. econstructor 2.
+        eapply IHl. exists k, x. cbn in H0. repeat split; eauto; try lia.
+        assert (k - n = S (k -S n)) by lia. now rewrite H3 in H2. 
+  }
 Defined. 
 
 Section Realizability.
