@@ -103,7 +103,7 @@ Section Realizability.
       eval _ _ globals empty_locals h t h' v -> realize_val v.
 
     Definition to_realize_value (realize_term : t -> Prop) 
-      : value -> Prop := fun v => exists t h h', 
+      : value -> Prop := fun v => forall h, exists t h', 
         eval _ _ globals empty_locals h t h' v /\ realize_term t.
 
     Definition realize_term (A:camlType) : t -> Prop.

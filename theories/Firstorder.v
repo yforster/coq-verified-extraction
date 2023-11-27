@@ -763,7 +763,10 @@ Proof.
       ind_ctors_wB : forall mind j ind, nth_error mind j = Some ind -> #|ind_ctors ind| <= Z.to_nat Uint63.wB }.
   Arguments pcuic_good_for_extraction : clear implicits.
 
-  Lemma camlValue_to_CoqValue `{Heap} `{WcbvFlags} (cf:=config.extraction_checker_flags)
+  (*
+  Lemma realize_ADT_firstorder  {P : Pointer} {H : CompatiblePtr P P} (cf := extraction_checker_flags)
+  (efl := EInlineProjections.switch_no_params EWellformed.all_env_flags)  {has_rel : EWellformed.has_tRel} {has_box : EWellformed.has_tBox}  
+  {HP : @Heap P} `{@CompatibleHeap P P _ _ _} `{WcbvFlags} `{EWellformed.EEnvFlags}
     univ retro univ_decl kn mind
     (Hparam : ind_params mind = [])
     (Hindices : Forall (fun ind => ind_indices ind = []) (ind_bodies mind))
@@ -778,10 +781,39 @@ Proof.
     forall v ind Eind, 
     ind < List.length (snd adt) ->
     lookup_inductive Σ (mkInd kn ind) = Some (mind, Eind) ->
+    realize_value P HP [] (to_list (realize_ADT P HP [] [] adt [] All_nil ) #|ind_bodies mind|) [] (Rel ind) v <->
+    realize_ADT _ _ [] [] adt [] All_nil ind v.
+  Proof.
+    intros ? ? ? ? ? ? ? ? Hind Hlookup.
+    split; intro Hrel.
+    {
+      red in Hrel. unfold to_realize_value in Hrel. cbn.  
+    }  
+
+    induction step; intros; [inversion Hrel|].
+    destruct Hrel as [n Hrel]. red in Hrel. cbn in Hrel.    Hrel.     
+*)
+
+  Lemma camlValue_to_CoqValue `{Heap} `{WcbvFlags} (cf:=config.extraction_checker_flags)
+    univ retro univ_decl kn mind
+    (Hparam : ind_params mind = [])
+    (Hindices : Forall (fun ind => ind_indices ind = []) (ind_bodies mind))
+    (Hnparam : ind_npars mind = 0)
+    (Hmono : ind_universes mind = Monomorphic_ctx)
+    (empty_heap : heap)
+    (Hfo : is_true (forallb (@firstorder_oneind [] mind) (ind_bodies mind))) :
+    let adt := CoqType_to_camlType mind Hparam Hfo in
+    let Σ : global_env_ext_map := (build_global_env_map (mk_global_env univ [(kn , InductiveDecl mind)] retro), univ_decl) in
+    pcuic_good_for_extraction Σ ->
+    PCUICTyping.wf Σ ->
+    with_constructor_as_block = true ->
+    forall v ind Eind, 
+    ind < List.length (snd adt) ->
+    lookup_inductive Σ (mkInd kn ind) = Some (mind, Eind) ->
     realize_ADT _ _ [] [] adt [] All_nil ind v ->
-    exists t, forall h,  
+    exists t, 
     ∥ Σ ;;; [] |- t : tInd (mkInd kn ind) [] ∥ /\ 
-    eval [] empty_locals h (compile_pipeline Σ t) h v.
+    forall h, eval [] empty_locals h (compile_pipeline Σ t) h v.
   Proof. 
     rename H into HP; rename H0 into HHeap; rename H1 into H. 
     intros adt Σ good wfΣ Hflag v ind Eind Hind Hlookup [step Hrel].
@@ -888,7 +920,7 @@ Proof.
         etransitivity. apply Nat.le_min_l.
         apply good.(ind_ctors_wB) in e. lia.
         unshelve erewrite CoqType_to_camlType'_nth in Hk'; eauto.
-        rewrite -> H1 at 2. rewrite <- Int63.of_Z_spec. 
+        intro h. rewrite -> H1 at 2. rewrite <- Int63.of_Z_spec. 
         econstructor.
     - apply leb_complete in Hind. 
       apply Existsi_spec in Hrel as [k [Ts [Hk [HkS [Hrel HTs]]]]].
@@ -901,8 +933,8 @@ Proof.
       + pose proof (HTs' := HTs). apply filter_nth_error in HTs. destruct HTs as [HTs _].
         subst.
         assert (Forall2 (fun v T => 
-        (exists t, forall h,  ∥ (Σ , univ_decl) ;;; [] |- fst t : tInd (mkInd kn (#|ind_bodies mind| - S (snd t))) [] ∥ /\ 
-        eval [] empty_locals h (compile_pipeline Σ (fst t)) h v
+        (exists t, ∥ (Σ , univ_decl) ;;; [] |- fst t : tInd (mkInd kn (#|ind_bodies mind| - S (snd t))) [] ∥ /\ 
+        (forall h, eval [] empty_locals h (compile_pipeline Σ (fst t)) h v)
         /\ (0 <= snd t) /\ (snd t < #|ind_bodies mind|) /\ T = Rel (#|ind_bodies mind| - S (snd t)))) v' (T::Ts)).
         { 
           assert (Forall (fun T => exists l l', In (l ++ [T] ++ l') (nth ind (CoqType_to_camlType' mind Hparam Hfo) [])) (T::Ts)).
@@ -921,15 +953,16 @@ Proof.
             3: { rewrite nth_error_app2; eauto. rewrite Nat.sub_diag. reflexivity. }
             destruct HTs as [i [? [? Hx ]]]; subst. 
             cbn in H0. unfold realize_term in H0.
-            destruct H0 as [t [h [h' [Hheap ?]]]].
-            specialize (H0 h h' _ Hheap). rewrite to_list_nth in H0.
+            specialize (H0 empty_heap).
+            destruct H0 as [t [h' [Hheap ?]]].
+            specialize (H0 empty_heap h' _ Hheap). rewrite to_list_nth in H0.
             + rewrite CoqType_to_camlType'_length. lia.
             + pose (MCList.nth_error_spec (ind_bodies mind) (i - #|l0|)).
               destruct n. 2: { clear -H1 H2 l1. lia. }
               eapply IHstep in H0; eauto.
               2: { unfold CoqType_to_camlType; cbn. now rewrite CoqType_to_camlType'_length. }
               destruct H0 as [t' H0]. cbn. 
-              exists (t',i - #|l0|). cbn. intros. specialize (H0 h0). destruct H0. 
+              exists (t',i - #|l0|). cbn. intros. destruct H0. 
               sq. repeat split; eauto. lia. 
               unfold lookup_inductive, lookup_inductive_gen, lookup_minductive_gen, lookup_env. cbn.
               rewrite ReflectEq.eqb_refl. erewrite nth_error_nth'; cbn; [eauto|lia].
@@ -939,14 +972,14 @@ Proof.
         pose proof (Hv'Ts := Forall2_length H0).
         destruct (All_exists _ _ _ _ _ _ H0) as [lv' Hlv']. clear H0. 
         eapply Forall2_sym in Hlv'. cbn in Hlv'.
-        pose proof (Forall2_forall _ _ Hlv'). clear Hlv'. rename H0 into Hlv'. 
+        (* pose proof (Forall2_forall _ _ Hlv'). clear Hlv'. rename H0 into Hlv'.  *)
         eexists (mkApps (tConstruct (mkInd kn ind) k' []) (map fst lv')).
-        intro h. specialize (Hlv' h).  
         eapply Forall_Forall2_and_inv in Hlv'.
         destruct Hlv' as [Hlv' Hvallv'].
         eapply Forall2_and_inv in Hlv'. destruct Hlv' as [Heval Hlv'].
         split.
-        2: { clear Hlv'. rewrite (compile_pipeline_tConstruct_cons Σ). 
+        2: { pose proof (Forall2_forall _ _ Heval). clear Heval. rename H0 into Heval. 
+            intro h; specialize (Heval h). clear Hlv'. rewrite (compile_pipeline_tConstruct_cons Σ). 
             rewrite map_length. erewrite Forall2_length; eauto.
             pose proof (Forall2_length Hv').
             rewrite zip_length; try rewrite <- H0; cbn; lia.
@@ -1057,6 +1090,43 @@ Proof.
           rewrite Hndfst. now apply All2_map_right.
   Qed.
 
+  Lemma realize_adt_value_fo {funext:Funext} {P : Pointer} {H : CompatiblePtr P P}  {HP : @Heap P} `{@CompatibleHeap P P _ _ _} 
+    `{WcbvFlags} (cf:=config.extraction_checker_flags)
+    univ retro univ_decl kn mind
+    (Hparam : ind_params mind = [])
+    (Hindices : Forall (fun ind => ind_indices ind = []) (ind_bodies mind))
+    (Hnparam : ind_npars mind = 0)
+    (Hmono : ind_universes mind = Monomorphic_ctx)
+    (Hheap_refl : forall h, R_heap h h)
+    (empty_heap : heap)
+    (Hfo : is_true (forallb (@firstorder_oneind [] mind) (ind_bodies mind))) :
+    let adt := CoqType_to_camlType mind Hparam Hfo in
+    let Σ : global_env_ext_map := (build_global_env_map (mk_global_env univ [(kn , InductiveDecl mind)] retro), univ_decl) in
+    pcuic_good_for_extraction Σ ->
+    PCUICTyping.wf Σ ->
+    with_constructor_as_block = true ->
+    forall v ind Eind, 
+    ind < List.length (snd adt) ->
+    lookup_inductive Σ (mkInd kn ind) = Some (mind, Eind) ->
+    forall n, 
+    realize_ADT_gen _ _ [] [] adt n [] All_nil ind v ->
+    realize_value _ _ [] (to_list (realize_ADT_gen P HP [] [] adt n [] All_nil ) #|ind_bodies mind|) [] (Rel ind) v.
+  Proof.
+    intros ? ? ? wfΣ ? ? ? ? Hind Hlookup n Hadt. 
+    pose proof (Heval := ex_intro _ n Hadt : realize_ADT P HP [] [] adt [] All_nil ind v).
+    eapply camlValue_to_CoqValue in Heval as [t [wt Heval]]; eauto.
+    intro h. eexists; exists h; split; eauto. clear h. 
+    intros h h' v' Heval'. rewrite to_list_nth. { unfold adt in Hind. cbn in Hind. now rewrite CoqType_to_camlType'_length in Hind. }
+    unshelve eapply isPure_heap_irr in Heval'; eauto.
+    2: apply compile_pure.
+    2: econstructor.
+    unshelve eapply eval_det in Heval' as [_ Hrel];  try eapply Heval; eauto.
+    3: econstructor.
+    2: { intros ? ? ? X; inversion X. } 
+    unshelve eapply isPure_value_vrel_eq in Hrel; eauto.
+    2: { unshelve eapply isPure_heap; try apply Heval; eauto; try econstructor. apply compile_pure. }
+    now subst.
+  Qed.
 
   Parameter verified_malfunction_pipeline_theorem : forall `{Heap} `{Pointer} `{WcbvFlags} (efl := extraction_env_flags) (cf := extraction_checker_flags)
   univ retro univ_decl kn mind
@@ -1079,7 +1149,6 @@ Proof.
   forall h v (Heval : ∥PCUICWcbvEval.eval Σ t v∥),  
   let Σb := (Transform.transform verified_named_erasure_pipeline (Σ, v) (ErasureCorrectness.precond2 _ _ _ _ expΣ expt wt Normalisation _ Heval)).1 in
   ∥ eval [] (fun _ => fail "notfound") h (compile_pipeline Σ t) h (compile_value_mf' _ Σ Σb v)∥.
-  
 
   Parameter verified_named_erasure_pipeline_fo : forall `{Heap} `{Pointer} `{WcbvFlags} (efl := extraction_env_flags) (cf := extraction_checker_flags)
   univ retro univ_decl kn mind
@@ -1111,158 +1180,380 @@ Proof.
     assert (n<=#|l|) by lia. now rewrite IHl.
   Qed.
 
-  Lemma CoqValue_to_CamlValue {P : Pointer} {H : CompatiblePtr P P} (cf := extraction_checker_flags)
+  Definition isConstruct_ind t :=
+  match fst (PCUICAstUtils.decompose_app t) with
+  | tConstruct i _ _ => inductive_ind i
+  | _ => 0
+  end.
+
+Fixpoint Forall_exists T A P l
+  (H : Forall (fun (t : T) => exists a : A, P t a) l) : exists l' : list A, Forall2 (fun t a => P t a) l l'.
+Proof. 
+destruct H.
+- exists []. econstructor.
+- destruct H as [p H].
+  refine (let '(ex_intro l' X) := 
+          Forall_exists T A P _ H0 in _).
+  exists (p::l'). econstructor; eauto. 
+Qed. 
+
+Lemma CoqValue_to_CamlValue {funext : Funext} {P : Pointer} {H : CompatiblePtr P P} (cf := extraction_checker_flags)
   (efl := EInlineProjections.switch_no_params EWellformed.all_env_flags)  {has_rel : EWellformed.has_tRel} {has_box : EWellformed.has_tBox}  
   {HP : @Heap P} `{@CompatibleHeap P P _ _ _} `{WcbvFlags} `{EWellformed.EEnvFlags}
   univ retro univ_decl kn mind
+  (Hheap_refl : forall h, R_heap h h)
   (Hparam : ind_params mind = [])
   (Hindices : Forall (fun ind => ind_indices ind = []) (ind_bodies mind))
   (Hnparam : ind_npars mind = 0)
   (Hind : ind_finite mind == Finite )
   (Hmono : ind_universes mind = Monomorphic_ctx)
   (Σ0 := mk_global_env univ [(kn , InductiveDecl mind)] retro)
-  (Hfo : is_true (forallb (@firstorder_oneind (firstorder_env (Σ0 , univ_decl)) mind) (ind_bodies mind))) :
-  let adt := CoqType_to_camlType mind Hparam Hfo in
+  (Hgood : pcuic_good_for_extraction Σ0)
+  (Hfo_nil : is_true (forallb (@firstorder_oneind [] mind) (ind_bodies mind))) :
+  let adt := CoqType_to_camlType mind Hparam Hfo_nil in
   let Σ : global_env_ext_map := (build_global_env_map Σ0, univ_decl) in
   PCUICTyping.wf_ext Σ ->
   with_constructor_as_block = true ->
   forall t ind Eind, 
-  ind < List.length (snd adt) ->
+(*  ind < List.length (snd adt) -> *)
   lookup_inductive Σ (mkInd kn ind) = Some (mind, Eind) ->
   forall (wt : Σ ;;; [] |- t : tInd (mkInd kn ind) [])
   (expΣ : PCUICEtaExpand.expanded_global_env Σ)
-  (expt : PCUICEtaExpand.expanded Σ [] t), 
-    forall h v, R_heap h h ->
-    eval [] empty_locals h (compile_pipeline Σ t) h v
-    -> realize_ADT _ _ [] [] adt [] All_nil ind v.
+  (expt : PCUICEtaExpand.expanded Σ [] t),
+    realize_term P HP [] (to_list (realize_ADT P HP [] [] adt [] All_nil ) #|ind_bodies mind|) [] (Rel ind) (compile_pipeline Σ t).
   Proof.
-    intros ? ? HΣ ? ? ? ? ? Hlookup ? ? ? ? ? ? Heval_compile. pose proof Normalisation. 
+    intros ? ? HΣ ? ? ? ? Hlookup ? ? ? ? ? ? Heval_compile.
+    pose proof Normalisation.   
+    assert (Hfo : is_true (forallb (@firstorder_oneind (firstorder_env (Σ0 , univ_decl)) mind) (ind_bodies mind))).
+    { assert (@firstorder_mutind (firstorder_env (Σ0 , univ_decl)) mind).
+      { eapply (firstorder_mutind_ext (Σ':=(mk_global_env univ [] retro ,univ_decl))). 3: rewrite andb_and; split; eauto.
+        2: eauto. 2: now destruct mind, ind_finite0. repeat econstructor. rewrite app_nil_r. reflexivity. }
+      unfold firstorder_mutind in H5. now rewrite andb_and in H5. }
     assert (Hax: PCUICClassification.axiom_free Σ).
     { intros ? ? X. now inversion X. }
+    assert (Hindlt : ind < #|(CoqType_to_camlType mind Hparam Hfo).2|).
+    { rewrite CoqType_to_camlType'_length. unfold lookup_inductive, lookup_inductive_gen, lookup_minductive_gen in Hlookup.
+      destruct (lookup_env _ _); [|inversion Hlookup]. destruct g; [inversion Hlookup|].
+      eapply nth_error_Some_length; eauto. cbn in Hlookup. 
+      case_eq (nth_error (ind_bodies m) ind); [intros ? e | intro e] ; rewrite e in Hlookup; inversion Hlookup; subst. 
+      rewrite e. reflexivity. }  
     unshelve epose proof (PCUICNormalization.wcbv_normalization HΣ _ wt) as [val Heval]; eauto.
     unshelve epose proof (wval := PCUICClassification.subject_reduction_eval wt Heval).
+    unshelve epose proof (Heval' := fun h => verified_malfunction_pipeline_theorem univ retro univ_decl kn mind Hparam Hindices Hnparam 
+    Hmono Hfo HΣ _ t ind Eind _ _ wt expΣ expt h _ (sq Heval)); eauto. 
+    unshelve epose proof (Hfo' := verified_named_erasure_pipeline_fo univ retro univ_decl kn mind Hparam Hindices Hnparam 
+    Hmono Hfo HΣ _ t ind Eind _ _ wt expΣ expt _ (sq Heval)); eauto.
     assert (Hval_fo : firstorder_value Σ [] val).
-    { cbn. eapply firstorder_value_spec with (args := []); eauto. 
+    { eapply firstorder_value_spec with (args := []); eauto. 
       - now eapply PCUICWcbvEval.eval_to_value.
       - unfold firstorder_ind; cbn. rewrite ReflectEq.eqb_refl.
         unfold firstorder_mutind. rewrite andb_and. split; eauto. 
         now destruct ind_finite. } 
-    unfold adt in *. clear adt.  
-    revert ind H4 Hlookup wt Heval v Heval_compile wval.
-    unshelve eapply (firstorder_value_inds Σ [] (fun val => _) _ val Hval_fo).
-    cbn. intros. clear val Hval_fo.    
-    epose proof (Heval' := verified_malfunction_pipeline_theorem univ retro univ_decl kn mind Hparam Hindices Hnparam 
-    Hmono Hfo HΣ _ t ind Eind _ _ wt expΣ expt h _ (sq Heval)).
-    unshelve epose proof (Hfo' := verified_named_erasure_pipeline_fo univ retro univ_decl kn mind Hparam Hindices Hnparam 
-    Hmono Hfo HΣ _ t ind Eind _ _ wt expΣ expt _ (sq Heval)); eauto. 
-    Opaque verified_named_erasure_pipeline. 
-    simpl in Heval', Hfo'. sq. 
-    set (Σp := {| universes := _ |}) in *.
-    clear pandi X. 
-    unshelve eapply eval_det in Heval'; eauto.
+
+
+    Opaque verified_named_erasure_pipeline.
+    rewrite -/ Σ in Heval', Hfo'. cbn in Heval'. sq. 
+    assert (Hindval : isConstruct_ind val = ind).
+    { pose proof (Hsub := PCUICClassification.subject_reduction_eval wt Heval).  
+      eapply PCUICClassification.ind_whnf_classification with (indargs := []) in Hsub; eauto.
+      2: { intro Hcof. cbn in Hcof. 
+           unfold check_recursivity_kind in Hcof. cbn in Hcof. rewrite ReflectEq.eqb_refl in Hcof.
+           clear - Hcof Hind. now destruct ind_finite. }
+      2: { eapply PCUICClassification.eval_whne; eauto. todo "closed". }
+      pose proof (Hdecomp := PCUICAstUtils.mkApps_decompose_app val).
+      rewrite Hdecomp in wval.
+      unfold PCUICAstUtils.isConstruct_app in Hsub. unfold isConstruct_ind.
+      destruct (PCUICAstUtils.decompose_app val).1; inversion Hsub.
+      unshelve eapply PCUICInductiveInversion.Construct_Ind_ind_eq' with (args' := []) in wval; eauto.
+      repeat destruct wval as [? wval]. repeat destruct p.
+      subst. reflexivity. }
+    rewrite - Hindval.
+    rewrite (compile_value_mf_eq _ _ _ _ _ _ _ _ _ _ [] wt) in Heval'; eauto.  
+    { intros. cbn in H5. destruct (i == _); inversion H5. now subst. }
+    epose proof (Hlookup_Σ := verified_named_erasure_pipeline_lookup_env_in _ _ _ HΣ expΣ _ expt val {| inductive_mind := kn; inductive_ind := ind |} []
+      [] wt Normalisation (sq Heval) kn).
+    set (Σval := (Transform.transform verified_named_erasure_pipeline (Σ, val) _).1) in *. 
+    clearbody Σval. rewrite - Hindval in Hindlt. 
+
+
+        
+    rewrite to_list_nth. { now rewrite CoqType_to_camlType'_length in Hindlt. } 
+    specialize (Heval' h). sq. cbn in Heval_compile. 
+    eapply eval_det in Heval'; try eapply Heval_compile; eauto. 
     2: { intros ? ? ? X. inversion X. }
     2: { econstructor. }
     destruct Heval' as [_ Heval'].
+
+    epose proof (compile_pure Σ0 t). 
+    eapply isPure_heap in H5 as [Hpure _]; eauto. 
+    2: { intro. econstructor. }
+    
+    unshelve eapply isPure_value_vrel_eq in Heval'; eauto.
+    subst. 
+
+
+    clear wt t expt Heval wval Hlookup Eind Heval_compile Hpure.  
+    revert adt Hindlt Hfo'.
+
+    unfold realize_ADT. enough 
+    ( exists n, isConstruct_ind val < #|(CoqType_to_camlType mind Hparam Hfo).2| ->
+       ErasureCorrectness.firstorder_evalue_block Σval (ErasureCorrectness.compile_value_box Σ val []) ->
+       realize_ADT_gen P HP [] [] (CoqType_to_camlType mind Hparam Hfo_nil) n [] All_nil (isConstruct_ind val)
+       (CompileCorrect.compile_value Σval (compile_named_value Σ val))).
+    { destruct H5 as [n ?]. intros; now exists n. }
+
+    unshelve eapply (firstorder_value_inds Σ [] (fun val => _) _ val Hval_fo). clear val Hval_fo.
+    intros ? ? ? ? ? ? wtv Hargs_fo Hrec _. 
+
+    eapply Forall_exists in Hrec as [ns Hrec]. exists (S (list_max ns)); intros Hindlt Hfo_blocks.
+     
+    revert Hindlt. unfold isConstruct_ind. rewrite PCUICAstUtils.decompose_app_mkApps; cbn; eauto; intro. 
+    
     set (tv := mkApps (tConstruct i n ui) args) in *. 
     epose proof (Hdecomp := PCUICAstUtils.decompose_app_mkApps (tConstruct i n ui) args).
-    forward Hdecomp; eauto.
-    rewrite -/ Σ in Heval', Hfo'.
-    pose proof (wval' := wval). 
-    eapply PCUICInductiveInversion.Construct_Ind_ind_eq' with (args' := []) in wval; eauto.
+    forward Hdecomp; eauto. 
+
+    pose proof (wval := wtv). unfold tv in wval.  
+    eapply PCUICInductiveInversion.Construct_Ind_ind_eq' in wval; eauto.
     repeat destruct wval as [? wval]. repeat destruct p.
     subst. simpl in *.
-    set (i := {| inductive_mind := kn; inductive_ind := ind |}) in *.
     destruct d as [[dx dx0] d]. cbn in dx, dx0, d. 
-    destruct dx as [dx | dx]; inversion dx. symmetry in H11. subst. clear dx.  
-    clear x4 x5 s1 s2 s spine_dom_wf inst_ctx_subst inst_subslet c c0. destruct s0 as [_ _ ? _].
-    rewrite Hnparam skipn_0 in inst_ctx_subst. 
-    unfold  PCUICContextSubst.context_subst in inst_ctx_subst. 
-    rewrite (compile_value_mf_eq _ _ _ _ _ _ _ _ _ _ [] wt) in Heval'; eauto.  
-    { intros. cbn in H10. destruct (i0 == _); inversion H10. now subst. }
-    { unshelve econstructor. 1,2: exact []. all: eauto. }
-    cbn in Heval'. cbn in Hfo'. 
-    inversion Hfo' as [? ? ? Hlookup' HForall_fo Heq]. clear Hfo'.
-    unfold compile_named_value in Heval'. unfold tv in Heq, Heval'.  
-    erewrite compile_value_box_mkApps in Heq. cbn in Heq.
-    erewrite compile_value_box_mkApps in Heval'. cbn in Heval'.
+    destruct dx as [dx | dx]; inversion dx. symmetry in H7. subst. clear dx.
+    clear x2 x3 x4 x5 s0 s1 s2 s spine_dom_wf inst_ctx_subst inst_subslet c c0. 
+
+    inversion Hfo_blocks as [? ? ? Hlookup' HForall_fo Heq]. clear Hfo_blocks.
+    unfold tv, compile_named_value in Heq.  erewrite compile_value_box_mkApps in Heq. cbn in Heq.
     unfold ErasureCorrectness.pcuic_lookup_inductive_pars, EGlobalEnv.lookup_constructor_pars_args in *. 
     cbn in Hlookup'.
-    set (EGlobalEnv.lookup_env _ _) in *.  
-    case_eq o. 2: { intro X0; rewrite X0 in Hlookup'. inversion Hlookup'. }
+    set (EGlobalEnv.lookup_env _ _) in Hlookup'.  
+    case_eq o. 2: { intro X0. rewrite X0 in Hlookup'. inversion Hlookup'. }
     intros g Hg; rewrite Hg in Hlookup'. 
-    destruct g. { inversion Hlookup'. }
-    unfold ErasureCorrectness.pcuic_lookup_inductive_pars, EGlobalEnv.lookup_constructor_pars_args in *. 
-    rewrite PCUICExpandLetsCorrectness.trans_lookup in Heval'.
-    cbn in *. rewrite ReflectEq.eqb_refl in Heval', Heq. inversion Heq. clear Heq. subst.     
-    cbn in Heval'. unfold Compile.lookup_constructor_args, EGlobalEnv.lookup_inductive, EGlobalEnv.lookup_minductive in Heval'.
-    cbn in Heval'. unfold o in Hg. cbn in *.  
+    destruct g. { inversion Hlookup'. }   
+    cbn in *. rewrite ReflectEq.eqb_refl in Heq; inversion Heq.
+    subst. clear Heq. unfold o in Hg. cbn in *. 
     pose proof (Hdecl := Hg).
-    unshelve eapply verified_named_erasure_pipeline_lookup_env_in with (args := [])in Hg; eauto.
-    cbn in *. destruct Hg as [decl' [Hlookup_decl Hdecl']]. rewrite ReflectEq.eqb_refl in Hlookup_decl. 
-    inversion Hlookup_decl. subst. clear Hlookup_decl. rewrite Hdecl in Heval'. 
-    rewrite Hnparam skipn_0 in Heval'. rewrite map_map in Heval'.
-    cbn in Heval', Hlookup'. unfold realize_ADT.
-    rewrite map_mapi nth_error_mapi in Heval'.
-    rewrite map_mapi nth_error_mapi in Hlookup'.
-    exists 1. cbn.
+    assert (pandi = []) by todo "". subst. 
+    eapply Hlookup_Σ in Hg. 
+    destruct Hg as [decl' [Hlookup_decl Hdecl']]. rewrite ReflectEq.eqb_refl in Hlookup_decl. 
+    inversion Hlookup_decl. subst. clear Hlookup_decl.
+    cbn in Hlookup'. rewrite map_mapi nth_error_mapi in Hlookup'.
+
     rewrite CoqType_to_camlType'_length.
-    assert (Hind' : ind <? #|ind_bodies mind|). 
-    { rewrite CoqType_to_camlType'_length in H9. now apply Nat.leb_le. }
-    rewrite Hind'. case_eq (nth_error (ind_bodies mind) ind).
+    assert (Hind' : inductive_ind i <? #|ind_bodies mind|). 
+    { rewrite CoqType_to_camlType'_length in Hindlt. now apply Nat.leb_le. }
+    rewrite Hind'. case_eq (nth_error (ind_bodies mind) (inductive_ind i)).
     2:{ intro Hnone. rewrite Hnone in Hlookup'. inversion Hlookup'. }
-    intros indbody Hindbody. rewrite Hindbody in Heval', Hlookup'.
+    intros indbody Hindbody. rewrite Hindbody in Hlookup'.
     assert (x0 = indbody). { now clear -dx0 Hindbody. } subst. clear dx0. 
-    revert Heval'. cbn. destruct args. 
-    - left. cbn in *. inversion Heval'.
-      subst. clear Heval'. repeat rewrite nth_error_map in Hlookup'.
-      rewrite d in Hlookup'. cbn in Hlookup'. revert d; intro d.   
+
+    cbn in Hlookup'. repeat rewrite nth_error_map in Hlookup'. 
+    rewrite d in Hlookup'. cbn in Hlookup'.
+    destruct args. 
+    - left. cbn in *. unfold ErasureCorrectness.pcuic_lookup_inductive_pars. cbn. rewrite ReflectEq.eqb_refl. cbn. 
+      unfold Compile.lookup_constructor_args, EGlobalEnv.lookup_inductive. cbn. rewrite Hdecl. cbn.   
+      rewrite nth_error_map nth_error_mapi.  rewrite Hindbody. cbn. rewrite Hnparam skipn_0. cbn. 
       assert (forall l, #|filter (fun x : nat => match x with | 0 => true | S _ => false end)
       (map EAst.cstr_nargs
       (map (fun cdecl : constructor_body => {| Extract.E.cstr_name := cstr_name cdecl; Extract.E.cstr_nargs := cstr_arity cdecl |})
-      (map (PCUICExpandLets.trans_constructor_body ind mind) l)))| = 
+      (map (PCUICExpandLets.trans_constructor_body (inductive_ind i) mind) l)))| = 
       #|filter (fun x : nat => match x with | 0 => true | S _ => false end) (map cstr_nargs l)|).
       {
         induction l; [eauto|cbn]. destruct a; cbn.   
         assert (cstr_arity0 = #|cstr_args0|) by todo "".
-        rewrite <- H10. destruct cstr_arity0; cbn;  eauto; f_equal; eauto.
+        rewrite <- H5. destruct cstr_arity0; cbn;  eauto; f_equal; eauto.
       }
-      repeat rewrite firstn_map. rewrite H10 -firstn_map.
+      repeat rewrite firstn_map. rewrite H5 -firstn_map. clear H5. 
       unshelve erewrite filter_length_nil. 5:eauto. 4:eauto. eauto.
+      assert (CoqType_to_camlType' mind Hparam Hfo = CoqType_to_camlType' mind Hparam Hfo_nil) by todo "fix_me".
+      rewrite -H5. clear H5.  
       unshelve erewrite CoqType_to_camlType'_nth.
       4: eauto. 3: { now apply Nat.leb_le. }
       { eapply nth_error_forallb; eauto. }
       unshelve eapply CoqType_to_camlType_oneind_nth' in d as [l' [d ?]]; eauto.  
       2: eapply nth_error_forallb; eauto. 
       pose proof (Hd := PCUICReduction.nth_error_firstn_skipn d).
-      rewrite Hd. 
+      rewrite Hd.
       set (CoqType_to_camlType_oneind _ _ _ _) in *.
-      rewrite firstn_firstn_length. { eapply nth_error_Some_length in d. lia. }
-      assert (l' = []). { apply length_zero_iff_nil. inversion Hlookup'. rewrite H11. todo "". }  
-      set (k := #| _ |). set (f := fun x : list camlType => _). set (ll := _ ++ _).
+      rewrite firstn_firstn_length. { eapply nth_error_Some_length in d. lia. } 
+      assert (l' = []). { apply length_zero_iff_nil. inversion Hlookup'. rewrite H5. rewrite Hnparam in H7. rewrite skipn_0 in H7.
+                    todo "args_arity". }  
+      set (k := #|_|). set (f := fun x : list camlType => _). set (ll := _ ++ _).
       epose proof (filter_firstn' _ k f ll) as [? [_ [? [? [? [? ?]]]]]].
-      { unfold k, f, ll. rewrite filter_app. cbn. rewrite H12. rewrite app_length. cbn. lia. }
+      { unfold k, f, ll. rewrite filter_app. cbn. rewrite H6. rewrite app_length. cbn. lia. }
       apply Existsi_spec. repeat eexists; cbn; try lia.
       unfold k, f, ll. rewrite filter_app. cbn. subst. rewrite app_length. cbn. lia.
       rewrite Nat.sub_0_r. eauto. 
 
-    - right. inversion Heval'. subst. clear Heval'.  cbn in *.
-      rewrite map_map in H12. set (compile_val := fun x : term => CompileCorrect.compile_value _ _ ) in H12.
-      change (Forall2 vrel vals (map compile_val (t0 :: args))) in H12. eapply (Forall2_map_right _ compile_val) in H12. 
-      repeat rewrite nth_error_map in Hlookup'.
-      rewrite d in Hlookup'. cbn in Hlookup'. revert d; intro d.   
+    - set (args' := t :: args) in *. unfold tv.
+      right. cbn in Hlookup'.  rewrite Hnparam skipn_0 in Hlookup'. cbn in Hlookup'.
+      unfold compile_named_value. erewrite compile_value_box_mkApps. cbn.
+      unfold ErasureCorrectness.pcuic_lookup_inductive_pars. cbn. rewrite ReflectEq.eqb_refl. cbn. 
+      unfold Compile.lookup_constructor_args, EGlobalEnv.lookup_inductive. cbn. rewrite Hdecl. cbn.   
+      rewrite nth_error_map nth_error_mapi. rewrite Hindbody. cbn. rewrite Hnparam skipn_0. cbn. 
+      assert (CoqType_to_camlType' mind Hparam Hfo = CoqType_to_camlType' mind Hparam Hfo_nil) by todo "fix_me".
+      rewrite -H5. clear H5.
+      unshelve erewrite CoqType_to_camlType'_nth.
+      4: eauto. 3: { now apply Nat.leb_le. }
+      { eapply nth_error_forallb; eauto. }
+      unshelve eapply CoqType_to_camlType_oneind_nth' in d as [l' [d ?]]; eauto.  
+      2: eapply nth_error_forallb; eauto.
+      
       assert (forall l, #|filter (fun x : nat => match x with | 0 => false | S _ => true end)
       (map EAst.cstr_nargs
       (map (fun cdecl : constructor_body => {| Extract.E.cstr_name := cstr_name cdecl; Extract.E.cstr_nargs := cstr_arity cdecl |})
-      (map (PCUICExpandLets.trans_constructor_body ind mind) l)))| = 
+      (map (PCUICExpandLets.trans_constructor_body (inductive_ind i) mind) l)))| = 
+      #|filter (fun x : nat => match x with | 0 => false | S _ => true end) (map cstr_nargs l)|).
+      {
+        induction l; [eauto|cbn].  destruct a; cbn.   
+        assert (cstr_arity0 = #|cstr_args0|) by todo "".
+        rewrite <- H6. destruct cstr_arity0; cbn;  eauto; f_equal; eauto.
+      }
+      repeat rewrite firstn_map. rewrite H6 -firstn_map. clear H6. 
+      unshelve erewrite filter_length_not_nil. 4,5,7:eauto.
+
+      unshelve erewrite CoqType_to_camlType'_nth.
+      4: eauto. 3: { now apply Nat.leb_le. }
+      { eapply nth_error_forallb; eauto. }
+
+      pose proof (Hd := PCUICReduction.nth_error_firstn_skipn d).
+      rewrite Hd.
+
+      set (CoqType_to_camlType_oneind _ _ _ _) in *.
+      rewrite firstn_firstn_length. { eapply nth_error_Some_length in d. lia. }
+      set (k := #| _ |). set (f := fun x : list camlType => _) in *. set (ll := _ ++ _).
+      destruct l'. { 
+        inversion Hlookup'. 
+        assert (#|cstr_args x1| = cstr_arity x1) by todo "". rewrite H7 in H6. 
+        rewrite - H5 in H6. inversion H6. } 
+      epose proof (filter_firstn' _ k f ll) as [? [_ [? [? [? [? ?]]]]]].
+      { unfold k, f, ll. rewrite filter_app. cbn. rewrite app_length. cbn. lia. }
+      apply Existsi_spec. repeat eexists; cbn; try lia.
+      { unfold k, f, ll. rewrite filter_app. cbn. subst. rewrite app_length. cbn. lia. }
+      2: { rewrite Nat.sub_0_r. eauto. }
+      revert Hrec H7. intros. rewrite - Hd in ll, H6, H8, H7. unfold ll, l in *. clear ll l Hd.
+      change (mkApps (tApp (tConstruct i n ui) t) args) with (mkApps (tConstruct i n ui) (t :: args)) in *.
+      repeat rewrite map_map. rewrite - (map_cons _ t args).
+      rewrite Forall2_map_right. fold args'.
+      pose proof (Hx0 := H7). unshelve eapply CoqType_to_camlType_oneind_nth in H7. 
+      assert (realize_ADT_gen_fix P HP [] [] (CoqType_to_camlType' mind Hparam Hfo) (list_max ns) [] All_nil = 
+      realize_ADT_gen P HP [] [] (CoqType_to_camlType mind Hparam Hfo) (list_max ns) [] All_nil) by reflexivity.
+      rewrite H10. clear H10. 
+      enough 
+      (Forall
+        (fun (y : term) =>
+        realize_value P HP []
+         (to_list (realize_ADT_gen P HP [] [] (CoqType_to_camlType mind Hparam Hfo) (list_max ns) [] All_nil)
+            #|ind_bodies mind|) [] (Rel (isConstruct_ind y))
+         (CompileCorrect.compile_value Σval            
+            (eval_fo (ErasureCorrectness.compile_value_box (PCUICExpandLets.trans_global_env Σ0) y [])))) args').
+      {
+        todo "". 
+      }
+      eapply Forall2_sym in Hrec. 
+      assert (Forall
+      (fun (y : term) => isConstruct_ind y < #|CoqType_to_camlType' mind Hparam Hfo| ->
+       ErasureCorrectness.firstorder_evalue_block
+          Σval
+         (ErasureCorrectness.compile_value_box Σ0 y []) ->
+       realize_ADT_gen P HP [] [] (CoqType_to_camlType mind Hparam Hfo_nil) (list_max ns) [] All_nil
+         (isConstruct_ind y)
+         (CompileCorrect.compile_value Σval (compile_named_value Σ y))) args') by todo "".
+      clear Hrec; rename H10 into Hrec. revert HForall_fo; intro.
+      rewrite Hnparam skipn_0 in HForall_fo. apply Forall_map_inv in HForall_fo.
+      eapply Forall_mix in Hrec; try apply HForall_fo. clear HForall_fo.    
+      eapply Forall_impl; eauto. clear Hrec. intros ? [HForall_fo Hrec]. 
+      assert (CoqType_to_camlType mind Hparam Hfo = CoqType_to_camlType mind Hparam Hfo_nil) by todo "".
+      rewrite H10; clear H10. eapply realize_adt_value_fo; cbn; eauto. eapply HΣ.
+      todo "bound". unfold lookup_inductive, lookup_inductive_gen, lookup_minductive_gen. cbn. 
+      rewrite ReflectEq.eqb_refl. todo "". 
+      apply Hrec; eauto. todo "".
+      Unshelve. all: eauto.
+    Qed.
+
+
+  Lemma CoqValue_to_CamlValue' {funext : Funext} {P : Pointer} {H : CompatiblePtr P P} (cf := extraction_checker_flags)
+  (efl := EInlineProjections.switch_no_params EWellformed.all_env_flags)  {has_rel : EWellformed.has_tRel} {has_box : EWellformed.has_tBox}  
+  {HP : @Heap P} `{@CompatibleHeap P P _ _ _} `{WcbvFlags} `{EWellformed.EEnvFlags}
+  univ retro univ_decl kn mind
+  (Hheap_refl : forall h, R_heap h h)
+  (Hparam : ind_params mind = [])
+  (Hindices : Forall (fun ind => ind_indices ind = []) (ind_bodies mind))
+  (Hnparam : ind_npars mind = 0)
+  (Hind : ind_finite mind == Finite )
+  (Hmono : ind_universes mind = Monomorphic_ctx)
+  (Σ0 := mk_global_env univ [(kn , InductiveDecl mind)] retro)
+  (Hgood : pcuic_good_for_extraction Σ0)
+  (Hfo_nil : is_true (forallb (@firstorder_oneind [] mind) (ind_bodies mind))) :
+  let adt := CoqType_to_camlType mind Hparam Hfo_nil in
+  let Σ : global_env_ext_map := (build_global_env_map Σ0, univ_decl) in
+  PCUICTyping.wf_ext Σ ->
+  with_constructor_as_block = true ->
+  forall t ind Eind, 
+(*  ind < List.length (snd adt) -> *)
+  lookup_inductive Σ (mkInd kn ind) = Some (mind, Eind) ->
+  forall (wt : Σ ;;; [] |- t : tInd (mkInd kn ind) [])
+  (expΣ : PCUICEtaExpand.expanded_global_env Σ)
+  (expt : PCUICEtaExpand.expanded Σ [] t),
+  forall h v, R_heap h h ->
+    eval [] empty_locals h (compile_pipeline Σ t) h v
+    -> realize_ADT _ _ [] [] adt [] All_nil ind v.
+  Proof.
+    intros ? ? ? ? ? ? ? Hlookup wt ? ? ? ? ? Heval. 
+    eapply CoqValue_to_CamlValue in Heval; eauto. rewrite to_list_nth in Heval; eauto.
+    unfold lookup_inductive, lookup_inductive_gen, lookup_minductive_gen in Hlookup.
+    destruct (lookup_env _ _); [|inversion Hlookup]. destruct g; [inversion Hlookup|].
+    eapply nth_error_Some_length; eauto. cbn in Hlookup. 
+    case_eq (nth_error (ind_bodies m) ind); [intros ? e | intro e] ; rewrite e in Hlookup; inversion Hlookup; subst. 
+    rewrite e. reflexivity.
+    Unshelve. all: eauto.  
+  Qed. 
+    
+    (*
+    
+    induction Hrec.
+    + cbn in *.    
+      
+
+
+      clearbody args'. clear t args. unfold realize_value, to_realize_value.
+      eapply Forall_Forall2_and' in H6; try apply H10.
+      
+
+
+      set (k := #|_|). set (f := fun x : list camlType => _) in *. set (ll := _ ++ _).
+      destruct l'. { 
+        inversion Hlookup'. 
+        assert (#|cstr_args x1| = cstr_arity x1) by todo "". rewrite H7 in H6. 
+        rewrite - H5 in H6. inversion H6. } 
+      epose proof (filter_firstn' _ k f ll) as [? [_ [? [? [? [? ?]]]]]].
+      { unfold k, f, ll. rewrite filter_app. cbn. rewrite app_length. cbn. lia. }
+      apply Existsi_spec. repeat eexists; cbn; try lia.
+      { unfold k, f, ll. rewrite filter_app. cbn. subst. rewrite app_length. cbn. lia. }
+      2: { rewrite Nat.sub_0_r. eauto. }
+      revert Hrec H7. intros. rewrite - Hd in ll, H6, H8, H9. unfold ll, l in *. clear ll l Hd.
+      change (mkApps (tApp (tConstruct i n ui) t) args) with (mkApps (tConstruct i n ui) (t :: args)) in *.
+      repeat rewrite map_map in H7. set (compile_fun := fun x : term => _) in H7. 
+      rewrite - (map_cons compile_fun t args) in H7. clear e o. 
+      rewrite Forall2_map_right in H7. fold args' in H7, tv, wtv, Hcond, HForall_fo, Hdecl, compile_fun.  clear Hdecomp Hlookup'. 
+      clearbody args'. clear t args. unfold realize_value, to_realize_value.
+      eapply Forall_Forall2_and' in H6; try apply H10.
+
+    
+      assert (forall l, #|filter (fun x : nat => match x with | 0 => false | S _ => true end)
+      (map EAst.cstr_nargs
+      (map (fun cdecl : constructor_body => {| Extract.E.cstr_name := cstr_name cdecl; Extract.E.cstr_nargs := cstr_arity cdecl |})
+      (map (PCUICExpandLets.trans_constructor_body (inductive_ind i) mind) l)))| = 
       #|filter (fun x : nat => match x with | 0 => false | S _ => true end) (map cstr_nargs l)|).
       {
         induction l; [eauto|cbn]. destruct a; cbn.   
         assert (cstr_arity0 = #|cstr_args0|) by todo "".
-        rewrite <- H10. destruct cstr_arity0; cbn;  eauto; f_equal; eauto.
+        rewrite <- H5. destruct cstr_arity0; cbn;  eauto; f_equal; eauto.
       }
-      repeat rewrite firstn_map. rewrite H10 -firstn_map. clear H10. 
+      repeat rewrite firstn_map. rewrite H5 -firstn_map. clear H5. 
       unshelve erewrite filter_length_not_nil. 4,5,7:eauto.
 
+      assert (CoqType_to_camlType' mind Hparam Hfo = CoqType_to_camlType' mind Hparam Hfo_nil) by todo "fix_me".
+      rewrite -H5. clear H5.  
       unshelve erewrite CoqType_to_camlType'_nth.
       4: eauto. 3: { now apply Nat.leb_le. }
       { eapply nth_error_forallb; eauto. }
@@ -1273,19 +1564,25 @@ Proof.
       rewrite Hd. 
       set (CoqType_to_camlType_oneind _ _ _ _) in *.
       rewrite firstn_firstn_length. { eapply nth_error_Some_length in d. lia. }
-      set (k := #| _ |). set (f := fun x : list camlType => _). set (ll := _ ++ _).
+      set (k := #| _ |). set (f := fun x : list camlType => _) in *. set (ll := _ ++ _).
       destruct l'. { 
         inversion Hlookup'. 
-        assert (#|cstr_args x1| = cstr_arity x1) by todo "". rewrite H13 in H11. 
-        rewrite - H10 in H11. rewrite Hnparam skipn_0 in H11. cbn in H11. inversion H11. } 
+        assert (#|cstr_args x1| = cstr_arity x1) by todo "". rewrite H8 in H6. 
+        rewrite - H5 in H6. rewrite Hnparam skipn_0 in H6. cbn in H6. inversion H6. } 
       epose proof (filter_firstn' _ k f ll) as [? [_ [? [? [? [? ?]]]]]].
       { unfold k, f, ll. rewrite filter_app. cbn. rewrite app_length. cbn. lia. }
       apply Existsi_spec. repeat eexists; cbn; try lia.
       { unfold k, f, ll. rewrite filter_app. cbn. subst. rewrite app_length. cbn. lia. }
       2: { rewrite Nat.sub_0_r. eauto. }
-      unfold ll, f, l in *; clear ll f l. 
-      revert H7 H4 H12; intros.
-      set (args' := t0 :: args) in *. clearbody args'. clear H15.
+      revert Hrec H7. intros. rewrite - Hd in ll, H6, H8, H9. unfold ll, l in *. clear ll l Hd.
+      change (mkApps (tApp (tConstruct i n ui) t) args) with (mkApps (tConstruct i n ui) (t :: args)) in *.
+      repeat rewrite map_map in H7. set (compile_fun := fun x : term => _) in H7. 
+      rewrite - (map_cons compile_fun t args) in H7. clear e o. 
+      rewrite Forall2_map_right in H7. fold args' in H7, tv, wtv, Hcond, HForall_fo, Hdecl, compile_fun.  clear Hdecomp Hlookup'. 
+      clearbody args'. clear t args. unfold realize_value, to_realize_value.
+      eapply Forall_Forall2_and' in H6; try apply H10.
+      
+      
       
       induction H7; inversion H12.
       + subst. econstructor; eauto.  
@@ -1328,7 +1625,7 @@ Proof.
     unfold lookup_inductive, lookup_inductive_gen, lookup_minductive_gen in Hlookup. 
     simpl in Hlookup. 
     
-    
+  
     set (lookup_env _ _) in *.  
     case_eq o. 2: { intro X; rewrite X in Hlookup. inversion Hlookup. }
     destruct g; intro X; rewrite X in Hlookup. { inversion Hlookup. }
@@ -1380,7 +1677,7 @@ Proof.
     { intros ? ? X. now inversion X. }
     destruct Hcan as [tv' [[wtv' tv_eq] tv_head]].
 
-  Admitted.  *)
+  Admitted.   *)
 
 From Malfunction Require Import CompileCorrect Pipeline. 
 
@@ -1497,9 +1794,11 @@ Lemma interoperability_firstorder_function {funext:Funext} {P:Pointer} {H:Heap} 
   (Hnparam : ind_npars mind = 0)
   (Hfinite : ind_finite mind == Finite)
   (Hmono : ind_universes mind = Monomorphic_ctx)
+  (Σ0 := mk_global_env univ [(kn , InductiveDecl mind)] retro)
+  (Hgood : pcuic_good_for_extraction Σ0)
   (Hfo : is_true (forallb (@firstorder_oneind [] mind) (ind_bodies mind))) ind ind' Eind Eind' f na l:
   let adt := CoqType_to_camlType mind Hparam Hfo in
-  let Σ : global_env_ext_map := (build_global_env_map (mk_global_env univ [(kn , InductiveDecl mind)] retro), univ_decl) in
+  let Σ : global_env_ext_map := (build_global_env_map Σ0, univ_decl) in
   let global_adt := add_ADT _ _ [] [] kn adt in 
   pcuic_good_for_extraction Σ ->
   ind_sort Eind = Universe.lType l ->
@@ -1579,8 +1878,8 @@ Proof.
       now rewrite -H1. now rewrite -Hind_sort. }
   inversion Heval; subst.
   - specialize (Ht _ _ _ H10).
-    unshelve eapply camlValue_to_CoqValue in Ht. 14:eauto. all:eauto; cbn.
-    destruct Ht as [t_coq Ht]. specialize (Ht h2). destruct Ht as [Ht_typ Ht_eval].
+    unshelve eapply camlValue_to_CoqValue in Ht. 15:eauto. all:eauto; cbn.
+    destruct Ht as [t_coq [Ht_typ Ht_eval]]. specialize (Ht_eval h2). 
     eapply isPure_heap in H8; try eapply compile_pure; intros; cbn; eauto. cbn in H8.
     destruct H8 as [[? ? ] ?]. eapply isPure_heap in H13 as [? ?]; eauto.
     2: { unfold Ident.Map.add; intro. destruct (Ident.eqb s x); eauto.
@@ -1588,13 +1887,12 @@ Proof.
     subst. eapply compile_compose in H10 as [[? [? ?]]]; eauto.
     2: { eapply isPure_heap_irr,  Ht_eval; try eapply compile_pure; intros; cbn; eauto. }
     assert (v = x0). { unshelve eapply isPure_value_vrel_eq; eauto. }
-    subst. sq. unshelve eapply Firstorder.verified_malfunction_pipeline_theorem with (t := tApp f t_coq). all:eauto.
+    subst. sq. unfold adt. eapply CoqValue_to_CamlValue' with (t := tApp f t_coq). all:eauto.
     unshelve epose proof (type_App _ _ _ _ _ _ _ _ _ H5 Ht_typ); try exact (subst_insatance_univ [] (ind_sort Eind)); eauto.
-    eapply PCUICEtaExpand.expanded_tApp; eauto. todo "expand".    
+    eapply PCUICEtaExpand.expanded_tApp; eauto. todo "expand".     
   - specialize (Ht _ _ _ H9).
-    eapply camlValue_to_CoqValue in Ht; eauto; cbn.
-    destruct Ht as [t_coq Ht].
-    specialize (Ht h2).  destruct Ht as [Ht_typ Ht_eval].
+    eapply camlValue_to_CoqValue in Ht. 10:eauto. all: eauto; cbn.
+    destruct Ht as [t_coq [Ht_typ Ht_eval]]. specialize (Ht_eval h2).
     eapply isPure_heap in H8; try eapply compile_pure; intros; cbn; eauto.
     cbn in H8. destruct H8 as [[? ? ] ?]. rewrite nth_nth_error in H11. 
     case_eq (nth_error mfix n); intros;  [|rewrite H10 in H11; inversion H11].
@@ -1607,12 +1905,15 @@ Proof.
     cbn in H7. subst. eapply compile_compose in H9 as [[? [? ?]]]; eauto.
     2: { eapply isPure_heap_irr,  Ht_eval; try eapply compile_pure; intros; cbn; eauto. }
     assert (v = x). { unshelve eapply isPure_value_vrel_eq; eauto. }
-    subst. sq. unshelve eapply Firstorder.verified_malfunction_pipeline_theorem; try exact H11; eauto.
+    subst. sq. unshelve eapply CoqValue_to_CamlValue'; try exact H11; eauto.
     sq. unshelve epose proof (type_App _ _ _ _ _ _ _ _ _ H5 Ht_typ); try exact (subst_instance_univ [] (ind_sort Eind)); eauto. 
     rewrite <- (sort_of_product_idem _). rewrite {2}H1 -Hind_sort.
     eapply type_Prod; eauto.
     eapply PCUICEtaExpand.expanded_tApp; eauto. todo "expand".    
   - rewrite (compile_function _ _ _ _ _ _ _ _ H5 _ H9) in H12; eauto. inversion H12.
+  Unshelve. all: eauto.  
 Qed.
+
+
 
   

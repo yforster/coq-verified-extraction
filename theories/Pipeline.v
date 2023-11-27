@@ -811,16 +811,17 @@ Section malfunction_pipeline_theorem.
     
   Transparent compose. 
   
-  Lemma verified_named_erasure_pipeline_lookup_env_in kn decl 
+  Lemma verified_named_erasure_pipeline_lookup_env_in kn  
   (efl := EInlineProjections.switch_no_params all_env_flags)  {has_rel : has_tRel} {has_box : has_tBox}  :
-  EGlobalEnv.lookup_env Σ_v kn = Some (EAst.InductiveDecl decl) ->
-  exists decl', 
+  forall decl, 
+    EGlobalEnv.lookup_env Σ_v kn = Some (EAst.InductiveDecl decl) ->
+    exists decl', 
     PCUICAst.PCUICEnvironment.lookup_global (PCUICExpandLets.trans_global_decls
     (PCUICAst.PCUICEnvironment.declarations
        Σ.1)) kn = Some (PCUICAst.PCUICEnvironment.InductiveDecl decl')
      /\ decl = ERemoveParams.strip_inductive_decl (ErasureFunction.erase_mutual_inductive_body decl').
   Proof.
-    unfold Σ_v, verified_named_erasure_pipeline.
+    intro decl. unfold Σ_v, verified_named_erasure_pipeline.
     destruct_compose; intro; cbn. rewrite lookup_env_annotate.
     destruct_compose; intro; cbn. rewrite lookup_env_implement_box. 
     destruct_compose; intro; cbn. 
