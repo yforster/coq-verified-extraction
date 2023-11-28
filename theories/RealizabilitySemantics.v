@@ -117,7 +117,7 @@ Section Realizability.
         case (find (fun '(kn',_) => eq_kername kn kn') global_adt).
         + intros [_ Hrel]. 
           refine (to_realize_term (Hrel params _ n)).
-          induction PAll; econstructor; eauto. eapply to_realize_value; eassumption.
+          eapply All_impl; eauto. intros. eapply to_realize_value; eassumption.
         + intros; exact False. 
     Defined.
 
