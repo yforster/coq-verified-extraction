@@ -1144,7 +1144,7 @@ Proof.
   Proof.
     intros ? ? ? wfΣ ? ? ? ? Hind Hlookup n Hadt. 
     pose proof (Heval := ex_intro _ n Hadt : realize_ADT P HP [] [] adt [] All_nil ind v).
-    eapply camlValue_to_CoqValue in Heval as [t [wt Heval]]; eauto.
+    eapply camlValue_to_CoqValue in Heval as [t [Hexp [wt Heval]]]; eauto.
     intro h. eexists; exists h; split; eauto. clear h. 
     intros h h' v' Heval'. rewrite to_list_nth. { unfold adt in Hind. cbn in Hind. now rewrite CoqType_to_camlType'_length in Hind. }
     unshelve eapply isPure_heap_irr in Heval'; eauto.
