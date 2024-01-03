@@ -6,7 +6,7 @@ From MetaCoq.PCUIC Require Import PCUICAstUtils.
 From MetaCoq.Utils Require Import MCList bytestring.
 From MetaCoq.Erasure Require Import EAst ESpineView EEtaExpanded EInduction ERemoveParams Erasure EGlobalEnv.
 
-From Malfunction Require Import Malfunction.
+From Malfunction Require Import utils_array Malfunction.
 Open Scope bs.
 
 Section MapiInP.
@@ -38,8 +38,6 @@ Definition Mapply_ '(e, l) :=
 
 Definition Mlambda_ '(e, l) :=
     match e with [] => l | _ => Mlambda (e, l) end.
-
-Definition int_of_nat n := Uint63.of_Z (Coq.ZArith.BinInt.Z.of_nat n).
 
 Definition blocks_until i (num_args : list nat) :=
   #| filter (fun x => match x with 0 => false | _ => true end) (firstn i num_args)|.
@@ -78,10 +76,11 @@ Section Compile.
 
   Obligation Tactic := idtac.
 
-  Definition to_primitive (v : PCUICPrimitive.prim_val EAst.term) : Malfunction.t :=
+  Definition to_primitive (v : EPrimitive.prim_val EAst.term) : Malfunction.t :=
     match projT2 v with
-    | PCUICPrimitive.primIntModel i => Mnum (numconst_Int i)
-    | PCUICPrimitive.primFloatModel f => Mnum (numconst_Float64 f)
+    | EPrimitive.primIntModel i => Mnum (numconst_Int i)
+    | EPrimitive.primFloatModel f => Mnum (numconst_Float64 f)
+    | EPrimitive.primArrayModel a =>  Mstring "error: primitive arrays not supported"
     end.
 
   Definition force_lambda (t : Malfunction.t) :=

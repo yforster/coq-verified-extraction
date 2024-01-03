@@ -386,6 +386,60 @@ Module evalnamed.
 
 End evalnamed.
 
+Lemma wf_glob_prop `{Heap} (efl := named_extraction_env_flags) 
+  Σ (wfΣ :  EWellformed.wf_glob Σ) : 
+  forall (c : Kernames.kername) (decl : EAst.constant_body),
+    EGlobalEnv.declared_constant Σ c decl ->
+    forall (body : EAst.term),
+    EAst.cst_body decl = Some body ->
+    { v0 | ∥EWcbvEvalNamed.eval Σ [] body v0∥}.
+Admitted. 
+
+Definition malfunction_env_prop `{Heap} (efl := named_extraction_env_flags) 
+  Σ (wfΣ :  EWellformed.wf_glob Σ):
+   { Σ': list (string × SemanticsSpec.value) | forall (c : Kernames.kername) (decl : EAst.constant_body) 
+    (body : EAst.term) (v : EWcbvEvalNamed.value),
+    EGlobalEnv.declared_constant Σ c decl ->
+    EAst.cst_body decl = Some body ->
+    EWcbvEvalNamed.eval Σ [] body v ->
+    In (Kernames.string_of_kername c, compile_value Σ v) Σ'}.
+Proof. 
+  rename H into HP; rename H0 into HH.
+  assert (Hext : EGlobalEnv.extends Σ Σ). { intro; eauto. } 
+  pose proof (wfΣ' := wfΣ). revert Hext wfΣ'. 
+  generalize Σ at 2 3 5 6. intros G Hext wfG.
+  induction Σ.
+  + exists []. intros. red in H. destruct c; inversion H.
+  + destruct IHΣ as [Σ' H]; eauto.
+    { inversion wfΣ; subst; eauto. } 
+    { inversion wfΣ; subst. eapply EGenericGlobalMap.extends_cons_inv in Hext; eauto. }
+    destruct a. destruct g.  
+    * unshelve epose proof (wf_glob_prop _ wfG k c _).
+      { eapply EExtends.weakening_env_declared_constant; eauto.
+        unfold EGlobalEnv.declared_constant. cbn. rewrite ReflectEq.eqb_refl; eauto. }
+      destruct c. cbn in H0. destruct cst_body0.
+      -- specialize (H0 t0 eq_refl).
+        destruct H0 as [v Hv]. 
+        exists ((string_of_kername k, compile_value G v) :: Σ').
+      intros.
+      sq.
+      red in H0.
+      cbn in H0.
+      destruct (eqb_spec c k).
+      ** subst. left. invs H0. invs H1.
+         eapply evalnamed.eval_det in H2; try eapply Hv. subst.
+         reflexivity.
+      ** right. eapply H; eauto.
+        -- exists Σ'. intros. red in H1. cbn in H1.
+           destruct (eqb_spec c k).
+           ++ subst. invs H1. invs H2.
+           ++ eauto.
+      * exists Σ'. intros. red in H0. cbn in H0.
+        destruct (eqb_spec c k).
+        ++ subst. invs H0. 
+        ++ eauto.
+  Qed.
+
 Program Definition compile_to_malfunction (efl := named_extraction_env_flags) `{Heap}:
   Transform.t (list (Kernames.kername × EAst.global_decl)) _ _ _
     EWcbvEvalNamed.value SemanticsSpec.value
@@ -405,48 +459,9 @@ Next Obligation. sq.
 Qed.
 Next Obligation.
   rename H into HP; rename H0 into HH. 
-  red. intros. sq.
-  assert (exists Σ',
-             (forall (c : kername) (decl : EAst.constant_body) (body : EAst.term) (v : EWcbvEvalNamed.value),
-                 EGlobalEnv.declared_constant p.1 c decl -> EAst.cst_body decl = Some body -> EWcbvEvalNamed.eval p.1 [] body v -> In (string_of_kername c, compile_value p.1 v) Σ')) as [Σ' HΣ'].
-  {
-    Require Import Classical.
-    clear.
-    generalize p.1 at 2 3. intros G.
-    induction p.1.
-    + exists []. intros. red in H. destruct c; inversion H.
-    + destruct IHl as [Σ' H].
-      destruct a. destruct g.
-      * destruct c. destruct cst_body0.
-        -- destruct (classic (exists v, ∥EWcbvEvalNamed.eval G [] t0 v∥)).
-           ++ destruct H0 as [v Hv]. 
-              exists ((string_of_kername k, compile_value G v) :: Σ').
-              intros.
-              sq.
-              red in H0.
-              cbn in H0.
-              destruct (eqb_spec c k).
-              ** subst. left. invs H0. invs H1.
-                 eapply evalnamed.eval_det in H2; eauto. subst.
-                 reflexivity.
-              ** right. eapply H; eauto.
-           ++ exists Σ'. intros.
-              sq.
-              red in H1.
-              cbn in H1.
-              destruct (eqb_spec c k).
-              ** subst. invs H1. invs H2. destruct H0. eauto.
-              ** eauto.
-        -- exists Σ'. intros. red in H0. cbn in H0.
-           destruct (eqb_spec c k).
-           ++ subst. invs H0. invs H1.
-           ++ eauto.
-      * exists Σ'. intros. red in H0. cbn in H0.
-        destruct (eqb_spec c k).
-        ++ subst. invs H0. 
-        ++ eauto.
-  } 
-  eexists. split; [eauto|]. intro h.  
+  red. intros. sq. destruct pr as [wf pr]. 
+  unshelve epose proof (malfunction_env_prop _ wf) as [? ?].
+  eexists. split; [eauto|]. intro h.
   eapply compile_correct in H; eauto. 
   - intros. split.
     eapply pr. eauto. eapply pr. eauto.
@@ -493,7 +508,7 @@ Section compile_malfunction_pipeline.
   Variable HΣ : wf_ext Σ.
   Variable expΣ : expanded_global_env Σ.1.
   Variable expt : expanded Σ.1 [] t.
-  Variable typing : Σ ;;; [] |- t : T.
+  Variable typing : ∥Σ ;;; [] |- t : T∥.
 
   Variable Normalisation : forall Σ0 : global_env_ext, wf_ext Σ0 -> NormalizationIn Σ0.
 
@@ -552,7 +567,7 @@ Section malfunction_pipeline_theorem.
   Variable u : Instance.t.
   Variable args : list term.
 
-  Variable typing : Σ ;;; [] |- t : mkApps (tInd i u) args.
+  Variable typing : ∥Σ ;;; [] |- t : mkApps (tInd i u) args∥.
 
   Variable fo : firstorder_ind Σ (firstorder_env Σ) i.
 
@@ -627,8 +642,6 @@ Section malfunction_pipeline_theorem.
     rewrite map_map.
     eapply All_sq in H1. sq. constructor.
     eapply All2_All2_Set. solve_all.
-    eapply TemplateToPCUICCorrectness.All_All2_refl.
-    solve_all.
   Qed.
 
   From Equations Require Import Equations.
@@ -699,19 +712,16 @@ Section malfunction_pipeline_theorem.
     repeat rewrite map_map. eapply map_ext_Forall; eauto.
   Qed. 
     
-  Variables (Σ' : _) (Henvflags:EWellformed.EEnvFlags)  (HΣ' : (forall (c : Kernames.kername) (decl : EAst.constant_body) 
-                               (body : EAst.term) (v : EWcbvEvalNamed.value),
-                                EGlobalEnv.declared_constant Σ_t' c decl ->
-                                EAst.cst_body decl = Some body ->
-                                EWcbvEvalNamed.eval Σ_t' [] body v ->
-                                In (Kernames.string_of_kername c, compile_value Σ_t' v) Σ')).
-
+  Variable (Henvflags:EWellformed.EEnvFlags).
+  
   Variable (Haxiom_free : Extract.axiom_free Σ).
 
   Lemma verified_malfunction_pipeline_lookup (efl := extraction_env_flags) kn g : 
     EGlobalEnv.lookup_env Σ_v kn = Some g ->
     EGlobalEnv.lookup_env Σ_t' kn = Some g. 
   Proof.
+    unshelve epose proof (malfunction_env_prop Σ_t' _) as [Σ' HΣ'].
+    { eapply (correctness verified_named_erasure_pipeline). }
     unfold Σ_t', Σ_v. unfold verified_named_erasure_pipeline.
     repeat (destruct_compose; intro). 
     unfold transform at 1 3; cbn -[transform].
@@ -755,15 +765,23 @@ Section malfunction_pipeline_theorem.
   Qed. 
   
   From Malfunction Require Import SemanticsSpec.
-  
+
+  Definition malfunction_env_prop' := malfunction_env_prop Σ_t' 
+    match
+        correctness verified_named_erasure_pipeline (Σ, t) (precond _ _ _ _ expΣ expt typing _)
+    with conj H H' => right_flags_in_glob _ _ H end. 
+
   Lemma verified_malfunction_pipeline_theorem_gen (efl := extraction_env_flags) : 
-    forall (h:heap), forall h, ∥ eval Σ' empty_locals h (compile_malfunction_pipeline expΣ expt typing).2 h (compile_value_mf Σ v)∥.
+    let Σ' := proj1_sig malfunction_env_prop' in
+    forall (h:heap), forall h, eval Σ' empty_locals h (compile_malfunction_pipeline expΣ expt typing).2 h (compile_value_mf Σ v).
   Proof.
+    destruct malfunction_env_prop' as [Σ' HΣ']; cbn.  
     unshelve epose proof (verified_erasure_pipeline_theorem _ _ _ _ _ _ _ _ _ _ _ _ _ Heval); eauto.
     (* unshelve epose proof (correctness (verified_malfunction_pipeline hp)) as Hpost. *)
     rewrite compile_value_mf_eq. 
     { eapply fo_v; eauto. }
-    unfold compile_malfunction_pipeline, verified_malfunction_pipeline, verified_named_erasure_pipeline in *. revert HΣ'.
+    unfold compile_malfunction_pipeline, verified_malfunction_pipeline, verified_named_erasure_pipeline in *. 
+    revert HΣ'.
     repeat destruct_compose ; intros.
     unfold compile_to_malfunction. unfold transform at 1. simpl.
     unshelve epose proof (Himpl := implement_box_transformation.(preservation) _ _ _ _); try eapply H1; eauto.
@@ -859,7 +877,7 @@ Section malfunction_pipeline_theorem_red.
   Variable u : Instance.t.
   Variable args : list term.
 
-  Variable typing : Σ ;;; [] |- t : mkApps (tInd i u) args.
+  Variable typing : ∥Σ ;;; [] |- t : mkApps (tInd i u) args∥.
 
   Variable fo : firstorder_ind Σ (firstorder_env Σ) i.
 
@@ -874,8 +892,8 @@ Section malfunction_pipeline_theorem_red.
 
   Lemma red_eval : ∥PCUICWcbvEval.eval Σ t v∥.
   Proof.
-    sq.
-    eapply PCUICValidity.validity in typing as Hv.
+    destruct typing as [typing']. sq. 
+    eapply PCUICValidity.validity in typing' as Hv.
     destruct Hv as [? HA].
     eapply PCUICValidity.inversion_mkApps in HA as (A & HA & _).
     eapply PCUICInversion.inversion_Ind in HA as (mdecl & idecl & _ & HA & _); eauto.
@@ -892,21 +910,17 @@ Section malfunction_pipeline_theorem_red.
 
   Let compile_value_mf Σ v := compile_value_mf' _ Σ Σ_v v.
 
-  Variables (Σ' : _) (Henvflags:EWellformed.EEnvFlags)  (HΣ' : (forall (c : Kernames.kername) (decl : EAst.constant_body) 
-                               (body : EAst.term) (v : EWcbvEvalNamed.value),
-                                EGlobalEnv.declared_constant Σ_t' c decl ->
-                                EAst.cst_body decl = Some body ->
-                                EWcbvEvalNamed.eval Σ_t' [] body v ->
-                                In (Kernames.string_of_kername c, compile_value Σ_t' v) Σ')).
-
+  Variables (Henvflags:EWellformed.EEnvFlags).
+  
   Variable (Haxiom_free : Extract.axiom_free Σ).
 
   From Malfunction Require Import SemanticsSpec.
 
   Lemma verified_malfunction_pipeline_theorem (efl := extraction_env_flags) : 
-    forall (h:heap), forall h, ∥ eval Σ' empty_locals h (compile_malfunction_pipeline expΣ expt typing).2 h (compile_value_mf Σ v)∥.
+    let Σ' := proj1_sig (malfunction_env_prop' _ _ _ HΣ expΣ _ expt _ _ _ typing _) in
+    forall h, eval Σ' empty_locals h (compile_malfunction_pipeline expΣ expt typing).2 h (compile_value_mf Σ v).
   Proof. 
-    eapply verified_malfunction_pipeline_theorem_gen; eauto.
+    intros; eapply verified_malfunction_pipeline_theorem_gen; eauto.
   Qed.  
 
 End malfunction_pipeline_theorem_red.

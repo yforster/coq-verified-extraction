@@ -183,45 +183,84 @@ End Realizability.
         destruct (nth_error (EAst.ind_bodies m) ind); now inversion H.  
       + apply IHΣ; eauto.
   Qed.
-                  
+
   Fixpoint zip {A B} (l:list A) (l':list B) : list (A * B) :=
   match l , l' with 
   | [] , [] => []
   | a::l , b::l' => ((a,b) :: zip l l')
   | _ , _ => [] 
   end. 
-    
+
+  Fixpoint zipAll {A B} (l:list A) (l':All B l) : list ({a:A & B a}) :=
+    match l' with 
+      All_nil => []
+    | @All_cons _ _ a l b l' => (existT _ a b :: zipAll l l')
+    end.
+        
   Lemma zip_length {A B} (l:list A) (l':list B) : 
     #|l| = #|l'| ->  #|zip l l'| = #|l|.
   Proof. 
     revert l'; induction l; destruct l'; cbn; eauto.
-    intro Heq; inversion Heq. rewrite IHl; eauto.  
+    intro Heq; inversion Heq. rewrite IHl; eauto.
+  Qed.   
+ 
+  Lemma zipAll_length {A B} (l:list A) (l':All B l) : 
+    #|zipAll l l'| = #|l|.
+  Proof. 
+    induction l'; cbn ; f_equal; eauto.
   Qed. 
 
   Lemma zip_fst {A B} (l:list A) (l':list B) : 
     #|l| = #|l'| -> map fst (zip l l') = l.
-  revert l'; induction l; destruct l'; cbn; eauto.
-  - inversion 1.
-  - intro Heq; inversion Heq. rewrite IHl; eauto.
+  Proof.
+    revert l'; induction l; destruct l'; cbn; eauto.
+    - inversion 1.
+    - intro Heq; inversion Heq. rewrite IHl; eauto.
+  Qed.
+
+  Lemma zipAll_fst {A B C} (l:list A) (l': All B l) (f : A -> C): 
+    map (fun x => f (@projT1 _ _ x)) (zipAll l l') = map f l.
+  Proof.
+    induction l'; cbn; f_equal; eauto.
   Qed.         
 
   Lemma zip_snd {A B} (l:list A) (l':list B) : 
-  #|l| = #|l'| -> map snd (zip l l') = l'.
+    #|l| = #|l'| -> map snd (zip l l') = l'.
+  Proof. 
+    revert l'; induction l; destruct l'; cbn; eauto.
+    - inversion 1.  
+    - intro Heq; inversion Heq. rewrite IHl; eauto.
+  Qed.   
+  
+  (* Lemma zipAll_snd {A B} (l:list A) (l':All B l) : 
+     map (@projT2 _ _) (zip l l') = l'.
   revert l'; induction l; destruct l'; cbn; eauto.
   - inversion 1.  
   - intro Heq; inversion Heq. rewrite IHl; eauto.
-  Qed.  
+  Qed.   *)
 
-  Fixpoint All_exists T U A P l l'
-    (H: Forall2 (fun (t : T) (u : U) => exists a : A, P t u a) l l')  
-    : exists l'' : list A, Forall2 (fun tu a => P (fst tu) (snd tu) a) (zip l l') l''.
+  Fixpoint Forall2_exists T U A P l l'
+  (H: Forall2 (fun (t : T) (u : U) => exists a : A, P t u a) l l')  
+  : exists l'' : list A, Forall2 (fun tu a => P (fst tu) (snd tu) a) (zip l l') l''.
   Proof. 
     destruct H.
     - exists []. econstructor.
     - destruct H as [p H].
       refine (let '(ex_intro l' X) := 
-              All_exists T U A P _ _ H0 in _).
-      exists (p::l'). econstructor; eauto. 
+              Forall2_exists T U A P _ _ H0 in _).
+      exists (p::l'). econstructor; eauto.
+  Qed.  
+
+  Fixpoint Forall2_exists_dep T U (A : T -> Prop) P l l'
+    (H: Forall2 (fun (t : T) (u : U) => exists a : A t, P t u a) l l')  
+    : exists l'' : All A l, Forall2 (fun tu a => P (projT1 tu) a (projT2 tu)) (zipAll l l'') l'.
+  Proof. 
+    destruct H.
+    - exists All_nil. econstructor.
+    - destruct H as [p H].
+      refine (let '(ex_intro l' X) := 
+              Forall2_exists_dep T U A P _ _ H0 in _).
+      exists (All_cons p l'). econstructor; eauto. 
   Qed. 
 
   Lemma Forall2_acc_cst (X A B : Type) (R : X -> A -> X -> B -> Prop) x l l' :
@@ -265,6 +304,12 @@ End Realizability.
     split; intros.
     + eapply Forall2_map_inv. now rewrite map_id.
     + rewrite -(map_id l'). now eapply Forall2_map.
+  Qed.
+
+  Lemma Forall2_map_eq {A B C} (f : C -> A) (g : B -> A) (l : list C) (l' : list B) :
+    Forall2 (fun x y => f x = g y) l l' -> map f l = map g l'.
+  Proof.
+    induction 1; eauto; cbn. f_equal; eauto. 
   Qed.
 
   Definition lookup_constructor_args Σ ind : option (list nat) 
@@ -426,13 +471,14 @@ Proof.
   unfold Ident.Map.add. destruct (Ident.eqb s a); cbn; eauto.
 Qed.
 
-Lemma isPure_heap `{Heap} `{WcbvFlags} locals h h' t v :
+Lemma isPure_heap `{Heap} `{WcbvFlags} Σ locals h h' t v :
   is_true (isPure t) ->
+  (forall nm v, In (nm, v) Σ -> isPure_value v) ->
   (forall s, isPure_value (locals s)) -> 
-  eval [] locals h t h' v -> isPure_value v /\ h = h'.
+  eval Σ locals h t h' v -> isPure_value v /\ h = h'.
 Proof.
   rename H into HP. rename H0 into HH. rename H1 into HWF. 
-  intros Hpure Hlocals. induction 1; try solve [inversion Hpure]; cbn in Hpure;
+  intros Hpure HΣ Hlocals. induction 1; try solve [inversion Hpure]; cbn in Hpure;
   repeat rewrite MCProd.andb_and in Hpure; try solve [cbn; repeat split; eauto]; eauto. 
   - cbn in *. destruct Hpure as [? [? ?]].
     try (destruct IHeval1; eauto);
@@ -464,7 +510,6 @@ Proof.
     destruct Hpure. destruct IHForall2_acc; eauto. cbn. destruct H as [? H]; eauto. destruct H as [? H]; eauto. cbn; split; now eauto.
   - cbn in *. destruct IHeval; eauto. split; eauto. eapply Forall_nth; eauto. now eapply Forall_map_inv in H2.
   - cbn in *. now eauto.
-  - cbn in *. inversion H.
   - cbn in *. destruct IHeval; eauto.
   - cbn. destruct Hpure. destruct IHeval1; eauto. destruct IHeval2; eauto. now destruct op.
   - cbn; now eauto.   
@@ -475,13 +520,14 @@ Proof.
   - cbn. destruct IHeval; eauto.
 Qed.            
 
-Lemma isPure_heap_irr `{Heap} `{WcbvFlags} h h' locals t v :
+Lemma isPure_heap_irr `{Heap} `{WcbvFlags} h h' Σ locals t v :
   is_true (isPure t) ->
+  (forall nm v, In (nm, v) Σ -> isPure_value v) ->
   (forall s, isPure_value (locals s)) -> 
-  eval [] locals h t h' v -> forall h'', eval [] locals h'' t h'' v.
+  eval Σ locals h t h' v -> forall h'', eval Σ locals h'' t h'' v.
 Proof.
   rename H into HP; rename H0 into H; rename H1 into H0. 
-  intros Hpure Hlocals. induction 1; try solve [inversion Hpure]; cbn in Hpure;
+  intros Hpure HΣ Hlocals. induction 1; try solve [inversion Hpure]; cbn in Hpure;
   repeat rewrite MCProd.andb_and in Hpure; try solve [cbn; destruct Hpure; econstructor; eauto]; 
   try solve [cbn; econstructor; eauto].
   - intro. destruct Hpure as [? [? ?]]. econstructor 3; eauto.
@@ -1011,4 +1057,3 @@ Lemma eval_sim {P : Pointer} {H : CompatiblePtr P P}
     destruct (vector_type_eqb _ _); try econstructor; eauto.
     erewrite Forall2_length; eauto. econstructor.
 Qed.
-
