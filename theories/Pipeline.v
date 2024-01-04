@@ -395,6 +395,32 @@ Lemma wf_glob_prop `{Heap} (efl := named_extraction_env_flags)
     { v0 | ∥EWcbvEvalNamed.eval Σ [] body v0∥}.
 Admitted. 
 
+Definition malfunction_env `{Heap} (efl := named_extraction_env_flags) 
+  Σ (wfΣ :  EWellformed.wf_glob Σ):
+  list (string × SemanticsSpec.value).
+Proof. 
+  rename H into HP; rename H0 into HH.
+  assert (Hext : EGlobalEnv.extends Σ Σ). { intro; eauto. } 
+  pose proof (wfΣ' := wfΣ). revert Hext wfΣ'. 
+  generalize Σ at 2 3. intros G Hext wfG.
+
+  induction Σ.
+  + exact [].
+  + unshelve epose proof (Σ' := IHΣ _ _).
+    { inversion wfΣ; subst; eauto. } 
+    { inversion wfΣ; subst. eapply EGenericGlobalMap.extends_cons_inv in Hext; eauto. }
+    destruct a. destruct g.  
+    * unshelve epose proof (wf_glob_prop _ wfG k c _).
+      { eapply EExtends.weakening_env_declared_constant; eauto.
+        unfold EGlobalEnv.declared_constant. cbn. rewrite ReflectEq.eqb_refl; eauto. }
+      destruct c. cbn in H. destruct cst_body0.
+      -- specialize (H t0 eq_refl).
+        destruct H as [v Hv]. 
+        exact ((string_of_kername k, compile_value G v) :: Σ').
+      -- exact Σ'.
+    * exact Σ'.
+Defined.
+
 Definition malfunction_env_prop `{Heap} (efl := named_extraction_env_flags) 
   Σ (wfΣ :  EWellformed.wf_glob Σ):
    { Σ': list (string × SemanticsSpec.value) | forall (c : Kernames.kername) (decl : EAst.constant_body) 
@@ -438,8 +464,54 @@ Proof.
         destruct (eqb_spec c k).
         ++ subst. invs H0. 
         ++ eauto.
-  Qed.
+  Defined.
 
+Definition malfunction_env_prop_eq `{Heap} (efl := named_extraction_env_flags) 
+  Σ (wfΣ :  EWellformed.wf_glob Σ) :
+  malfunction_env Σ wfΣ = proj1_sig (malfunction_env_prop Σ wfΣ).
+Proof. 
+ todo "dependence hell".
+Qed.
+(*
+  rename H into HP; rename H0 into HH.
+  induction Σ.
+  - reflexivity. 
+  - assert (wfΣ' : wf_glob Σ). { inversion wfΣ; subst; eauto. }
+    specialize (IHΣ wfΣ'). 
+  + destruct a. destruct g. 
+    2: { intros. cbn.   red in H0. cbn in H0.
+    destruct (eqb_spec c k).
+    ++ subst. invs H0. 
+    ++ eapply H. .
+}
+    * unshelve epose proof (wf_glob_prop _ wfG k c _).
+      { eapply EExtends.weakening_env_declared_constant; eauto.
+        unfold EGlobalEnv.declared_constant. cbn. rewrite ReflectEq.eqb_refl; eauto. }
+      destruct c. cbn in H0. destruct cst_body0.
+      -- specialize (H0 t0 eq_refl).
+        destruct H0 as [v Hv]. 
+      intros.
+      sq.
+      red in H0.
+      cbn in H0.
+      destruct (eqb_spec c k).
+      ** subst. cbn. left. invs H0. invs H1.
+         eapply evalnamed.eval_det in H2; try eapply Hv. subst.
+         reflexivity.
+      ** right. eapply H; eauto.
+        -- exists Σ'. intros. red in H1. cbn in H1.
+           destruct (eqb_spec c k).
+           ++ subst. invs H1. invs H2.
+           ++ eauto.
+      * exists Σ'. intros. red in H0. cbn in H0.
+        destruct (eqb_spec c k).
+        ++ subst. invs H0. 
+        ++ eauto.
+Defined.
+*)
+
+Opaque malfunction_env_prop.
+ 
 Program Definition compile_to_malfunction (efl := named_extraction_env_flags) `{Heap}:
   Transform.t (list (Kernames.kername × EAst.global_decl)) _ _ _
     EWcbvEvalNamed.value SemanticsSpec.value
