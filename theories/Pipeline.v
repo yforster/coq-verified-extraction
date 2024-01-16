@@ -997,6 +997,43 @@ Section malfunction_pipeline_theorem_red.
 
 End malfunction_pipeline_theorem_red.
 
+Section malfunction_pipeline_wellformed.
+
+  Local Existing Instance CanonicalHeap.
+
+  Instance cf____ : checker_flags := extraction_checker_flags.
+  Instance nf____ : normalizing_flags := extraction_normalizing.
+
+  Variable HP : Pointer.
+  Variable HH : Heap.
+
+  Variable Σ : global_env_ext_map.
+  Variable no_axioms : PCUICClassification.axiom_free Σ.
+  Variable HΣ : wf_ext Σ.
+  Variable expΣ : expanded_global_env Σ.1.
+
+  Variable t A : term.
+  Variable expt : expanded Σ.1 [] t.
+
+  Variable typing : ∥Σ ;;; [] |- t : A∥.
+
+  Variable Normalisation : forall Σ0 : global_env_ext, wf_ext Σ0 -> NormalizationIn Σ0.
+
+  Let Σ_t := (transform verified_named_erasure_pipeline (Σ, t) (precond _ _ _ _ expΣ expt typing _)).1.
+
+  Lemma verified_malfunction_pipeline_wellformed (efl := named_extraction_env_flags) : 
+    CompileCorrect.wellformed (map fst (compile_env Σ_t)) [] (compile_malfunction_pipeline expΣ expt typing).2.
+  Proof.  
+    unfold Σ_t, compile_malfunction_pipeline, verified_malfunction_pipeline.
+    destruct_compose; intro; cbn.
+    unfold compile_to_malfunction, transform at 1. cbn.  
+    epose proof (correctness verified_named_erasure_pipeline) as [? [? [? ?]]]. destruct H2. 
+    eapply compile_wellformed; eauto. 
+    eapply few_enough_blocks; eauto.
+  Qed. 
+End malfunction_pipeline_wellformed.
+
+
 
 About verified_malfunction_pipeline_theorem.
 Print Assumptions verified_malfunction_pipeline_theorem.

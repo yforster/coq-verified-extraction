@@ -776,7 +776,7 @@ Section fix_global.
     | Malfunction.Mapply (x, args) => negb (EWellformed.is_nil args) && wellformed Γ x && forallb (wellformed Γ) args
     | Malfunction.Mlet (binds, x) => negb (EWellformed.is_nil binds) && forallb (wellformed_binding Γ) binds && wellformed (flat_map binding_names binds ++ Γ) x
     | Malfunction.Mnum x => true
-    | Malfunction.Mstring x => true
+    | Malfunction.Mstring x => false
     | Malfunction.Mglobal id =>
         match
         in_dec eq_dec id Σ
@@ -785,14 +785,15 @@ Section fix_global.
     | Malfunction.Mnumop1 (op, num, x) => wellformed Γ x
     | Malfunction.Mnumop2 (op, num, x1, x2) => wellformed Γ x1 && wellformed Γ x2
     | Malfunction.Mconvert (from, to, x) => wellformed Γ x
-    | Malfunction.Mvecnew (ty, x1, x2) => wellformed Γ x1 && wellformed Γ x2
-    | Malfunction.Mvecget (ty, x1, x2) => wellformed Γ x1 && wellformed Γ x2
-    | Malfunction.Mvecset (ty, x1, x2, x3) => wellformed Γ x1 && wellformed Γ x2 && wellformed Γ x3
-    | Malfunction.Mveclen (ty, x) => wellformed Γ x
-    | Malfunction.Mlazy x => wellformed Γ x
-    | Malfunction.Mforce x => wellformed Γ x
     | Malfunction.Mblock (tag, xs) => Nat.ltb (int_to_nat tag) 200 && forallb (wellformed Γ) xs
     | Malfunction.Mfield (i, x) => wellformed Γ x
+    | _ => false
+(*    | Malfunction.Mvecnew (ty, x1, x2) => wellformed Γ x1 && wellformed Γ x2
+    | Malfunction.Mvecget (ty, x1, x2) => wellformed Γ x1 && wellformed Γ x2
+    | Malfunction.Mvecset (ty, x1, x2, x3) => wellformed Γ x1 && wellformed Γ x2 && wellformed Γ x3
+    | Malfunction.Mveclen (ty, x) => false
+    | Malfunction.Mlazy x => wellformed Γ x
+    | Malfunction.Mforce x => wellformed Γ x *)
     end
   with wellformed_binding Γ (b : Malfunction.binding) :=
          match b with
@@ -848,13 +849,8 @@ Proof.
   - destruct p as [ [] ]. eauto.
   - destruct p as [ [[]] ]. rtoProp. split; eauto.
   - destruct p as [ [] ]. eauto.
-  - destruct p as [ [ ] ]; rtoProp. split; eauto.
-  - destruct p as [ [] ]; rtoProp. split; eauto.
-  - destruct p as [ [[]] ]. rtoProp. split; eauto.
-  - destruct p; rtoProp; eauto.
-  - destruct p. induction l; cbn in *; eauto.
-    forward IHl.
-    all: rtoProp; split; eauto.
+  - destruct p; rtoProp; eauto. split; eauto.
+     induction l; cbn in *; eauto. rtoProp. split; eauto.  
   - destruct p; rtoProp; eauto.
   - destruct p; rtoProp; eauto.
   - revert Hwf. generalize l at 1 3. induction l; cbn in *.
