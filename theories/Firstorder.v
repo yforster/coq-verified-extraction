@@ -1016,7 +1016,7 @@ Proof.
     - intros; f_equal; eauto.
   Qed.  
 
-  Lemma compile_inducitve_env_empty : forall `{Heap} 
+  Lemma compile_inductive_env_empty : forall `{Heap} 
     kn ind t inst mind univ retro univ_decl 
     (Σ0 := mk_global_env univ [(kn , InductiveDecl mind)] retro),
     let Σ : global_env_ext_map := (build_global_env_map Σ0, univ_decl) in
@@ -1455,7 +1455,7 @@ Proof.
             { Transparent compile_pipeline. reflexivity. Opaque verified_named_erasure_pipeline. }
             rewrite H6 in Heval'; clear H6. 
             unshelve eapply eval_det in H4 as [? ?]; try apply Heval'; eauto.   
-            2: { intros. rewrite compile_inducitve_env_empty in H6; eauto. inversion H6. }
+            2: { intros. rewrite compile_inductive_env_empty in H6; eauto. inversion H6. }
             2: { intros; econstructor. }
             eapply isPure_value_vrel_eq in H6; eauto. rewrite <- H6. 
             unfold compile_value_mf'. rewrite -/ Σ . 
@@ -1523,7 +1523,7 @@ Proof.
     clear Heval; rename Heval' into Heval.  
     intros h. specialize (Heval h). eexists; exists h.
     set (Σ' := proj1_sig _) in *. assert (HΣ' : Σ' = []).
-    { unfold Σ'; cbn. apply compile_inducitve_env_empty.
+    { unfold Σ'; cbn. apply compile_inductive_env_empty.
     unfold firstorder_ind; cbn. rewrite ReflectEq.eqb_refl.
     unfold firstorder_mutind. rewrite andb_and. split; eauto. 
     now destruct ind_finite. } 
@@ -2333,7 +2333,7 @@ Proof.
     unshelve eapply camlValue_to_CoqValue in Ht. 20:eauto. all:eauto; cbn.
     destruct Ht as [t_coq [? [Ht_typ [Hirred Ht_eval]]]]. specialize (Ht_eval h2). 
     set (Σ' := proj1_sig _) in Ht_eval. assert (Σ' = []).
-    { unfold Σ'; cbn. apply compile_inducitve_env_empty.
+    { unfold Σ'; cbn. apply compile_inductive_env_empty.
     unfold firstorder_ind; cbn. rewrite ReflectEq.eqb_refl.
     unfold firstorder_mutind. rewrite andb_and. split; eauto. 
     now destruct ind_finite. }
@@ -2355,7 +2355,7 @@ Proof.
     unshelve eapply camlValue_to_CoqValue in Ht. 20:eauto. all: eauto; cbn.
     destruct Ht as [t_coq [Hexpand_t [Ht_typ [Hirred Ht_eval]]]]. specialize (Ht_eval h2).
     set (Σ' := proj1_sig _) in Ht_eval. assert (Σ' = []).
-    { unfold Σ'; cbn. apply compile_inducitve_env_empty.
+    { unfold Σ'; cbn. apply compile_inductive_env_empty.
     unfold firstorder_ind; cbn. rewrite ReflectEq.eqb_refl.
     unfold firstorder_mutind. rewrite andb_and. split; eauto. 
     now destruct ind_finite. }
