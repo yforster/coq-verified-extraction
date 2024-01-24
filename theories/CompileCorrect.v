@@ -16,6 +16,14 @@ Definition lookup {A} (E : list (Kernames.ident * A)) (x : string) :=
   | None => None
   end.
 
+Definition to_primitive `{Heap} (v : EPrimitive.prim_val EWcbvEvalNamed.value) : SemanticsSpec.value :=
+    match projT2 v with
+    | EPrimitive.primIntModel i => value_Int (Malfunction.Int , Malfunction.Int63.to_Z i)
+    | EPrimitive.primFloatModel f => Float f
+    (* error: primitive arrays not supported *)
+    | EPrimitive.primArrayModel a =>  value_Int (Malfunction.Int , Malfunction.Int63.to_Z (int_of_nat 0))
+    end.
+  
 Fixpoint compile_value `{Heap} (Σ : EAst.global_declarations) (s : EWcbvEvalNamed.value) : SemanticsSpec.value :=
   match s with
   | vClos na b env => Func ((fun x => match lookup (map (fun '(x,v) => (x, compile_value Σ v)) env) x with Some v => v | None => fail "notfound" end), na, compile Σ b)
@@ -43,6 +51,7 @@ Fixpoint compile_value `{Heap} (Σ : EAst.global_declarations) (s : EWcbvEvalNam
                 end
               ) mfix,
               idx)
+  | vPrim v => to_primitive v
   end.
   
 Require Import FunctionalExtensionality.
@@ -299,8 +308,8 @@ Lemma eval_num `{Heap} Σ Γ_ i z h :
 Proof.
   intros. subst.
   pose proof (Malfunction.Int63.of_Z_spec z) as Heq.
-  rewrite Zdiv.Zmod_small in Heq; [| lia_max_length]. rewrite <- Heq at 2.
-  econstructor.
+  rewrite Zdiv.Zmod_small in Heq; [| lia_max_length].
+  set (Malfunction.Mnum _). rewrite <- Heq. econstructor.
 Qed. 
  
 Lemma find_add_self `{Heap} idx d na recs locals :
@@ -735,7 +744,7 @@ Proof.
       rewrite MCList.map_InP_spec.
       depelim IHa.
       cbn. econstructor. econstructor. eapply e1; eauto. clear e1.
-      2:{ cbn. rewrite map_length. clear a0. eapply Prelim.Ee.All2_Set_All2 in a. eapply All2_length in a. rewrite <- a.
+      2:{ cbn. rewrite map_length. clear a0. eapply EPrimitive.All2_Set_All2 in a. eapply All2_length in a. rewrite <- a.
           assert (EAst.cstr_nargs cdecl < int_to_nat PArray.max_length). {  destruct nth_error eqn:E; try congruence.
           invs e. specialize (He2 _ _ E). cbn. lia. }
           cbn in *. lia. }      
@@ -755,6 +764,7 @@ Proof.
     rewrite firstn_length in H0.
     destruct nth_error eqn:E; try congruence.
     eapply nth_error_Some_length in E. lia.
+  - inversion ev; subst; econstructor. 
 Qed.
 Print Assumptions compile_correct.
 
@@ -992,7 +1002,7 @@ Proof.
       revert IH.
       unfold EWellformed.wf_fix_gen in H0. cbn in *. rtoProp. clear H0.
       assert (List.length mfix' = List.length mfix) as Hlen.
-      { clear - a0. eapply Prelim.Ee.All2_Set_All2 in a0.
+      { clear - a0. eapply EPrimitive.All2_Set_All2 in a0.
         eapply All2_length in a0 as Hlen. lia.
       }
       rewrite Hlen in H2. revert H2.
@@ -1012,7 +1022,7 @@ Proof.
       rewrite app_nil_r. destruct in_dec; eauto. exfalso. eapply n0. clear n0.
       rewrite in_app_iff. left.
       assert (List.length mfix' = List.length mfix) as Hlen.
-      { clear IH. eapply Prelim.Ee.All2_Set_All2 in a0.
+      { clear IH. eapply EPrimitive.All2_Set_All2 in a0.
         eapply All2_length in a0 as Hlen. lia.
       }
       rewrite Hlen in H0. 
@@ -1023,4 +1033,5 @@ Proof.
           reflexivity. }
       cbn. eapply nth_error_In in Eq.
       eapply in_map_iff; eexists; split; eauto.
+  - inversion X; subst; eauto.  
 Qed.

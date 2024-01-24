@@ -4,6 +4,7 @@ From MetaCoq.Utils Require Import All_Forall MCPrelude MCSquash MCList utils.
 From MetaCoq.Common Require Import Transform config Kernames.
 From MetaCoq.PCUIC Require Import PCUICAst PCUICTyping PCUICFirstorder PCUICCasesHelper BDStrengthening PCUICCumulativity PCUICProgram.
 From MetaCoq.Erasure Require Import EWcbvEval EWcbvEvalNamed.
+From MetaCoq.ErasurePlugin Require Import Erasure ErasureCorrectness.
 From MetaCoq.SafeChecker Require Import PCUICErrors PCUICWfEnv PCUICWfEnvImpl.
 
 From Malfunction Require Import Malfunction Interpreter SemanticsSpec utils_array 
@@ -13,6 +14,7 @@ Require Import ZArith Array.PArray List String Floats Lia Bool.
 Import ListNotations.
 From MetaCoq.Utils Require Import bytestring.
 
+Import PCUICTransform (template_to_pcuic_transform, pcuic_expand_lets_transform).
 
 Section firstorder.
 
@@ -512,7 +514,8 @@ ind_universes0 ind_variance0) x Hparam Hfo'); eauto.
     rewrite ReflectEq.eqb_refl in Hthm, Hthm'. cbn in Hthm, Hthm'. 
     erewrite Hnparam, skipn_0 in Hthm; [|eauto]. 
     inversion Hthm'; subst. clear Hthm'. 
-    unfold Compile.lookup_constructor_args, EGlobalEnv.lookup_inductive, 
+    unfold EGlobalEnv.lookup_constructor_pars_args, Compile.lookup_constructor_args, 
+      EGlobalEnv.lookup_constructor, EGlobalEnv.lookup_inductive, 
       EGlobalEnv.lookup_minductive in *. cbn in *. 
     set (EGlobalEnv.lookup_env _ _ ) in H3, Hthm.  
     case_eq o. 2: { intro X0. rewrite X0 in H3. inversion H3. }
@@ -643,7 +646,8 @@ Proof.
   rewrite ReflectEq.eqb_refl in Hthm, Hthm'. cbn in Hthm, Hthm'. 
   erewrite Hnparam, skipn_0 in Hthm; [|eauto]. 
   inversion Hthm'; subst. clear Hthm'. 
-  unfold Compile.lookup_constructor_args, EGlobalEnv.lookup_inductive, 
+  unfold Compile.lookup_constructor_args, EGlobalEnv.lookup_constructor_pars_args,
+  EGlobalEnv.lookup_constructor, EGlobalEnv.lookup_inductive, 
   EGlobalEnv.lookup_minductive in *. cbn in *. 
   set (EGlobalEnv.lookup_env _ _ ) in H4, Hthm.  
   case_eq o. 2: { intro X0. rewrite X0 in H4. inversion H4. }
@@ -652,14 +656,14 @@ Proof.
   (mkApps (tConstruct i n inst) args) expt (mkApps (tConstruct i n inst) args) i inst [] wt fo Normalisation _ Hax) in eq'.
   rewrite eq'; eauto.
   destruct args; [inversion Hargs |].
-  destruct g; [inversion H4 |].
+  destruct g; [inversion H4 |]. cbn in *. 
   destruct (nth_error _ _); [|inversion H4].
   set (map _ (map _ _)) in Hthm. simpl in Hthm.
   erewrite (f_equal (eval _ _ _ _ _)); eauto. clear Hthm. repeat f_equal.
   unfold l. now erewrite map_map.
 Qed.
 
-Parameter compile_app : forall `{Heap} `{WcbvFlags} 
+  Parameter compile_app : forall `{Heap} `{WcbvFlags} 
   (cf:=config.extraction_checker_flags) 
   (Σ:global_env_ext_map) t u HΣ expΣ expt typing typing' typing'' expt' expt'',
   ~ ∥Extract.isErasable Σ [] t∥ ->
@@ -902,14 +906,14 @@ Qed. *)
     PCUICGeneration.typing_spine Σ [] u_ty us (snd (nonDep_decompose u_ty nonDep)).
   Proof.
   revert s us. induction nonDep; cbn in *; intros s us wfΣ Hty; cbn.
-  - intro H; depelim H. econstructor; [|reflexivity]. eexists; eauto.
+  - intro H; depelim H. econstructor; [|reflexivity]. repeat eexists; eauto.
   - set (PCUICInversion.inversion_Prod Σ wfΣ Hty) in *.
     destruct s0 as [s1 [s2 [HA [HB ?]]]]; cbn. intro H; depelim H.   
     epose (strengthening_type [] ([],, vass na A) [] B s2).
     pose proof (nonDep_closed _ nonDep).
     edestruct s0 as [s' [Hs _]]. cbn.  rewrite PCUICLiftSubst.lift_closed; eauto.
     econstructor; try reflexivity; eauto.
-    + eexists; eauto.
+    + repeat eexists; eauto.
     + rewrite /subst1 PCUICClosed.subst_closedn; eauto.
   Qed.      
 
@@ -1015,21 +1019,6 @@ Proof.
     - inversion 1.
     - intros; f_equal; eauto.
   Qed.  
-
-  Lemma compile_inductive_env_empty : forall `{Heap} 
-    kn ind t inst mind univ retro univ_decl 
-    (Σ0 := mk_global_env univ [(kn , InductiveDecl mind)] retro),
-    let Σ : global_env_ext_map := (build_global_env_map Σ0, univ_decl) in
-    let i := mkInd kn ind in
-    forall HΣ expΣ expt 
-    (fo : firstorder_ind Σ (firstorder_env Σ) i)
-    (wt : ∥ Σ;;; [] |-  t : mkApps (tInd i inst) [] ∥),
-    proj1_sig (malfunction_env_prop' _ _ _ HΣ expΣ _ expt _ _ _ wt Normalisation) = [].
-  Proof.
-    intros. unfold malfunction_env_prop'. rewrite <- malfunction_env_prop_eq.
-    cbn.
-    todo "".
-  Qed. 
 
   Lemma camlValue_to_CoqValue {funext:Funext}  `{EWellformed.EEnvFlags} 
     {P : Pointer} {HP : CompatiblePtr P P}  {HHeap : @Heap P} `{@CompatibleHeap P P _ _ _} 
@@ -1382,7 +1371,7 @@ Proof.
           2: {
           unshelve epose proof (PCUICInductiveInversion.declared_constructor_valid_ty (Σ, univ_decl) [] mind Eind  
           {| inductive_mind := kn; inductive_ind := ind |} k' decl [] _ _ _); eauto.
-          destruct X as [sctype Hctype].
+          destruct X as [_ [sctype [Hctype _]]].
           { unfold consistent_instance_ext, consistent_instance; cbn. now rewrite Hmono. }
           rewrite <- Hndsnd. eapply nonDep_typing_spine with (s:=sctype) ; eauto.
           { revert Hctype; intro. unfold type_of_constructor in Hctype. cbn in Hctype.
@@ -1410,8 +1399,9 @@ Proof.
         inversion Hthm'; subst; clear Hthm'; rename H2 into Hthm'.  
         cbn in Hthm'; cbn in Hcompile. 
         unfold t in H1. rewrite compile_value_box_mkApps in H1. cbn in H1.
-        unfold Compile.lookup_constructor_args, ErasureCorrectness.pcuic_lookup_inductive_pars, EGlobalEnv.lookup_constructor_pars_args 
-          , EGlobalEnv.lookup_inductive in *. cbn in Hcompile, H1.
+        unfold EGlobalEnv.lookup_constructor_pars_args, EGlobalEnv.lookup_constructor , 
+          Compile.lookup_constructor_args, ErasureCorrectness.pcuic_lookup_inductive_pars, 
+          EGlobalEnv.lookup_inductive, EGlobalEnv.lookup_minductive in *. cbn in Hcompile, H1.
         rewrite ReflectEq.eqb_refl in H1. 
         set (EGlobalEnv.lookup_env _ _) in Hthm'.
         case_eq o. 2: { intro He; rewrite He in Hthm'. cbn in Hthm'. inversion Hthm'. }
@@ -1471,8 +1461,7 @@ Proof.
         { intros b m Hx; assert (declared_constructor Σ (i, m) mind Eind b).
           { split; eauto. }
             erewrite <- ErasureCorrectness.declared_constructor_arity; eauto.
-            eapply PCUICWeakeningEnvTyp.on_declared_constructor in H2
-            as [? [? ?]].
+            eapply PCUICWeakeningEnvTyp.on_declared_constructor in H2 as [? [? ?]].
             eapply All2_In in onConstructors as [[univs onConstructor]].
             2: { eapply nth_error_In. eapply Hx. }
             eapply on_lets_in_type in onConstructor.
@@ -1692,9 +1681,15 @@ Proof.
   destruct a. unfold map_decl; f_equal; cbn.
   - destruct decl_body; eauto; cbn. 
 Admitted. 
- 
+
+Definition no_primitive_flags :=
+  {| EWellformed.has_primint := false;
+     EWellformed.has_primfloat := false;
+     EWellformed.has_primarray := false |}.
+
 Lemma CoqValue_to_CamlValue {funext : Funext} {P : Pointer} {H : CompatiblePtr P P} (cf := extraction_checker_flags)
-  (efl := EInlineProjections.switch_no_params EWellformed.all_env_flags)  {has_rel : EWellformed.has_tRel} {has_box : EWellformed.has_tBox}  
+  (etf := EWellformed.all_term_flags) (efl := EInlineProjections.switch_no_params EWellformed.all_env_flags)  {has_rel : EWellformed.has_tRel} 
+  {has_box : EWellformed.has_tBox}  {primFlag : EWellformed.EPrimitiveFlags}
   {HP : @Heap P} `{@CompatibleHeap P P _ _ _} `{WcbvFlags} `{EWellformed.EEnvFlags}
   univ retro univ_decl kn mind
   (Hheap_refl : forall h, R_heap h h)
@@ -1853,7 +1848,8 @@ Lemma CoqValue_to_CamlValue {funext : Funext} {P : Pointer} {H : CompatiblePtr P
 
     inversion Hfo_blocks as [? ? ? Hlookup' HForall_fo Heq]. clear Hfo_blocks.
     unfold tv, compile_named_value in Heq.  erewrite compile_value_box_mkApps in Heq. cbn in Heq.
-    unfold ErasureCorrectness.pcuic_lookup_inductive_pars, EGlobalEnv.lookup_constructor_pars_args in *. 
+    unfold ErasureCorrectness.pcuic_lookup_inductive_pars, EGlobalEnv.lookup_constructor_pars_args, 
+    EGlobalEnv.lookup_constructor, EGlobalEnv.lookup_inductive, EGlobalEnv.lookup_minductive in *. 
     cbn in Hlookup'.
     set (EGlobalEnv.lookup_env _ _) in Hlookup'.  
     case_eq o. 2: { intro X0. rewrite X0 in Hlookup'. inversion Hlookup'. }
@@ -1891,7 +1887,8 @@ Lemma CoqValue_to_CamlValue {funext : Funext} {P : Pointer} {H : CompatiblePtr P
     rewrite d in Hlookup'. cbn in Hlookup'.
     destruct args. 
     - left. cbn in *. unfold ErasureCorrectness.pcuic_lookup_inductive_pars. cbn. rewrite ReflectEq.eqb_refl. cbn. 
-      unfold Compile.lookup_constructor_args, EGlobalEnv.lookup_inductive. cbn. rewrite Hdecl. cbn.   
+      unfold Compile.lookup_constructor_args, EGlobalEnv.lookup_constructor, EGlobalEnv.lookup_inductive, 
+      EGlobalEnv.lookup_minductive. cbn. rewrite Hdecl. cbn.   
       rewrite nth_error_map nth_error_mapi.  rewrite Hindbody. cbn. erewrite Hnparam. 
       2: now erewrite ReflectEq.eqb_refl. rewrite skipn_0. cbn. 
       assert (forall l, 
@@ -1940,7 +1937,8 @@ Lemma CoqValue_to_CamlValue {funext : Funext} {P : Pointer} {H : CompatiblePtr P
       2: now erewrite ReflectEq.eqb_refl. cbn in Hlookup'.
       unfold compile_named_value. erewrite compile_value_box_mkApps. cbn.
       unfold ErasureCorrectness.pcuic_lookup_inductive_pars. cbn. rewrite ReflectEq.eqb_refl. cbn. 
-      unfold Compile.lookup_constructor_args, EGlobalEnv.lookup_inductive. cbn. rewrite Hdecl. cbn.   
+      unfold Compile.lookup_constructor_args, EGlobalEnv.lookup_constructor,
+      EGlobalEnv.lookup_inductive, EGlobalEnv.lookup_minductive. cbn. rewrite Hdecl. cbn.   
       rewrite nth_error_map nth_error_mapi. rewrite Hindbody. cbn. erewrite Hnparam, skipn_0.
       2: now erewrite ReflectEq.eqb_refl. cbn. 
       assert (CoqType_to_camlType' x Hparam Hfo = CoqType_to_camlType' x Hparam Hfo_nil) by apply CoqType_to_camlType_fo_irr.
@@ -2067,8 +2065,8 @@ Lemma CoqValue_to_CamlValue {funext : Funext} {P : Pointer} {H : CompatiblePtr P
       { unfold CoqType_to_camlType; f_equal. apply CoqType_to_camlType_fo_irr. }
       rewrite H5; clear H5.
       assert (Hind_bodies :inductive_ind (isConstruct_ind a) < #|ind_bodies x|).
-      { sq. eapply PCUICValidity.validity in HForall_fo as [? Hty].
-      eapply PCUICInversion.inversion_Ind in Hty as [? [? [? [? [? ?]]]]]; eauto.
+      { sq. eapply PCUICValidity.validity in HForall_fo as [_ [? [Hty _]]].
+        eapply PCUICInversion.inversion_Ind in Hty as [? [? [? [? [? ?]]]]]; eauto.
       destruct d0. eapply nth_error_Some_length in H7. 
       assert (x = x2). { destruct H5; inversion H5; eauto. }
       now subst. }
@@ -2085,7 +2083,7 @@ Lemma CoqValue_to_CamlValue {funext : Funext} {P : Pointer} {H : CompatiblePtr P
   Qed.
   
   Lemma CoqValue_to_CamlValue' {funext : Funext} {P : Pointer} {H : CompatiblePtr P P} (cf := extraction_checker_flags)
-  (efl := EInlineProjections.switch_no_params EWellformed.all_env_flags)  {has_rel : EWellformed.has_tRel} {has_box : EWellformed.has_tBox}  
+  (etf := EWellformed.all_term_flags) (efl := EInlineProjections.switch_no_params EWellformed.all_env_flags)  {has_rel : EWellformed.has_tRel} {has_box : EWellformed.has_tBox}  
   {HP : @Heap P} `{@CompatibleHeap P P _ _ _} `{WcbvFlags} `{EWellformed.EEnvFlags}
   univ retro univ_decl kn mind
   (Hheap_refl : forall h, R_heap h h)
@@ -2113,6 +2111,7 @@ Lemma CoqValue_to_CamlValue {funext : Funext} {P : Pointer} {H : CompatiblePtr P
   Proof.
     intros ? ? ? ? ? ? Hlookup wt ? ? ? ? ? ? ? Heval. 
     unshelve epose proof (Hreal := CoqValue_to_CamlValue _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _); eauto.
+    eapply etf. 
     cbn in Hreal. rewrite ReflectEq.eqb_refl in Hreal; eauto.
   Qed. 
     
@@ -2224,10 +2223,11 @@ Proof.
     eapply ws_cumul_pb_alt_closed. exists x; exists PiType. repeat split; eauto.
     inversion c0; subst; clear c0; econstructor; eauto.
     inversion X1; subst; clear X1; econstructor; eauto. 
-    unfold PCUICEquality.R_global_instance_gen, PCUICEquality.R_opt_variance in *. cbn in *.
+    unfold PCUICEquality.cmp_global_instance_gen, PCUICEquality.cmp_opt_variance in *. cbn in *.
     destruct lookup_inductive_gen; eauto. destruct p. destruct destArity; eauto.
     destruct p. destruct context_assumptions; eauto. cbn in *. destruct ind_variance; eauto.
-    induction u; try econstructor; eauto. 
+    destruct H3; [ left | right ]; eauto. 
+    inversion H0; econstructor. 
     }
   specialize (Hprinc' _ HB') as [? ?].
   etransitivity; eauto. eapply PCUICContextConversion.ws_cumul_pb_eq_le; symmetry; eauto.
@@ -2252,8 +2252,8 @@ Lemma interoperability_firstorder_function {funext:Funext} {P:Pointer} {H:Heap} 
   forall   (Hnparam : forall (i : kername) (mdecl : mutual_inductive_body),
   lookup_env Σ i = Some (InductiveDecl mdecl) -> ind_npars mdecl = 0),
   pcuic_good_for_extraction Σ ->
-  ind_sort Eind = Universe.lType l ->
-  ind_sort Eind' = Universe.lType l ->
+  ind_sort Eind = Sort.sType l ->
+  ind_sort Eind' = Sort.sType l ->
   forall (wfΣ : PCUICTyping.wf_ext (Σ,univ_decl))
   (expΣ : PCUICEtaExpand.expanded_global_env Σ)
   (expf : PCUICEtaExpand.expanded Σ [] f)
@@ -2317,17 +2317,18 @@ Proof.
     (tInd {| inductive_mind := kn; inductive_ind := ind |}
        [])
   |- tInd {| inductive_mind := kn; inductive_ind := ind' |}
-       [] : tSort (subst_instance_univ [] (ind_sort Eind'))).
+       [] : tSort (subst_instance_sort [] (ind_sort Eind'))).
   { eapply (PCUICWeakeningTyp.weakening  _ _ ([vass na (tInd {| inductive_mind := kn; inductive_ind := ind |} [])])) in Htype_ind'; cbn in Htype_ind'; eauto.
     repeat constructor. cbn. now eexists. }
   assert (Herase: ~ ∥ Extract.isErasable (Σ, univ_decl) [] f ∥).
-  { sq. eapply EArities.not_isErasable with (u := subst_instance_univ [] (Universe.lType l)); eauto; intros. 
+  { sq. eapply EArities.not_isErasable with (u := subst_instance_sort [] (Sort.sType l)); eauto; intros. 
     - clear Heval. sq. eapply Prod_ind_irred ; eauto.
     - clear Heval. sq. eapply Prod_ind_principal; eauto. 
     - intro; sq; eauto.
-    - sq. rewrite <- (sort_of_product_idem (subst_instance_univ [] (Universe.lType l))). 
+    - sq. rewrite <- (sort_of_product_idem (subst_instance_sort [] (Sort.sType l))). 
       eapply type_Prod; eauto.
-      now rewrite -H1. now rewrite -Hind_sort. }
+      + rewrite -H1. econstructor; cbn; eauto.
+      + now rewrite -Hind_sort. }
   inversion Heval; subst.
   - specialize (Ht _ _ _ H9).
     unshelve eapply camlValue_to_CoqValue in Ht. 20:eauto. all:eauto; cbn.

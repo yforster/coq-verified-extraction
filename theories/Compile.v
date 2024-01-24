@@ -80,7 +80,8 @@ Section Compile.
     match projT2 v with
     | EPrimitive.primIntModel i => Mnum (numconst_Int i)
     | EPrimitive.primFloatModel f => Mnum (numconst_Float64 f)
-    | EPrimitive.primArrayModel a =>  Mstring "error: primitive arrays not supported"
+    (* error: primitive arrays not supported *)
+    | EPrimitive.primArrayModel a => Mnum (numconst_Int (int_of_nat 0))
     end.
 
   Definition force_lambda (t : Malfunction.t) :=

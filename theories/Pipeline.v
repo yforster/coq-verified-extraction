@@ -29,7 +29,7 @@ Import PCUICTransform (template_to_pcuic_transform, pcuic_expand_lets_transform)
     - sq. now constructor.
   Qed.
   
-Import Transform.
+Import Transform.Transform.
 
 #[local] Arguments transform : simpl never. 
 
@@ -291,18 +291,23 @@ Next Obligation.
   2:{ sq. eapply nclosed_represents. cbn. eassumption. }
   clear - Hs. revert Hs. generalize 0. intros.
   induction s using EInduction.term_forall_list_ind in n, Hs |- *; cbn in *; eauto; rtoProp; eauto. 
-  all: try now rtoProp; eauto.
-  - rewrite lookup_env_annotate. destruct EGlobalEnv.lookup_env as [ [[ [] ] | ] | ]; cbn in *; eauto.
-  - rewrite lookup_env_annotate. destruct EGlobalEnv.lookup_env as [ [[ [] ] | ] | ]; cbn in *; eauto.
+  all: try now rtoProp; eauto. 
+  - unfold EGlobalEnv.lookup_constant in *. rewrite lookup_env_annotate. destruct EGlobalEnv.lookup_env as [ [[ [] ] | ] | ]; cbn in *; eauto.
+  - unfold EGlobalEnv.lookup_constructor_pars_args, EGlobalEnv.lookup_constructor, EGlobalEnv.lookup_inductive, EGlobalEnv.lookup_minductive in *. rewrite lookup_env_annotate. 
+    destruct EGlobalEnv.lookup_env as [ [[ [] ] | ] | ]; cbn in *; eauto.
     destruct nth_error; cbn in *; try congruence.
     destruct nth_error; cbn in *; try congruence.
     repeat split; eauto.
     solve_all.
-  - rewrite lookup_env_annotate. destruct EGlobalEnv.lookup_env as [ [[ [] ] | ] | ]; cbn in *; eauto.
-    destruct nth_error; cbn in *; try congruence.
+  - unfold EGlobalEnv.lookup_inductive, EGlobalEnv.lookup_minductive in *. rewrite lookup_env_annotate. 
+    destruct EGlobalEnv.lookup_env as [ [[ [] ] | ] | ]; cbn in *; eauto.
+    destruct nth_error; cbn in *; try congruence.  
     repeat split; eauto.
     solve_all.
   - solve_all. unfold wf_fix in *. rtoProp. solve_all.
+  - solve_all. destruct p as [? []]; cbn in *; eauto. 
+    apply andb_and in H0 as [? ?]. inversion X; subst. clear X. destruct X0.
+    solve_all. apply andb_and; split; solve_all.
 Qed.
 Next Obligation.
   red. intros. destruct pr as [_ pr]. red in H. sq.
@@ -382,6 +387,11 @@ Module evalnamed.
     - depelim a. reflexivity.
     - depelim a; reflexivity.
     - reflexivity.
+    - inversion evih; rewrite <- H in e; inversion e; subst; eauto.
+      eapply EPrimitive.All2_over_undep in X.
+      unfold a', a'0. repeat f_equal; eauto. clear H4. eapply EPrimitive.All2_Set_All2 in ev0, ev1.
+      clear -X ev1. revert v'0 ev1.  
+      induction X; intros; inversion ev1; eauto. f_equal; eauto.
   Qed.
 
 End evalnamed.
@@ -393,8 +403,11 @@ Lemma wf_glob_prop `{Heap} (efl := named_extraction_env_flags)
     forall (body : EAst.term),
     EAst.cst_body decl = Some body ->
     { v0 | ∥EWcbvEvalNamed.eval Σ [] body v0∥}.
+Proof.
+  intros ? ? Hdecl ? hbody. unfold EGlobalEnv.declared_constant in Hdecl.
 Admitted. 
 
+(*
 Definition malfunction_env `{Heap} (efl := named_extraction_env_flags) 
   Σ (wfΣ :  EWellformed.wf_glob Σ):
   list (string × SemanticsSpec.value).
@@ -419,7 +432,7 @@ Proof.
         exact ((string_of_kername k, compile_value G v) :: Σ').
       -- exact Σ'.
     * exact Σ'.
-Defined.
+Defined. *)
 
 Definition malfunction_env_prop `{Heap} (efl := named_extraction_env_flags) 
   Σ (wfΣ :  EWellformed.wf_glob Σ):
@@ -466,49 +479,28 @@ Proof.
         ++ eauto.
   Defined.
 
-Definition malfunction_env_prop_eq `{Heap} (efl := named_extraction_env_flags) 
-  Σ (wfΣ :  EWellformed.wf_glob Σ) :
-  malfunction_env Σ wfΣ = proj1_sig (malfunction_env_prop Σ wfΣ).
-Proof. 
- todo "dependence hell".
-Qed.
-(*
-  rename H into HP; rename H0 into HH.
-  induction Σ.
-  - reflexivity. 
-  - assert (wfΣ' : wf_glob Σ). { inversion wfΣ; subst; eauto. }
-    specialize (IHΣ wfΣ'). 
-  + destruct a. destruct g. 
-    2: { intros. cbn.   red in H0. cbn in H0.
-    destruct (eqb_spec c k).
-    ++ subst. invs H0. 
-    ++ eapply H. .
-}
-    * unshelve epose proof (wf_glob_prop _ wfG k c _).
-      { eapply EExtends.weakening_env_declared_constant; eauto.
-        unfold EGlobalEnv.declared_constant. cbn. rewrite ReflectEq.eqb_refl; eauto. }
-      destruct c. cbn in H0. destruct cst_body0.
-      -- specialize (H0 t0 eq_refl).
-        destruct H0 as [v Hv]. 
-      intros.
-      sq.
-      red in H0.
-      cbn in H0.
-      destruct (eqb_spec c k).
-      ** subst. cbn. left. invs H0. invs H1.
-         eapply evalnamed.eval_det in H2; try eapply Hv. subst.
-         reflexivity.
-      ** right. eapply H; eauto.
-        -- exists Σ'. intros. red in H1. cbn in H1.
-           destruct (eqb_spec c k).
-           ++ subst. invs H1. invs H2.
-           ++ eauto.
-      * exists Σ'. intros. red in H0. cbn in H0.
-        destruct (eqb_spec c k).
-        ++ subst. invs H0. 
-        ++ eauto.
-Defined.
-*)
+  Lemma extend_sing (efl := named_extraction_env_flags) 
+  Σ (wfΣ :  EWellformed.wf_glob Σ) kn mind 
+    (HΣ :  EGlobalEnv.extends Σ [(kn , EAst.InductiveDecl mind)]) :
+    Σ = [] \/ Σ = [(kn , EAst.InductiveDecl mind)].
+  Proof.
+    induction Σ; eauto.
+    right. inversion wfΣ; subst. pose proof (HΣ' := HΣ).
+    eapply EGenericMapEnv.extends_cons_inv in HΣ; eauto.
+    specialize (HΣ' kn0 d); cbn in *. rewrite ReflectEq.eqb_refl in HΣ'. specialize (HΣ' eq_refl).
+    case_eq (kn0 == kn).
+    2: { intro e; rewrite e in HΣ'. inversion HΣ'. }
+    case: eqb_spec => //. intros; subst. rewrite ReflectEq.eqb_refl in HΣ'.
+    inversion HΣ'. specialize (IHΣ H1 HΣ) as [|]; subst; eauto.
+    inversion H3; now subst.
+  Qed. 
+
+  Lemma malfunction_env_prop_empty  `{Heap} (efl := named_extraction_env_flags) 
+  Σ (wfΣ :  EWellformed.wf_glob Σ) kn mind (HΣ :  EGlobalEnv.extends Σ [(kn , EAst.InductiveDecl mind)]) :
+  proj1_sig (malfunction_env_prop Σ wfΣ) = [].
+  Proof.
+    eapply extend_sing in HΣ as [|]; subst; eauto. 
+  Qed. 
 
 Opaque malfunction_env_prop.
  
@@ -713,7 +705,7 @@ Section malfunction_pipeline_theorem.
     assert (ind_npars m = 0) by eauto. rewrite H3. rewrite skipn_0.
     rewrite map_map.
     eapply All_sq in H1. sq. constructor.
-    eapply All2_All2_Set. solve_all.
+    eapply EPrimitive.All2_All2_Set. solve_all.
   Qed.
 
   From Equations Require Import Equations.
@@ -818,11 +810,12 @@ Section malfunction_pipeline_theorem.
   Proof.
     intros H. eapply firstorder_evalue_block_elim with (P := fun p => compile_value Σ_t' (eval_fo p) = compile_value Σ_v (eval_fo p)); [|eauto] ; intros. 
     cbn. set (precond2 _ _ _ _ _ _ _ _ _ _) in Σ_v. unfold EGlobalEnv.lookup_constructor_pars_args in H0. cbn in H0.  
-    unfold lookup_constructor_args, EGlobalEnv.lookup_inductive. cbn.
+    unfold lookup_constructor_args, EGlobalEnv.lookup_constructor,
+      EGlobalEnv.lookup_inductive, EGlobalEnv.lookup_minductive in *. cbn.
     case_eq (EGlobalEnv.lookup_env Σ_v (inductive_mind i0)).
     2:{ intro HNone. rewrite HNone in H0; inversion H0. } 
     intros ? HSome. rewrite HSome in H0; cbn in H0.
-    eapply verified_malfunction_pipeline_lookup in HSome; eauto. 
+    eapply verified_malfunction_pipeline_lookup in HSome.
     rewrite HSome.
     destruct args0; cbn in *.  
     { destruct g; cbn; eauto. }
@@ -833,7 +826,6 @@ Section malfunction_pipeline_theorem.
       { now destruct H3. }
       { clear - H6. induction H6; cbn. eauto. now destruct H, IHForall. } 
     }
-    Unshelve. all: eauto. 
   Qed. 
   
   From Malfunction Require Import SemanticsSpec.
@@ -893,7 +885,10 @@ Section malfunction_pipeline_theorem.
     unshelve epose proof ErasureCorrectness.verified_erasure_pipeline_firstorder_evalue_block _ _ _ _ _ _ _ _ _ _ typing _ _ _; eauto using Heval.
     set (v' := compile_value_box _ _ _) in *. clearbody v'.
     clear -H2. eapply firstorder_evalue_block_elim; eauto. clear. intros; econstructor; eauto. 
-    clear -H. cbn in *. rewrite lookup_env_annotate lookup_env_implement_box.
+    clear -H. cbn in *. 
+    unfold EGlobalEnv.lookup_constructor_pars_args, EGlobalEnv.lookup_constructor,
+    EGlobalEnv.lookup_inductive, EGlobalEnv.lookup_minductive in *. cbn.
+    rewrite lookup_env_annotate lookup_env_implement_box.
     unfold enforce_extraction_conditions. unfold transform at 1.
     destruct EGlobalEnv.lookup_env; [|inversion H].
     destruct g; inversion H; subst; eauto.   
@@ -966,7 +961,7 @@ Section malfunction_pipeline_theorem_red.
   Proof.
     destruct typing as [typing']. sq. 
     eapply PCUICValidity.validity in typing' as Hv.
-    destruct Hv as [? HA].
+    destruct Hv as [_ [? [HA _]]].
     eapply PCUICValidity.inversion_mkApps in HA as (A & HA & _).
     eapply PCUICInversion.inversion_Ind in HA as (mdecl & idecl & _ & HA & _); eauto.
 
@@ -1034,6 +1029,20 @@ Section malfunction_pipeline_wellformed.
 End malfunction_pipeline_wellformed.
 
 
+Lemma compile_inductive_env_empty : forall `{Heap} 
+kn ind t inst mind univ retro univ_decl 
+(Normalisation : forall Σ0 : global_env_ext, wf_ext Σ0 -> NormalizationIn Σ0)
+(Σ0 := mk_global_env univ [(kn , InductiveDecl mind)] retro),
+let Σ : global_env_ext_map := (build_global_env_map Σ0, univ_decl) in
+let i := mkInd kn ind in
+forall HΣ expΣ expt 
+(fo : firstorder_ind Σ (firstorder_env Σ) i)
+(wt : ∥ Σ;;; [] |-  t : mkApps (tInd i inst) [] ∥),
+proj1_sig (malfunction_env_prop' _ _ _ HΣ expΣ _ expt _ _ _ wt Normalisation) = [].
+Proof.
+  intros. unshelve eapply malfunction_env_prop_empty; eauto. 
+  all: todo "property on erasure of env".
+Qed.
 
 About verified_malfunction_pipeline_theorem.
 Print Assumptions verified_malfunction_pipeline_theorem.
