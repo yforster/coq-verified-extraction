@@ -112,35 +112,9 @@ Definition check_good_for_extraction fl (p : program (list (kername × EAst.glob
   @EWellformed.wellformed fl p.1 0 p.2 >>> "term contains non-extractable constructors"
     &|& check_good_for_extraction_rec fl p.1.
 
-(* Lemma check_good_for_extraction_correct fl (p : program (list (kername × EAst.global_decl)) EAst.term) : *)
-(*   good_for_extraction fl p <-> check_good_for_extraction fl p = Good. *)
-(* Proof. *)
-(*   enough (( *)
-(*       (  forall (i : inductive) (args : list nat), lookup_constructor_args p.1 i = Some args -> blocks_until #|args| args < 200)/\  *)
-(* ( forall (i : inductive) (mb : EAst.mutual_inductive_body) (ob : EAst.one_inductive_body), *)
-(*  EGlobalEnv.lookup_inductive p.1 i = Some (mb, ob) -> #|EAst.ind_ctors ob| < Z.to_nat Malfunction.Int63.wB) /\ *)
-(* (forall (i : inductive) (mb : EAst.mutual_inductive_body) (ob : EAst.one_inductive_body), *)
-(*  EGlobalEnv.lookup_inductive p.1 i = Some (mb, ob) -> *)
-(*  forall (n : nat) (b : EAst.constructor_body), nth_error (EAst.ind_ctors ob) n = Some b -> EAst.cstr_nargs b < int_to_nat PArray.max_length) /\ *)
-(*  EWellformed.wf_glob p.1 *)
-(*     ) <-> check_good_for_extraction_rec fl p.1 = Good). *)
-(*   split. *)
-(*   - intros []. unfold check_good_for_extraction. *)
-(*     rewrite right_flags_in_term0. cbn. eapply H. eauto. *)
-(*   - unfold check_good_for_extraction. rtoProp. *)
-(*     destruct EWellformed.wellformed eqn:E; cbn. 2: congruence. *)
-(*     intros. econstructor. *)
-(*     all: try now eapply H; eauto. *)
-(*     eauto. *)
-(*   - generalize p.1. clear p. intros Σ. induction Σ. *)
-
-(* Admitted. *)
-
 #[local] Obligation Tactic := try now program_simpl.
 
 Axiom assume_can_be_extracted : forall erased_program, good_for_extraction extraction_env_flags erased_program.
-
-
 
 Program Definition enforce_extraction_conditions (efl := EWellformed.all_env_flags) `{Pointer} `{Heap} :
   t EAst.global_declarations EAst.global_declarations EAst.term EAst.term EAst.term
@@ -231,7 +205,7 @@ Proof.
   rewrite !lookup_env_annotate.
   destruct EGlobalEnv.lookup_env; try reflexivity.
   cbn.
-  destruct g; cbn; try reflexivity.  
+  destruct g; cbn; try reflexivity. 
   destruct c; cbn; try reflexivity.
   destruct cst_body0; reflexivity.
 Qed.
@@ -396,114 +370,6 @@ Module evalnamed.
 
 End evalnamed.
 
-Lemma wf_glob_prop `{Heap} (efl := named_extraction_env_flags) 
-  Σ (wfΣ :  EWellformed.wf_glob Σ) : 
-  forall (c : Kernames.kername) (decl : EAst.constant_body),
-    EGlobalEnv.declared_constant Σ c decl ->
-    forall (body : EAst.term),
-    EAst.cst_body decl = Some body ->
-    { v0 | ∥EWcbvEvalNamed.eval Σ [] body v0∥}.
-Proof.
-  intros ? ? Hdecl ? hbody. unfold EGlobalEnv.declared_constant in Hdecl.
-Admitted. 
-
-(*
-Definition malfunction_env `{Heap} (efl := named_extraction_env_flags) 
-  Σ (wfΣ :  EWellformed.wf_glob Σ):
-  list (string × SemanticsSpec.value).
-Proof. 
-  rename H into HP; rename H0 into HH.
-  assert (Hext : EGlobalEnv.extends Σ Σ). { intro; eauto. } 
-  pose proof (wfΣ' := wfΣ). revert Hext wfΣ'. 
-  generalize Σ at 2 3. intros G Hext wfG.
-
-  induction Σ.
-  + exact [].
-  + unshelve epose proof (Σ' := IHΣ _ _).
-    { inversion wfΣ; subst; eauto. } 
-    { inversion wfΣ; subst. eapply EGenericGlobalMap.extends_cons_inv in Hext; eauto. }
-    destruct a. destruct g.  
-    * unshelve epose proof (wf_glob_prop _ wfG k c _).
-      { eapply EExtends.weakening_env_declared_constant; eauto.
-        unfold EGlobalEnv.declared_constant. cbn. rewrite ReflectEq.eqb_refl; eauto. }
-      destruct c. cbn in H. destruct cst_body0.
-      -- specialize (H t0 eq_refl).
-        destruct H as [v Hv]. 
-        exact ((string_of_kername k, compile_value G v) :: Σ').
-      -- exact Σ'.
-    * exact Σ'.
-Defined. *)
-
-Definition malfunction_env_prop `{Heap} (efl := named_extraction_env_flags) 
-  Σ (wfΣ :  EWellformed.wf_glob Σ):
-   { Σ': list (string × SemanticsSpec.value) | forall (c : Kernames.kername) (decl : EAst.constant_body) 
-    (body : EAst.term) (v : EWcbvEvalNamed.value),
-    EGlobalEnv.declared_constant Σ c decl ->
-    EAst.cst_body decl = Some body ->
-    EWcbvEvalNamed.eval Σ [] body v ->
-    In (Kernames.string_of_kername c, compile_value Σ v) Σ'}.
-Proof. 
-  rename H into HP; rename H0 into HH.
-  assert (Hext : EGlobalEnv.extends Σ Σ). { intro; eauto. } 
-  pose proof (wfΣ' := wfΣ). revert Hext wfΣ'. 
-  generalize Σ at 2 3 5 6. intros G Hext wfG.
-  induction Σ.
-  + exists []. intros. red in H. destruct c; inversion H.
-  + destruct IHΣ as [Σ' H]; eauto.
-    { inversion wfΣ; subst; eauto. } 
-    { inversion wfΣ; subst. eapply EGenericGlobalMap.extends_cons_inv in Hext; eauto. }
-    destruct a. destruct g.  
-    * unshelve epose proof (wf_glob_prop _ wfG k c _).
-      { eapply EExtends.weakening_env_declared_constant; eauto.
-        unfold EGlobalEnv.declared_constant. cbn. rewrite ReflectEq.eqb_refl; eauto. }
-      destruct c. cbn in H0. destruct cst_body0.
-      -- specialize (H0 t0 eq_refl).
-        destruct H0 as [v Hv]. 
-        exists ((string_of_kername k, compile_value G v) :: Σ').
-      intros.
-      sq.
-      red in H0.
-      cbn in H0.
-      destruct (eqb_spec c k).
-      ** subst. left. invs H0. invs H1.
-         eapply evalnamed.eval_det in H2; try eapply Hv. subst.
-         reflexivity.
-      ** right. eapply H; eauto.
-        -- exists Σ'. intros. red in H1. cbn in H1.
-           destruct (eqb_spec c k).
-           ++ subst. invs H1. invs H2.
-           ++ eauto.
-      * exists Σ'. intros. red in H0. cbn in H0.
-        destruct (eqb_spec c k).
-        ++ subst. invs H0. 
-        ++ eauto.
-  Defined.
-
-  Lemma extend_sing (efl := named_extraction_env_flags) 
-  Σ (wfΣ :  EWellformed.wf_glob Σ) kn mind 
-    (HΣ :  EGlobalEnv.extends Σ [(kn , EAst.InductiveDecl mind)]) :
-    Σ = [] \/ Σ = [(kn , EAst.InductiveDecl mind)].
-  Proof.
-    induction Σ; eauto.
-    right. inversion wfΣ; subst. pose proof (HΣ' := HΣ).
-    eapply EGenericMapEnv.extends_cons_inv in HΣ; eauto.
-    specialize (HΣ' kn0 d); cbn in *. rewrite ReflectEq.eqb_refl in HΣ'. specialize (HΣ' eq_refl).
-    case_eq (kn0 == kn).
-    2: { intro e; rewrite e in HΣ'. inversion HΣ'. }
-    case: eqb_spec => //. intros; subst. rewrite ReflectEq.eqb_refl in HΣ'.
-    inversion HΣ'. specialize (IHΣ H1 HΣ) as [|]; subst; eauto.
-    inversion H3; now subst.
-  Qed. 
-
-  Lemma malfunction_env_prop_empty  `{Heap} (efl := named_extraction_env_flags) 
-  Σ (wfΣ :  EWellformed.wf_glob Σ) kn mind (HΣ :  EGlobalEnv.extends Σ [(kn , EAst.InductiveDecl mind)]) :
-  proj1_sig (malfunction_env_prop Σ wfΣ) = [].
-  Proof.
-    eapply extend_sing in HΣ as [|]; subst; eauto. 
-  Qed. 
-
-Opaque malfunction_env_prop.
- 
 Program Definition compile_to_malfunction (efl := named_extraction_env_flags) `{Heap}:
   Transform.t (list (Kernames.kername × EAst.global_decl)) _ _ _
     EWcbvEvalNamed.value SemanticsSpec.value
@@ -522,15 +388,7 @@ Next Obligation. sq.
   intros. now destruct x.
 Qed.
 Next Obligation.
-  rename H into HP; rename H0 into HH. 
-  red. intros. sq. destruct pr as [wf pr]. 
-  unshelve epose proof (malfunction_env_prop _ wf) as [? ?].
-  eexists. split; [eauto|]. intro h.
-  eapply compile_correct in H; eauto. 
-  - intros. split.
-    eapply pr. eauto. eapply pr. eauto.
-  - intros. unfold lookup. cbn. instantiate (1 := fun _ =>  SemanticsSpec.fail "notfound"). reflexivity.
-  Unshelve. assumption.
+  red. intros. exists (compile_value p.1 v); eauto. 
 Qed.
 
 Program Definition verified_named_erasure_pipeline (efl := EWellformed.all_env_flags) `{Heap}:
@@ -784,8 +642,6 @@ Section malfunction_pipeline_theorem.
     EGlobalEnv.lookup_env Σ_v kn = Some g ->
     EGlobalEnv.lookup_env Σ_t' kn = Some g. 
   Proof.
-    unshelve epose proof (malfunction_env_prop Σ_t' _) as [Σ' HΣ'].
-    { eapply (correctness verified_named_erasure_pipeline). }
     unfold Σ_t', Σ_v. unfold verified_named_erasure_pipeline.
     repeat (destruct_compose; intro). 
     unfold transform at 1 3; cbn -[transform].
@@ -830,18 +686,19 @@ Section malfunction_pipeline_theorem.
   
   From Malfunction Require Import SemanticsSpec.
 
-  Definition malfunction_env_prop' := malfunction_env_prop Σ_t' 
-    match
-        correctness verified_named_erasure_pipeline (Σ, t) (precond _ _ _ _ expΣ expt typing _)
-    with conj H H' => right_flags_in_glob _ _ H end. 
+  Definition malfunction_env_prop Σ' :=  forall (c : Kernames.kername) (decl : EAst.constant_body) 
+  (body : EAst.term) (v : EWcbvEvalNamed.value),
+  EGlobalEnv.declared_constant Σ_t' c decl ->
+  EAst.cst_body decl = Some body ->
+  EWcbvEvalNamed.eval Σ_t' [] body v ->
+  In (Kernames.string_of_kername c, compile_value Σ_t' v) Σ'.
 
-  Lemma verified_malfunction_pipeline_theorem_gen (efl := extraction_env_flags) : 
-    let Σ' := proj1_sig malfunction_env_prop' in
-    forall (h:heap), forall h, eval Σ' empty_locals h (compile_malfunction_pipeline expΣ expt typing).2 h (compile_value_mf Σ v).
+  Lemma verified_malfunction_pipeline_theorem_gen (efl := extraction_env_flags) Σ' :
+    malfunction_env_prop Σ' ->
+    forall (h:heap), eval Σ' empty_locals h (compile_malfunction_pipeline expΣ expt typing).2 h (compile_value_mf Σ v).
   Proof.
-    destruct malfunction_env_prop' as [Σ' HΣ']; cbn.  
+    intros HΣ'; cbn.  
     unshelve epose proof (verified_erasure_pipeline_theorem _ _ _ _ _ _ _ _ _ _ _ _ _ Heval); eauto.
-    (* unshelve epose proof (correctness (verified_malfunction_pipeline hp)) as Hpost. *)
     rewrite compile_value_mf_eq. 
     { eapply fo_v; eauto. }
     unfold compile_malfunction_pipeline, verified_malfunction_pipeline, verified_named_erasure_pipeline in *. 
@@ -870,7 +727,7 @@ Section malfunction_pipeline_theorem.
       + eapply H3. eassumption.
       + eapply H3. eassumption.
     - eauto.  
-    - revert HΣ'. unfold Σ_t'. repeat destruct_compose ; intros. eauto. 
+    - eapply HΣ'; eauto.  
     - rewrite Himpl_obs in Hname_obs. 
       rewrite <- implement_box_fo in Hname_obs. 2: { eapply fo_v; eauto. }
       eapply represent_value_eval_fo in Hname_obs. 2: { eapply fo_v; eauto. }
@@ -894,29 +751,48 @@ Section malfunction_pipeline_theorem.
     destruct g; inversion H; subst; eauto.   
   Qed.    
     
-  Transparent compose. 
+  Transparent compose.  
   
   Lemma verified_named_erasure_pipeline_lookup_env_in kn  
   (efl := EInlineProjections.switch_no_params all_env_flags)  {has_rel : has_tRel} {has_box : has_tBox}  :
   forall decl, 
-    EGlobalEnv.lookup_env Σ_v kn = Some (EAst.InductiveDecl decl) ->
+    EGlobalEnv.lookup_env Σ_t' kn = Some decl ->
     exists decl', 
     PCUICAst.PCUICEnvironment.lookup_global (PCUICExpandLets.trans_global_decls
     (PCUICAst.PCUICEnvironment.declarations
-       Σ.1)) kn = Some (PCUICAst.PCUICEnvironment.InductiveDecl decl')
-     /\ decl = ERemoveParams.strip_inductive_decl (ErasureFunction.erase_mutual_inductive_body decl').
+       Σ.1)) kn = Some decl'
+     /\ erase_decl_equal (fun decl' => ERemoveParams.strip_inductive_decl (ErasureFunction.erase_mutual_inductive_body decl'))
+                          decl decl'.
   Proof.
-    intro decl. unfold Σ_v, verified_named_erasure_pipeline.
+    intro decl. unfold Σ_t', verified_named_erasure_pipeline.
     destruct_compose; intro; cbn. rewrite lookup_env_annotate.
     destruct_compose; intro; cbn. rewrite lookup_env_implement_box. 
     destruct_compose; intro; cbn. 
     unfold enforce_extraction_conditions. unfold transform at 1.
-    intro Hlookup.   
-    unshelve epose proof (verified_erasure_pipeline_lookup_env_in _ _ _ _ _ _ _ _ _ _ _ _ _ _ _).
-    3-7:eauto. all: eauto.
-    destruct EGlobalEnv.lookup_env; inversion Hlookup.
-    f_equal. destruct g; cbn in H3; [|eauto]. destruct EAst.cst_body; inversion H3.
+    intro Hlookup. set (EGlobalEnv.lookup_env _ _) in Hlookup. case_eq o.
+    2:{ intro Heq; rewrite Heq in Hlookup; inversion Hlookup. }
+    intros decl' Heq.
+    unshelve epose proof (verified_erasure_pipeline_lookup_env_in _ _ _ _ _ _ _ _ _ _ _ _ Heq) as [? [? ?]]; eauto.
+    eexists; split; eauto. rewrite Heq in Hlookup.
+    inversion Hlookup; subst; clear Hlookup. 
+    destruct decl', x; cbn in *; eauto.
+    destruct EAst.cst_body; eauto.
   Qed.
+
+  Lemma verified_named_erasure_pipeline_lookup_env_in' kn  
+  (efl := EInlineProjections.switch_no_params all_env_flags)  {has_rel : has_tRel} {has_box : has_tBox}  :
+  forall decl, 
+    EGlobalEnv.lookup_env Σ_v kn = Some decl ->
+    exists decl', 
+    PCUICAst.PCUICEnvironment.lookup_global (PCUICExpandLets.trans_global_decls
+    (PCUICAst.PCUICEnvironment.declarations
+       Σ.1)) kn = Some decl'
+     /\ erase_decl_equal (fun decl' => ERemoveParams.strip_inductive_decl (ErasureFunction.erase_mutual_inductive_body decl'))
+                          decl decl'.
+  Proof.
+    intros; eapply verified_named_erasure_pipeline_lookup_env_in. 1-2: eauto.  
+    apply verified_malfunction_pipeline_lookup; eauto. 
+  Qed. 
 
 End malfunction_pipeline_theorem.
 
@@ -983,11 +859,11 @@ Section malfunction_pipeline_theorem_red.
 
   From Malfunction Require Import SemanticsSpec.
 
-  Lemma verified_malfunction_pipeline_theorem (efl := extraction_env_flags) : 
-    let Σ' := proj1_sig (malfunction_env_prop' _ _ _ HΣ expΣ _ expt _ _ _ typing _) in
+  Lemma verified_malfunction_pipeline_theorem (efl := extraction_env_flags) Σ' :
+    malfunction_env_prop _ _ _ HΣ expΣ _ expt _ _ _ typing _ Σ' ->
     forall h, eval Σ' empty_locals h (compile_malfunction_pipeline expΣ expt typing).2 h (compile_value_mf Σ v).
   Proof. 
-    intros; eapply verified_malfunction_pipeline_theorem_gen; eauto.
+    now eapply verified_malfunction_pipeline_theorem_gen.
   Qed.  
 
 End malfunction_pipeline_theorem_red.
@@ -1027,22 +903,6 @@ Section malfunction_pipeline_wellformed.
     eapply few_enough_blocks; eauto.
   Qed. 
 End malfunction_pipeline_wellformed.
-
-
-Lemma compile_inductive_env_empty : forall `{Heap} 
-kn ind t inst mind univ retro univ_decl 
-(Normalisation : forall Σ0 : global_env_ext, wf_ext Σ0 -> NormalizationIn Σ0)
-(Σ0 := mk_global_env univ [(kn , InductiveDecl mind)] retro),
-let Σ : global_env_ext_map := (build_global_env_map Σ0, univ_decl) in
-let i := mkInd kn ind in
-forall HΣ expΣ expt 
-(fo : firstorder_ind Σ (firstorder_env Σ) i)
-(wt : ∥ Σ;;; [] |-  t : mkApps (tInd i inst) [] ∥),
-proj1_sig (malfunction_env_prop' _ _ _ HΣ expΣ _ expt _ _ _ wt Normalisation) = [].
-Proof.
-  intros. unshelve eapply malfunction_env_prop_empty; eauto. 
-  all: todo "property on erasure of env".
-Qed.
 
 About verified_malfunction_pipeline_theorem.
 Print Assumptions verified_malfunction_pipeline_theorem.
