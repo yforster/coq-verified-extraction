@@ -131,8 +131,8 @@ Section Compile.
       .
     Proof.
       all: try (cbn; lia).
-      - subst args. eapply (In_size id size) in H.
-        unfold id in H. change size with (fun x => size x) at 2. cbn [size]. exact H.
+      - subst args. eapply (In_size id size) in H. cbn in *.  
+        unfold id in H. change (fun x => size x) with size in H. lia.
       - eapply (In_size snd size) in H. cbn in *.
         lia.
       - eapply (In_size dbody size) in H. cbn in *. lia.
