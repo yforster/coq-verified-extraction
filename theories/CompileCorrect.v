@@ -1143,3 +1143,19 @@ Proof.
     eapply Mapply_eval_last. 
   - destruct H1 as [? ?]. rewrite H2. cbn; eauto.
 Qed. 
+
+Lemma compile_app_not_nil Σ t : ~ (exists t', compile Σ t = Malfunction.Mapply (t', [])).
+Proof. 
+  induction t; intros [t' Ht']; try solve [inversion Ht'].
+  - erewrite compile_equation_7 in Ht'. destruct (compile _ t1); cbn in Ht' ; inversion Ht'.
+    destruct p; inversion Ht'. destruct l; inversion H2.
+  - destruct args.
+    + erewrite compile_equation_9 in Ht'. destruct lookup_constructor_args; inversion Ht'. 
+    + erewrite compile_equation_10 in Ht'. destruct lookup_constructor_args; inversion Ht'.
+  - destruct brs.
+    + erewrite compile_equation_11 in Ht'. destruct lookup_constructor_args; inversion Ht'. 
+    + erewrite compile_equation_12 in Ht'. destruct lookup_constructor_args; inversion Ht'.
+  - destruct p. erewrite compile_equation_13 in Ht'. unfold compile_unfold_clause_11 in Ht'.
+    destruct lookup_record_projs; inversion Ht'.
+  - erewrite compile_equation_16 in Ht'. destruct prim as [[] []]; inversion Ht'.  
+Qed.
