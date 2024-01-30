@@ -1035,3 +1035,111 @@ Proof.
       eapply in_map_iff; eexists; split; eauto.
   - inversion X; subst; eauto.  
 Qed.
+
+Lemma compile_extends Γ n s t (Σ Σ' : EAst.global_declarations) :
+  EWellformed.wellformed (efl := extraction_env_flags) Σ n t ->
+  represents Γ [] s t ->
+  EGlobalEnv.extends Σ Σ' ->
+  compile Σ s = compile Σ' s.
+Proof.
+  intros Hwf Hrep. revert n Hwf.
+  remember [] as E. revert HeqE.
+  eapply @represents_ind with (e := E) (l := Γ) (t := s) (t0 := t) (P0 := fun _ _ _ => True); intros; simp compile;
+    cbn [EWellformed.wellformed] in *;
+    subst; try now tauto; cbn. 
+  - cbn. eapply andb_and in Hwf as [? ?]. repeat (f_equal; eauto).
+  - cbn. eapply andb_and in Hwf as [Hwf ?]. eapply andb_and in Hwf as [? ?].  
+    repeat (eauto;f_equal).
+  - eapply andb_and in Hwf as [Hwf ?]. eapply andb_and in Hwf as [? ?].
+    erewrite H0, H; eauto.
+  - destruct args; cbn. 
+    + repeat erewrite compile_equation_9. unfold lookup_constructor_args.
+      destruct ind. cbn. specialize (H inductive_mind).
+      repeat eapply andb_and in Hwf as [Hwf ?]. cbn in H1.  
+      destruct (EGlobalEnv.lookup_env Σ inductive_mind); [| inversion H1].
+      rewrite (H _ eq_refl). now destruct g.
+    + repeat erewrite compile_equation_10. unfold lookup_constructor_args.
+      set (t0 :: args) in *. clearbody l.  
+      destruct ind. cbn. pose proof (Hext := H). specialize (H inductive_mind).
+      repeat eapply andb_and in Hwf as [Hwf ?]. cbn in H0, H1.  
+      destruct (EGlobalEnv.lookup_env Σ inductive_mind); [| inversion H1].
+      rewrite (H _ eq_refl). destruct g; eauto. destruct nth_error; eauto.
+      eapply andb_and in H0 as [H0 ?].
+      f_equal. f_equal. clear H0. induction a; cbn in *; eauto. destruct IH.
+      repeat eapply andb_and in H2 as [H2 ?].
+      f_equal; eauto.
+  - destruct brs.
+    + repeat rewrite compile_equation_11; eauto.
+    + repeat rewrite compile_equation_12; eauto.
+      unfold lookup_constructor_args.
+      set (p :: brs) in *. clearbody l.  
+      destruct ind, i. cbn. pose proof (Hext := H0). specialize (H0 inductive_mind).
+      repeat eapply andb_and in Hwf as [Hwf ?]. cbn in H1.  
+      destruct (EGlobalEnv.lookup_env Σ inductive_mind); [| inversion H1].
+      rewrite (H0 _ eq_refl). destruct g; eauto. destruct nth_error; eauto.
+      repeat eapply andb_and in H1 as [H1 ?].
+      f_equal. f_equal. f_equal; eauto. induction a; cbn in *; eauto. destruct IH.
+      repeat eapply andb_and in H2 as [H2 ?]. inversion Heq. 
+      repeat (eauto; f_equal).   
+  - repeat eapply andb_and in Hwf as [Hwf ?]. unfold EWellformed.wf_fix_gen in H0. clear Hwf.
+    repeat eapply andb_and in H0 as [H0 ?]. clear H0.   
+    clear H1 a Hbodies. do 4 f_equal.
+    + revert n H2. induction a0; eauto; intros. cbn. 
+      destruct IH. inversion H2.
+      repeat eapply andb_and in H1 as [H1 ?]. 
+      f_equal; eauto. f_equal. f_equal; eauto. unshelve eapply (IHa0 _ (S n)); eauto.
+      replace (#|l'| + S n) with (S (#|l'| + n)) by lia.  eauto.    
+    + revert idx n H2. induction a0; intros. cbn. eauto.  
+      destruct IH. inversion H2. 
+      repeat eapply andb_and in H1 as [H1 ?]. destruct idx; cbn. 
+      f_equal; eauto. f_equal; eauto. unshelve eapply (IHa0 _ _ (S n)); eauto.
+      replace (#|l'| + S n) with (S (#|l'| + n)) by lia. eauto.
+Qed.  
+
+Lemma Mapply_eval_fail `{Heap} globals locals 
+    (e e2 : Malfunction.t) (v2 : SemanticsSpec.value)
+    (e1 : Malfunction.t) (v : SemanticsSpec.value) args h1 h2 :
+    SemanticsSpec.eval globals locals h1 (Mapply_ (e1, args)) h2 v ->
+    isFunction v = false ->
+    SemanticsSpec.eval globals locals h1 (Malfunction.Mapply (e1, args ++ [e2]))%list h2 (fail "not a function:  evaluated to: ").
+Proof.
+  replace e1 with (Mnapply e1 []) by reflexivity.
+  generalize (@nil Malfunction.t) at 1 2.
+  induction args in e1 |- *; intros l Hleft Hfun; cbn.
+  - eapply eval_app_fail; eauto.
+  - cbn. destruct args; econstructor.
+    * replace (Malfunction.Mapply (Mnapply e1 l, [a])) with
+        (Mnapply e1 (l ++ [a])) by now rewrite Mnapply_app. cbn.
+      eapply IHargs; eauto.
+      cbn in Hleft.
+      eapply eval_app_nested_inv with (args := a :: []) in Hleft.
+      eapply eval_app_nested_. now rewrite <- app_assoc.
+    * replace (Malfunction.Mapply (Mnapply e1 l, [a])) with
+        (Mnapply e1 (l ++ [a])) by now rewrite Mnapply_app. cbn.
+      eapply IHargs; eauto.
+      cbn in Hleft.
+      eapply eval_app_nested_inv with (args := a :: t :: args) in Hleft.
+      eapply eval_app_nested_. now rewrite <- app_assoc.
+Qed.
+
+Lemma Mapply_eval_last `{Heap} f l a Σ locals h h' v: 
+  eval Σ locals h (Malfunction.Mapply (Mapply_ (f, l),[a])) h' v ->
+  eval Σ locals h (Mapply_ (f, (l ++ [a])%list)) h' v.
+Proof.
+  revert f v h h' a. induction l; cbn; intros ? ? ? ? ? Heval; eauto.
+  rewrite app_comm_cons. inversion Heval.
+  - eapply Mapply_eval; eauto.
+  - eapply Mapply_eval_rec; eauto.
+  - subst. eapply Mapply_eval_fail; eauto.
+Qed.    
+  
+Lemma Mapply_u_eval `{Heap} f a Σ locals h v: 
+  ~ (exists n : Malfunction.t, f = Malfunction.Mapply (n, [])) ->
+  eval Σ locals h (Malfunction.Mapply (f,[a])) h v ->
+  eval Σ locals h (Mapply_u f a) h v.
+Proof.
+  intro Hn. destruct (Mapply_u_spec f a Hn).
+  - destruct H1 as [? [? [? ?]]]. rewrite H2. subst. clear H2.
+    eapply Mapply_eval_last. 
+  - destruct H1 as [? ?]. rewrite H2. cbn; eauto.
+Qed. 
