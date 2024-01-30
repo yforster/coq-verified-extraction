@@ -5,7 +5,7 @@ From MetaCoq.Utils Require Import bytestring utils.
 From MetaCoq.PCUIC Require Import PCUICAst PCUICTyping PCUICReduction PCUICAstUtils PCUICSN
     PCUICTyping PCUICProgram PCUICFirstorder PCUICEtaExpand.
 From MetaCoq.SafeChecker Require Import PCUICErrors PCUICWfEnvImpl.
-From MetaCoq.Erasure Require EAstUtils ErasureFunction ErasureCorrectness EPretty Extract.
+From MetaCoq.Erasure Require EAstUtils ErasureFunction ErasureCorrectness EImplementBox EPretty Extract.
 From MetaCoq Require Import ETransform EConstructorsAsBlocks.
 From MetaCoq.Erasure Require Import EWcbvEvalNamed.
 From MetaCoq.ErasurePlugin Require Import Erasure ErasureCorrectness.
@@ -305,6 +305,15 @@ Next Obligation.
       split; eauto. eexists. split. cbn. reflexivity.
       eapply nclosed_represents; cbn. invs H0. cbn in *. eauto.
   - eapply pr.
+Qed.
+
+Lemma annotate_extends (efl := extraction_env_flags) Σ Σ' :
+   EGlobalEnv.extends Σ Σ' ->
+   EGlobalEnv.extends (annotate_env [] Σ) (annotate_env [] Σ').
+Proof.
+  red. intros ext kn decl Hdecl. rewrite lookup_env_annotate in Hdecl.
+  rewrite lookup_env_annotate. eapply option_map_Some in Hdecl as [? [? ?]]. 
+  erewrite ext; cbn; eauto. now f_equal.
 Qed.
 
 Module evalnamed.
@@ -883,12 +892,71 @@ Section malfunction_pipeline_wellformed.
   Variable HΣ : wf_ext Σ.
   Variable expΣ : expanded_global_env Σ.1.
 
+  Opaque implement_box.
+
+  Lemma verified_named_erasure_pipeline_eta_app t u pre :
+    ∥ Extract.nisErasable Σ [] (tApp t u) ∥ ->
+   PCUICEtaExpand.expanded Σ.1 [] t ->
+    exists pre' pre'',
+  let trapp := transform verified_named_erasure_pipeline (Σ, tApp t u) pre in
+  let trt := transform verified_named_erasure_pipeline (Σ, t) pre' in
+  let tru := transform verified_named_erasure_pipeline (Σ, u) pre'' in
+    (EGlobalEnv.extends trt.1 trapp.1 /\ EGlobalEnv.extends tru.1 trapp.1) /\ 
+    trapp = (trapp.1, EAst.tApp trt.2 tru.2).
+  Proof.
+    set (P := Transform.pre _). intros.  
+    unshelve epose proof (erasure_pipeline_extends_app _ _ _ pre _ _) as [pre' [pre'' [ [? ?] Happ]]]; eauto.
+    exists pre', pre''. unfold verified_named_erasure_pipeline.
+    repeat (destruct_compose; intros).
+    unfold transform at 1 3 5 7 9 11 13 15. cbn -[P transform].
+    repeat (destruct_compose; intros).   
+    unfold transform at 1 3 5 7 9 11 13 15 17. cbn -[P transform].
+    repeat (destruct_compose; intros).
+    unfold transform at 1 3 5 7 9 11 13 15 17. cbn -[P transform].
+    repeat split. 
+    { unshelve eapply annotate_extends, implement_box_env_extends.
+      exact named_extraction_env_flags. eauto.
+      exact H1. 1-2: todo "wf_glob". }
+    { unshelve eapply annotate_extends, implement_box_env_extends.
+      exact named_extraction_env_flags. eauto.
+      exact H2. 1-2: todo "wf_glob". }
+    rewrite Happ.  now rewrite (implement_box_mkApps _ [_]).
+  Qed.
+
+  Transparent implement_box.
+  
+  Variable Normalisation : forall Σ0 : global_env_ext, wf_ext Σ0 -> NormalizationIn Σ0.
+
+  Lemma compile_malfunction_pipeline_app : forall t u Hpre,
+  ∥Extract.nisErasable Σ [] (tApp t u) ∥ ->
+  expanded Σ.1 [] t ->
+  exists pre' pre'',
+  (transform verified_malfunction_pipeline (Σ, tApp t u) Hpre).2 = 
+  Mapply_u (transform verified_malfunction_pipeline (Σ, t) pre').2 (transform verified_malfunction_pipeline (Σ, u) pre'').2.
+  Proof.
+    set (P := Transform.pre _). intros ? ? ? Herase Hexpand. unfold verified_malfunction_pipeline. cbn - [P].  
+    unshelve epose proof (verified_named_erasure_pipeline_eta_app _ _ Hpre Herase Hexpand) as [pre' [pre'' [[? ?] Happ]]].
+    exists pre', pre''. 
+    repeat (destruct_compose; intros).
+    unfold transform at 1 3 5. cbn -[P transform]. rewrite Happ. cbn.
+    set (transform verified_named_erasure_pipeline (Σ, tApp t0 u) Hpre).1.
+    repeat set (_.2). pose (compile_equation_7 g y y0). etransitivity; [exact e|].
+    (* f_equal should work *)
+    cbn in *. destruct H2 as [? [[? [? ?]] ?]]. sq.   
+    eapply compile_extends in H. 2-3: eauto. 
+    destruct H3 as [? [[? [? ?]] ?]]. sq.
+    eapply compile_extends in H0. 2-3: eauto.
+    (* now rewrite H H0 should work *)
+    revert H H0. unfold g, y, y0. repeat set (transform _ _ _). clearbody p0 p p1.
+    clear. intros e e'. f_equal; eauto.
+  (* the proof is finished, but Qed blows up *)
+  (* Qed. *)
+  Admitted.
+
   Variable t A : term.
   Variable expt : expanded Σ.1 [] t.
 
   Variable typing : ∥Σ ;;; [] |- t : A∥.
-
-  Variable Normalisation : forall Σ0 : global_env_ext, wf_ext Σ0 -> NormalizationIn Σ0.
 
   Let Σ_t := (transform verified_named_erasure_pipeline (Σ, t) (precond _ _ _ _ expΣ expt typing _)).1.
 
@@ -902,6 +970,7 @@ Section malfunction_pipeline_wellformed.
     eapply compile_wellformed; eauto. 
     eapply few_enough_blocks; eauto.
   Qed. 
+
 End malfunction_pipeline_wellformed.
 
 About verified_malfunction_pipeline_theorem.
