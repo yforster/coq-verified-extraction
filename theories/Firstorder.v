@@ -1813,9 +1813,25 @@ Lemma CoqValue_to_CamlValue {funext : Funext} {P : Pointer} {H : CompatiblePtr P
     assert (u = [] /\ pandi = []).
     {
       unfold isConstruct_ind in wval. rewrite PCUICAstUtils.decompose_app_mkApps in wval; eauto.
-      cbn in wval. 
-      eapply PCUICPrincipality.common_typing in wtv as [? [? [? _]]]; try eapply wval; eauto.
-      todo "typing instance".
+      cbn in wval.
+      unshelve epose proof (PCUICSafeLemmata.validity_wf _ _ _).
+      4:{ sq. exact wtv.  }
+      destruct H5 as [? Hty].
+      eapply PCUICValidity.inversion_mkApps in Hty as (? & Hty & ?).
+      eapply PCUICInversion.inversion_Ind in Hty as (? & ? & ? & ? & ? & ?); eauto.
+      eapply PCUICInductives.declared_inductive_type in d as Dd.
+      rename d into d0.
+      cbn in d0. unfold Σ0 in d0. destruct d0.
+      cbn in H5. destruct H5; try tauto. invs H5.
+      rewrite Hmono in c. cbn in c. destruct u; cbn in *; try lia. split; auto.
+      rewrite Dd in w.
+      rewrite Hparam in w.
+      eapply nth_error_forall in H6.
+      2: eauto. cbn in H6. rewrite H6 in w. cbn in w.
+      invs t. reflexivity.
+      exfalso.
+      eapply PCUICConversion.ws_cumul_pb_Sort_Prod_inv.
+      etransitivity; eassumption.
     }
     destruct H5; subst. assert (Hindlt: inductive_ind i <? #|CoqType_to_camlType' mind Hparam Hfo_nil|).
     {
@@ -1994,8 +2010,29 @@ Lemma CoqValue_to_CamlValue {funext : Funext} {P : Pointer} {H : CompatiblePtr P
       rewrite H5. clear H5. 
       revert s0 dx0; intros.
       assert (Forall (fun v =>  ∥Σ;;; [] |- v : tInd (isConstruct_ind v) []∥) args').
-      { eapply typing_tConstruct_fo in Hargs_fo. eapply Forall_impl; eauto.
-        cbn; intros ? [? [? ?]]. sq. todo "parameter and instance". } 
+      {
+        eapply typing_tConstruct_fo in Hargs_fo. eapply Forall_impl; eauto.
+        cbn; intros ? [? [? ?]]. sq.
+        enough (x0 = nil /\ x2 = nil) as [-> ->] by assumption.
+        unshelve epose proof (PCUICSafeLemmata.validity_wf _ _ _).
+        4:{ sq. eassumption. }
+        destruct H6 as [? Hty].
+        eapply PCUICValidity.inversion_mkApps in Hty as (? & Hty & ?).
+        eapply PCUICInversion.inversion_Ind in Hty as (? & ? & ? & ? & ? & ?); eauto.
+        eapply PCUICInductives.declared_inductive_type in d0 as Dd.
+        cbn in d0. unfold Σ0 in d0. destruct d0.
+        cbn in H6. destruct H6; try tauto. invs H6.
+        destruct i. cbn in H9. subst.
+        rewrite Hmono in c0. cbn in c0. destruct x0; cbn in *; try lia. split; auto.
+        rewrite Dd in w.
+        rewrite Hparam in w.
+        eapply nth_error_forall in H7.
+        2: eauto. cbn in H7. rewrite H7 in w. cbn in w.
+        invs t0. reflexivity.
+        exfalso.
+        eapply PCUICConversion.ws_cumul_pb_Sort_Prod_inv.
+        etransitivity; eassumption.
+      }
       assert (Forall2 (fun T v => T = (Rel (inductive_ind (isConstruct_ind v)))) (c ::l') args').
       { unfold l in d. clear wtv Hrec. revert dx0; intros.
         eapply CoqType_to_camlType_oneind_nth_ctors in d as [Hfo_x d].
@@ -2004,7 +2041,26 @@ Lemma CoqValue_to_CamlValue {funext : Funext} {P : Pointer} {H : CompatiblePtr P
         rewrite Hx1 in d. inversion d. subst. clear d. rewrite d'. clear d'.
         revert x0; rewrite Hparam app_nil_r; intro. rewrite PCUICLiftSubst.subst0_context in s0.
         rewrite - PCUICSpine.subst_telescope_subst_context in s0.
-        assert (ui = []) by todo "". subst. cbn in s0.
+        assert (ui = []).
+        {
+          revert c1. intros. unfold Σ in c1. unfold Σ0 in c1.
+          cbn in c1. red in c1. red in c1. cbn in c1.
+          unfold lookup_env in c1. cbn in c1.
+          unfold lookup_inductive_gen, lookup_minductive_gen in c1. cbn in c1.
+          rewrite eq_kername_refl in c1. rewrite dx0 in c1.
+          unfold compare_universe in c1. cbn in c1. red in c1.
+          destruct destArity as []; cbn in *.
+          destruct p; cbn in *.
+          destruct Nat.leb.
+          destruct ind_variance.  inversion c1.
+          red in H6. inversion H6. reflexivity.
+          inversion H6. reflexivity.
+          inversion c1. reflexivity.
+          inversion c1. reflexivity.
+          inversion c1. reflexivity.
+        }
+
+        subst. cbn in s0.
         rewrite subst_instance_empty_ctx in s0.
         set (rev _) in *. generalize args' H5 0 x0 s0. clear -Hx1 dx0 wfΣ.
         induction l0; intros.
