@@ -915,11 +915,17 @@ Section malfunction_pipeline_wellformed.
     unfold transform at 1 3 5 7 9 11 13 15 17. cbn -[P transform].
     repeat split. 
     { unshelve eapply annotate_extends, implement_box_env_extends.
-      exact named_extraction_env_flags. eauto.
-      exact H1. 1-2: todo "wf_glob". }
+      - exact extraction_env_flags. 
+      - eauto.
+      - exact H1. 
+      - now eapply right_flags_in_glob.
+      - now eapply right_flags_in_glob. }
     { unshelve eapply annotate_extends, implement_box_env_extends.
-      exact named_extraction_env_flags. eauto.
-      exact H2. 1-2: todo "wf_glob". }
+      - exact extraction_env_flags. 
+      - eauto.
+      - exact H2. 
+      - now eapply right_flags_in_glob.
+      - now eapply right_flags_in_glob. }
     rewrite Happ.  now rewrite (implement_box_mkApps _ [_]).
   Qed.
 
