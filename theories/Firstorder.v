@@ -1451,13 +1451,15 @@ Proof.
             unshelve eapply eval_det in H4 as [? ?]; try apply Heval'; eauto.
             2: { intros. inversion H6. }
             2: { intros; econstructor. }
-            eapply isPure_value_vrel_eq in H6; eauto. rewrite <- H6. 
-            unfold compile_value_mf'. rewrite -/ Σ . 
+            eapply isPure_value_vrel_eq in H6; eauto. rewrite <- H6. sq. 
+            unfold compile_value_mf'. rewrite -/ Σ .
             f_equal. todo "context weakening".
-            eapply compile_value_pure; eauto. destruct s as [s]. 
+            eapply compile_value_pure; eauto. destruct s as [s].
             eapply firstorder_value_spec with (args:=[]); eauto.
-            clear -Hirred H5. eapply PCUICWcbvEval.eval_to_value with (e:=t0).
-            unfold irred in H5. todo "irred -> eval refl".
+            eapply PCUICWcbvEval.eval_to_value with (e:=t0).
+            eapply @PCUICNormalization.wcbv_standardization_fst with (args := []); eauto.
+            cbn. rewrite ReflectEq.eqb_refl. reflexivity.
+            unfold irred in H5. intros []. eapply H5. eassumption.
             }
           }
         unfold size, size'.
