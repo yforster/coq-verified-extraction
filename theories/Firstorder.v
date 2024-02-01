@@ -2121,8 +2121,21 @@ From Malfunction Require Import CompileCorrect Pipeline.
 
 Lemma verified_named_erasure_pipeline_irrel `{Heap} p precond precond' : 
   Transform.transform verified_named_erasure_pipeline p precond = Transform.transform verified_named_erasure_pipeline p precond'.
-  assert (precond = precond') by apply ProofIrrelevance.proof_irrelevance. now subst. 
-Qed.  
+  (* set (foo :=compile_pipeline). unfold compile_pipeline in foo.  *)
+  assert (precond = precond') by apply ProofIrrelevance.proof_irrelevance. now subst.
+Qed.
+
+Lemma compile_pipeline_eq {H : Pointer} {H0 : Heap} {Σ} {t wfΣ expΣ expt pre} : 
+  compile_pipeline Σ t wfΣ expΣ expt pre = 
+  (compile_malfunction_pipeline expΣ expt pre.π2 (Normalisation:=Normalisation)).2.
+Proof. reflexivity. Qed.
+
+Lemma compile_malfunction_pipeline_eq {H : Pointer} {H0 : Heap} {Σ : global_env_ext_map} {t wfΣ expΣ expt} {pre : sigT (fun T => ∥ Σ ;;; [] |- t : T ∥)} {Normalisation} : 
+  compile_malfunction_pipeline (T:=pre.π1) expΣ expt pre.π2 (Normalisation:=Normalisation) = 
+  Transform.transform verified_malfunction_pipeline (Σ, t) (precond Σ t pre.π1 wfΣ expΣ expt pre.π2 Normalisation).
+Proof. reflexivity. Qed.
+
+Opaque compile_pipeline compile_malfunction_pipeline.
 
 Lemma compile_compose {P:Pointer} {H:Heap} {HP : @CompatiblePtr P P} (efl := extraction_env_flags)
   {HH : @CompatibleHeap _ _ _ H H} 
@@ -2146,8 +2159,8 @@ Proof.
   { now eapply PCUICEtaExpand.expanded_tApp. }
   assert (wtu : ∥ Σ;;; [] |- tApp t u : B {0 := u} ∥).
   { clear Hu Hu' Happ. sq.  eapply PCUICValidity.type_App'; eauto. }
-  exists exptu, wtu. 
-  Transparent compile_malfunction_pipeline. unfold compile_pipeline, compile_malfunction_pipeline. Opaque compile_malfunction_pipeline. 
+  exists exptu, wtu.
+  rewrite compile_pipeline_eq compile_malfunction_pipeline_eq. 
   set (precond _ _ _ _ _ _ _ _).
   pose proof (compile_malfunction_pipeline_app _ _ _ _ _ p Herase expt) as [pre' [pre'' Happeq]].
   rewrite Happeq. clear Happeq.   
@@ -2172,12 +2185,12 @@ Proof.
      3: { intros ? ? []. }
      3: { intro; cbn. unfold Ident.Map.add. destruct Ident.eqb; eauto. }
     unfold Transform.run, time.
-    Transparent compile_malfunction_pipeline. 
-    unfold compile_pipeline, compile_malfunction_pipeline, verified_malfunction_pipeline in H3.
+    rewrite compile_pipeline_eq compile_malfunction_pipeline_eq in H3.
+    unfold verified_malfunction_pipeline in H3.
     revert H3. destruct_compose. intros. cbn in H9. erewrite verified_named_erasure_pipeline_irrel.  exact H9.
-    unfold compile_pipeline, compile_malfunction_pipeline, verified_malfunction_pipeline in Hu_copy.
-    revert Hu_copy. destruct_compose. intros. cbn in Hu_copy. erewrite verified_named_erasure_pipeline_irrel. exact Hu_copy. 
-    Opaque compile_malfunction_pipeline.
+    rewrite compile_pipeline_eq compile_malfunction_pipeline_eq /verified_malfunction_pipeline in Hu_copy.
+    revert Hu_copy. destruct_compose. intros. cbn in Hu_copy.
+    erewrite verified_named_erasure_pipeline_irrel. exact Hu_copy. 
   - epose proof (compile_pure _ t).
     eapply isPure_heap in H1 as [Hfpure heq]; eauto.
     2: { intros ? ? []. }
@@ -2206,18 +2219,14 @@ Proof.
      3: { intros ? ? []. }
      3: { intro; cbn. unfold Ident.Map.add. destruct Ident.eqb; eauto. 
           eapply isPure_add_self; eauto. }
-    unfold Transform.run, time. 
-    Transparent compile_malfunction_pipeline. 
-    unfold compile_pipeline, compile_malfunction_pipeline, verified_malfunction_pipeline in H3.
+    unfold Transform.run, time.
+    rewrite compile_pipeline_eq compile_malfunction_pipeline_eq /verified_malfunction_pipeline in H3.
     revert H3. destruct_compose. intros. cbn in H11. erewrite verified_named_erasure_pipeline_irrel. exact H11.
-    unfold compile_pipeline, compile_malfunction_pipeline, verified_malfunction_pipeline in Hu_copy.
+    rewrite compile_pipeline_eq compile_malfunction_pipeline_eq /verified_malfunction_pipeline in Hu_copy.
     revert Hu_copy. destruct_compose. intros. cbn in Hu_copy. erewrite verified_named_erasure_pipeline_irrel. exact Hu_copy. 
-    Opaque compile_malfunction_pipeline.
-  - erewrite compile_function in H7. 2: exact Herase_t. inversion H7. eauto.  
-  (* Qed takes forever *)
-  (* Qed. *) 
-  Admitted.
-
+  - erewrite compile_function in H7. 2: exact Herase_t. inversion H7. eauto.
+Qed.
+  
 From MetaCoq.PCUIC Require Import PCUICWellScopedCumulativity. 
 
 Lemma Prod_ind_irred `{checker_flags} Σ Γ f na kn ind ind' X :
