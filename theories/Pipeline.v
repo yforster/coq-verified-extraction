@@ -940,24 +940,21 @@ Section malfunction_pipeline_wellformed.
   (transform verified_malfunction_pipeline (Σ, tApp t u) Hpre).2 = 
   Mapply_u (transform verified_malfunction_pipeline (Σ, t) pre').2 (transform verified_malfunction_pipeline (Σ, u) pre'').2.
   Proof.
-    set (P := Transform.pre _). intros ? ? ? Herase Hexpand. unfold verified_malfunction_pipeline. cbn - [P].  
+    intros ? ? ? Herase Hexpand. unfold verified_malfunction_pipeline.
     unshelve epose proof (verified_named_erasure_pipeline_eta_app _ _ Hpre Herase Hexpand) as [pre' [pre'' [[? ?] Happ]]].
     exists pre', pre''. 
     repeat (destruct_compose; intros).
-    unfold transform at 1 3 5. cbn -[P transform]. rewrite Happ. cbn.
-    set (transform verified_named_erasure_pipeline (Σ, tApp t0 u) Hpre).1.
-    repeat set (_.2). pose (compile_equation_7 g y y0). etransitivity; [exact e|].
-    (* f_equal should work *)
-    cbn in *. destruct H2 as [? [[? [? ?]] ?]]. sq.   
+    unfold transform at 1 3 5. cbn -[transform].
+    revert Happ. set (transform _ _ _). intro. 
+    rewrite Happ.  
+    destruct H2 as [? [[? [? ?]] ?]]. sq.   
     eapply compile_extends in H. 2-3: eauto. 
     destruct H3 as [? [[? [? ?]] ?]]. sq.
     eapply compile_extends in H0. 2-3: eauto.
-    (* now rewrite H H0 should work *)
-    revert H H0. unfold g, y, y0. repeat set (transform _ _ _). clearbody p0 p p1.
-    clear. intros e e'. f_equal; eauto.
-  (* the proof is finished, but Qed blows up *)
-  (* Qed. *)
-  Admitted.
+    revert H H0. clear. unfold p. clear p.
+    repeat set (transform _ _ _). clearbody p p0 p1.
+    rewrite compile_equation_7; intros; f_equal; eauto. 
+  Qed. 
 
   Variable t A : term.
   Variable expt : expanded Σ.1 [] t.
