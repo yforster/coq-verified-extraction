@@ -2121,7 +2121,8 @@ From Malfunction Require Import CompileCorrect Pipeline.
 
 Lemma verified_named_erasure_pipeline_irrel `{Heap} p precond precond' : 
   Transform.transform verified_named_erasure_pipeline p precond = Transform.transform verified_named_erasure_pipeline p precond'.
-Admitted.  
+  assert (precond = precond') by apply ProofIrrelevance.proof_irrelevance. now subst. 
+Qed.  
 
 Lemma compile_compose {P:Pointer} {H:Heap} {HP : @CompatiblePtr P P} (efl := extraction_env_flags)
   {HH : @CompatibleHeap _ _ _ H H} 
