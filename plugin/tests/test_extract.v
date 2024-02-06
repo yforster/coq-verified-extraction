@@ -25,8 +25,13 @@ MetaCoq Extraction compile "compile.mlf".
 
 From Malfunction Require Import Pipeline.
 MetaCoq Extraction compile_malfunction "compile_malfunction.mlf".
+From Coq Require Import List.
+Import ListNotations.
 
-Definition many_list_functions := (@List.firstn, @List.filter, @List.skipn).
+Polymorphic Record myprod@{i j} (A : Type@{i}) (B : Type@{j}) := mypair { fst : A; snd : B }.
+
+Notation "( x , y , .. , z )" := (mypair _ _ .. (mypair _ _ x y) .. z) : core_scope.
+Definition many_list_functions : myprod _ _ := (@List.firstn, @List.filter, @List.skipn).
 
 MetaCoq Extraction many_list_functions "list.mlf".
 
