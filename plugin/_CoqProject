@@ -19,6 +19,8 @@ extraction/wGraph.mli
 extraction/etaExpand.mli
 extraction/etaExpand.ml
 
+extraction/utils_array.mli
+extraction/utils_array.ml
 # extraction/reflect.mli
 # extraction/reflect.ml
 # extraction/typing0.mli
@@ -133,6 +135,10 @@ extraction/erasureFunctionProperties.mli
 extraction/erasureFunctionProperties.ml
 # extraction/ePretty.mli
 # extraction/ePretty.ml
+extraction/ePrimitive.mli
+extraction/ePrimitive.ml
+extraction/optimizePropDiscr.mli
+extraction/optimizePropDiscr.ml
 extraction/eOptimizePropDiscr.mli
 extraction/eOptimizePropDiscr.ml
 extraction/eProgram.mli

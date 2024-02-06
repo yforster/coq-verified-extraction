@@ -7,15 +7,15 @@
   open MCList
 - open Malfunction
   open Nat0
-  open PCUICPrimitive
   open Specif
   open Uint0
+  open Utils_array
 --- 8,15 ----
   open Kernames
   open List0
   open MCList
   open Nat0
 + open Malfunction
-  open PCUICPrimitive
   open Specif
   open Uint0
+  open Utils_array

@@ -3,6 +3,7 @@ EqdepFacts
 Ssrbool
 
 Utils
+Utils_array
 
 WGraph
 UGraph0
@@ -39,6 +40,7 @@ PCUICUnivSubst
 PCUICSafeReduce
 PCUICSafeRetyping
 
+EPrimitive
 EAst
 EAstUtils
 ELiftSubst
@@ -56,6 +58,7 @@ ERemoveParams
 ErasureFunction
 ErasureFunctionProperties
 EOptimizePropDiscr
+OptimizePropDiscr
 EInlineProjections
 EConstructorsAsBlocks
 EImplementBox
@@ -67,7 +70,6 @@ DecimalString
 CeresString
 CeresFormat
 CeresSerialize
-CeresSerialize0
 Malfunction
 Compile
 Serialize
