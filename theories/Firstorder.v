@@ -1454,6 +1454,7 @@ Proof.
           set (vv := map (compile_value_mf' _ _ _) _) in Hcompile.
           enough (v' = vv). { now subst. }
           unfold vv; clear vv Hcompile. revert Hlv_eval; intro.
+          set (pre := precond2 _ _ _ _ _ _ _ _ _ _). clearbody pre.
           rewrite <- (map_id v'). specialize (Hlv_eval h).
           eapply Forall2_map_eq.
           set (f := compile_value_mf' _ _ _).
@@ -1481,8 +1482,10 @@ Proof.
             2: { intros. inversion H6. }
             2: { intros; econstructor. }
             eapply isPure_value_vrel_eq in H6; eauto. rewrite <- H6. sq. 
-            unfold compile_value_mf'. rewrite -/ Σ .
-            f_equal. todo "context weakening".
+            unfold compile_value_mf'. rewrite -/Σ.
+            f_equal.
+            set (pre' := precond2 _ _ _ _ _ _ _ _ _ _). clearbody pre'.
+            todo "context weakening".
             eapply compile_value_pure; eauto. destruct s as [s].
             eapply firstorder_value_spec with (args:=[]); eauto.
             eapply PCUICWcbvEval.eval_to_value with (e:=t0).
@@ -1726,19 +1729,32 @@ Proof.
   eapply assumption_context_app_inv; auto. repeat constructor.
 Qed.
 
+Lemma firstorder_type_closedn Σb l k T :
+  ~ (isApp T) -> 
+  firstorder_type (Σb := Σb) #|ind_bodies l| k T -> 
+  closedn (#|ind_bodies l| + k) T.
+Proof. 
+  intro nApp; destruct T; try solve [inversion 1]; cbn in *; eauto.
+  now destruct nApp.
+Qed. 
+
 Lemma closed_firstorder_type Σb x k tele : 
+  assumption_context (rev tele) ->
+  Forall (fun decl : context_decl => ~ isApp (decl_type decl)) tele ->
   alli (fun (k : nat) '{| decl_type := t |} => @firstorder_type Σb #|ind_bodies x| k t) k tele ->
   closedn_ctx (#|ind_bodies x| + k) (rev tele).
 Proof.
   induction tele in k |- *; cbn; auto.
-  destruct a as [? [] ?]; cbn.
-  - move/andP => [hty hr]. rewrite test_context_k_app //= /test_decl /=.
-    rtoProp; intuition auto. admit.
-    admit. rewrite -Nat.add_assoc. eapply IHtele. now rewrite Nat.add_1_r.
-  - move/andP => [hty hr]. rewrite test_context_k_app //= /test_decl /=.
+  destruct a as [na [b|] ty]; cbn.
+  - move/PCUICSigmaCalculus.assumption_context_app => [asstele ass].
+    depelim ass.
+  - move/PCUICSigmaCalculus.assumption_context_app => [asstele ass].
+    intros happ; depelim happ.
+    move/andP => [hty hr]. rewrite test_context_k_app //= /test_decl /=.
     rtoProp; intuition auto.
-    admit. rewrite -Nat.add_assoc. eapply IHtele. now rewrite Nat.add_1_r.
-Admitted.
+    eapply firstorder_type_closedn; eauto.
+    rewrite -Nat.add_assoc. eapply IHtele => //. now rewrite Nat.add_1_r.
+Qed.
 
 Definition no_primitive_flags :=
   {| EWellformed.has_primint := false;
