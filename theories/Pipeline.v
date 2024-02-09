@@ -1,5 +1,6 @@
 (* Distributed under the terms of the MIT license. *)
 From Coq Require Import Program ssreflect ssrbool.
+From Equations Require Import Equations.
 From MetaCoq.Common Require Import Transform config.
 From MetaCoq.Utils Require Import bytestring utils.
 From MetaCoq.PCUIC Require Import PCUICAst PCUICTyping PCUICReduction PCUICAstUtils PCUICSN
@@ -318,7 +319,8 @@ Qed.
 
 Module evalnamed.
 
-  From MetaCoq Require Import EWcbvEvalNamed.
+  Import EWcbvEvalNamed.
+  Derive Signature for eval.
 
   Lemma eval_det Σ Γ t v1 v2 :
     eval Σ Γ t v1 -> eval Σ Γ t v2 -> v1 = v2.
@@ -343,7 +345,7 @@ Module evalnamed.
       assert (nms = nms0) as ->.
       { clear - f f4. revert nms f4. induction f; cbn; intros; depelim f4.
         + reflexivity.
-        + f_equal. eauto.
+        + f_equal; eauto; congruence.
       }
       now appIH IHeval2 Hev2.
     - appIH IHeval1 Hev1.
@@ -575,8 +577,6 @@ Section malfunction_pipeline_theorem.
     eapply EPrimitive.All2_All2_Set. solve_all.
   Qed.
 
-  From Equations Require Import Equations.
-
   Lemma implement_box_fo {Henvflags:EWellformed.EEnvFlags} p : 
   PCUICFirstorder.firstorder_value Σ [] p ->
     let v := compile_value_box (PCUICExpandLets.trans_global_env Σ) p [] in
@@ -693,7 +693,7 @@ Section malfunction_pipeline_theorem.
     }
   Qed. 
   
-  From Malfunction Require Import SemanticsSpec.
+  Import SemanticsSpec.
 
   Definition malfunction_env_prop Σ' :=  forall (c : Kernames.kername) (decl : EAst.constant_body) 
   (body : EAst.term) (v : EWcbvEvalNamed.value),
@@ -866,7 +866,7 @@ Section malfunction_pipeline_theorem_red.
   
   Variable (Haxiom_free : Extract.axiom_free Σ).
 
-  From Malfunction Require Import SemanticsSpec.
+  Import SemanticsSpec.
 
   Lemma verified_malfunction_pipeline_theorem (efl := extraction_env_flags) Σ' :
     malfunction_env_prop _ _ _ HΣ expΣ _ expt _ _ _ typing _ Σ' ->

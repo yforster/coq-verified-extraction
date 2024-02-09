@@ -21,6 +21,8 @@ Axiom axiom : nat.
 MetaCoq Extraction axiom "axiom.mlf".
 
 From Malfunction Require Import Compile.
+
+Set Warnings "-primitive-turned-into-axiom".
 MetaCoq Extraction compile "compile.mlf".
 
 From Malfunction Require Import Pipeline.

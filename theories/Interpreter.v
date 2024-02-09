@@ -128,7 +128,7 @@ Fixpoint interpret `{Pointer} `{Heap} (h : heap)
           | Lsr => 
               let n := match ty with
                        | Bigint => n
-                       | op =>
+                       | _op =>
                            let w := bitwidth ty in
                            Z.land n (Z.sub (Z.shiftl (Z.of_nat 1) w) (Z.of_nat 1)) end in
               Z.shiftr n c end)

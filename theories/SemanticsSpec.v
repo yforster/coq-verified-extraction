@@ -1,9 +1,9 @@
-
+Require Import ZArith Array.PArray List Floats Lia.
+From Equations Require Import Equations.
 Require Import ssreflect.
 From Malfunction Require Import Malfunction utils_array.
 From MetaCoq.PCUIC Require Import PCUICAst PCUICFirstorder.
 
-Require Import ZArith Array.PArray List Floats Lia.
 From MetaCoq.Utils Require Import bytestring.
 Import ListNotations.
 
@@ -97,7 +97,7 @@ match t with
 | Int => 63
 | Int32 => 32
 | Int64 => 64
-| BigInt => fail_Z "no bitwidth for bigint"
+| Bigint => fail_Z "no bitwidth for bigint"
 end%Z.
 
 Definition truncate `{Pointer} ty n :=
@@ -181,14 +181,14 @@ Definition binary_comparison_eqb op cmp :=
   | Eq => comparison_eqb cmp Datatypes.Eq
   end.
 
-Definition binary_op_to_float op v1 v2 : float := 
+Definition binary_op_to_float (op : binary_arith_op) v1 v2 : float := 
   match op with
    | Sub => v1 - v2
    | Mul => v1 * v2
    | Div => v1 / v2
    | Mod => fail_float "mod on floats not supported" 
    | Add => v1 + v2 
-  end.
+   end.
 
 Definition binary_comparison_to_bool op e1 e2 :=
   match op with
@@ -845,3 +845,5 @@ Qed.
 Set Elimination Schemes.
 
 End eval.
+
+Derive Signature for eval.

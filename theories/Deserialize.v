@@ -1,4 +1,4 @@
-Require Import Malfunction.Malfunction Malfunction.Serialize.
+Require Import Malfunction.Malfunction.
 
 Require Import Ceres.Ceres.
 Require Import String List.

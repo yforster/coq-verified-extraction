@@ -1,5 +1,6 @@
 From Coq Require Import String.
 From Ceres Require Import Ceres.
+Set Warnings "-masking-absolute-name".
 From Malfunction Require Import Pipeline Serialize CeresFormat CeresSerialize Interpreter.
 
 From MetaCoq Require Import ETransform Common.Transform Utils.bytestring.

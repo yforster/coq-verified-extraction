@@ -3,7 +3,9 @@ From MetaCoq.Utils Require Import bytestring ReflectEq.
 Require Import String Ascii Bool Arith.
 Require Import Malfunction.Malfunction.
 
-Require Import Ceres.Ceres Ceres.CeresString.
+Set Warnings "-masking-absolute-name".
+Require Import Ceres.Ceres.
+Require Import Ceres.CeresString.
 Require Import Malfunction.Ceres.CeresFormat Malfunction.Ceres.CeresSerialize.
 
 Local Open Scope sexp.
@@ -38,10 +40,11 @@ Fixpoint _escape_ident (_end s : String.t) : String.t :=
 #[export] Instance Serialize_Ident : Serialize Ident.t :=
   fun a => Atom (append "$" (bytestring.String.to_string (_escape_ident ""%bs a))).
 
+Require PrimInt63.
+
 Section primint.
 
-Require Import PrimInt63.
-
+Import PrimInt63.
 Definition min_int := Eval vm_compute in (PrimInt63.lsl 1 62).
 Definition max_int := Eval vm_compute in (PrimInt63.sub min_int 1).
 
@@ -77,7 +80,7 @@ Definition Cons x (l : sexp) :=
 Definition App (l1 : sexp) (l2 : sexp) :=
   match l1, l2 with
   | List l1, List l2 => List (l1 ++ l2)
-  | x, y => y
+  | _x, y => y
   end.
 
 Definition rawapp (s : sexp) (a : string) :=
