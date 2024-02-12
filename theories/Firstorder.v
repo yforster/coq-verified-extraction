@@ -1483,7 +1483,7 @@ Proof.
             erewrite (ProofIrrelevance.proof_irrelevance _ p2) in Hfo'.
             unfold Σ_t in H5.
             erewrite (ProofIrrelevance.proof_irrelevance _ p) in H5.
-            unshelve erewrite compile_value_mf_wellformed. 4,7,8,10:eauto.
+            unshelve erewrite compile_value_mf_fo. 4,7,8,10:eauto.
             1,2,4: eauto.
             set (pt0 := precond _ _ _ _ _ _ _ _). clearbody pt0. 
             unshelve epose proof (Heval' := verified_malfunction_pipeline_theorem_gen P HHeap Σ wfΣ expΣ

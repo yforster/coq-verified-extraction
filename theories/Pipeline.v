@@ -997,7 +997,7 @@ Section malfunction_pipeline_wellformed.
 
   Derive Signature for firstorder_evalue_block.
   
-  Lemma compile_value_mf_wellformed `{Pointer} (efl := named_extraction_env_flags) X u expu T' (typing' : ∥Σ ;;; [] |- u : T'∥) : 
+  Lemma compile_value_mf_fo `{Pointer} (efl := named_extraction_env_flags) X u expu T' (typing' : ∥Σ ;;; [] |- u : T'∥) : 
      let Σ_u := (Transform.transform verified_named_erasure_pipeline (Σ, u) (precond _ _ _ _ expΣ expu typing' _)).1 in
      firstorder_evalue_block Σ_t X ->
      firstorder_evalue_block Σ_u X -> 
