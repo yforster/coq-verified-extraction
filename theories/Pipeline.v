@@ -476,6 +476,21 @@ Proof.
   eassumption.
 Qed.
 
+Lemma compile_value_box_mkApps x Σb args0: 
+compile_value_box Σb (PCUICAst.mkApps x args0) [] =
+compile_value_box Σb x (map (fun v => compile_value_box Σb v []) args0).
+Proof.
+rewrite <- (app_nil_r (map _ _)). 
+generalize (@nil EAst.term) at 1 3. induction args0 using rev_ind; cbn.
+- eauto.
+- intros l. rewrite PCUICAstUtils.mkApps_nonempty; eauto.
+  cbn. rewrite removelast_last last_last. rewrite IHargs0. 
+  destruct x; cbn; eauto.
+  + do 2 f_equal. repeat rewrite map_app. cbn. now repeat rewrite <- app_assoc.   
+  + destruct pcuic_lookup_inductive_pars; eauto.
+    do 2 f_equal. repeat rewrite map_app. cbn. now repeat rewrite <- app_assoc.
+Qed.
+
 Section malfunction_pipeline_theorem.
 
   Local Existing Instance CanonicalHeap.
@@ -500,19 +515,11 @@ Section malfunction_pipeline_theorem.
   Variable u : Instance.t.
   Variable args : list term.
 
-  Variable typing : ∥Σ ;;; [] |- t : mkApps (tInd i u) args∥.
-
   Variable fo : firstorder_ind Σ (firstorder_env Σ) i.
 
   Variable noParam : forall i mdecl, lookup_env Σ i = Some (InductiveDecl mdecl) -> ind_npars mdecl = 0. 
 
   Variable Normalisation : forall Σ0 : global_env_ext, wf_ext Σ0 -> NormalizationIn Σ0.
-
-  Let Σ_t := (compile_malfunction_pipeline expΣ expt typing).1.
-
-  Variable Heval : ∥PCUICWcbvEval.eval Σ t v∥.
-  Let Σ_v := (transform verified_named_erasure_pipeline (Σ, v) (precond2 _ _ _ _ expΣ expt typing _ _ Heval)).1.
-  Let Σ_t' := (transform verified_named_erasure_pipeline (Σ, t) (precond _ _ _ _ expΣ expt typing _)).1.
 
   Fixpoint compile_value_mf_aux Σb (t : EAst.term) : SemanticsSpec.value :=
     match t with
@@ -538,18 +545,6 @@ Section malfunction_pipeline_theorem.
   Definition compile_value_mf' Σ Σb t :=   
     compile_value_mf_aux Σb (compile_value_box (PCUICExpandLets.trans_global_env Σ) t []).
 
-  Lemma compile_value_box_mkApps Σb i0 n ui args0: 
-    compile_value_box Σb (PCUICAst.mkApps (PCUICAst.tConstruct i0 n ui) args0) [] =
-    compile_value_box Σb (PCUICAst.tConstruct i0 n ui) (map (fun v => compile_value_box Σb v []) args0).
-  Proof.
-    rewrite <- (app_nil_r (map _ _)). 
-    generalize (@nil EAst.term) at 1 3. induction args0 using rev_ind; cbn.
-    - intro l; case_eq l; intros; destruct pcuic_lookup_inductive_pars; eauto.
-    - intros l. rewrite PCUICAstUtils.mkApps_nonempty; eauto.
-      cbn. rewrite removelast_last last_last. rewrite IHargs0. cbn. destruct pcuic_lookup_inductive_pars; eauto.
-      do 2 f_equal. repeat rewrite map_app. cbn. now repeat rewrite <- app_assoc.
-  Qed.
-
   Fixpoint eval_fo (t: EAst.term) : EWcbvEvalNamed.value :=   
     match t with 
       | EAst.tConstruct ind c args => vConstruct ind c (map eval_fo args)
@@ -561,8 +556,7 @@ Section malfunction_pipeline_theorem.
     let v := compile_value_box (PCUICExpandLets.trans_global_env Σ) t [] in
     ∥ EWcbvEvalNamed.represents_value (eval_fo v) v∥.
   Proof.
-    intro H. cbn. clear Σ_t.
-    pattern t.
+    intro H. cbn. pattern t.
     refine (PCUICFirstorder.firstorder_value_inds _ _ _ _ _ H). 
     intros. rewrite compile_value_box_mkApps. cbn.
     eapply PCUICValidity.validity in X. eapply PCUICInductiveInversion.wt_ind_app_variance in X as [mdecl [? ?]].  
@@ -614,6 +608,43 @@ Section malfunction_pipeline_theorem.
     - eapply p0; eauto.
     - eapply IHAll; eauto.
   Qed.
+
+
+  Lemma verified_named_erasure_pipeline_lookup_env_in kn  
+  (efl := EInlineProjections.switch_no_params all_env_flags)  {has_rel : has_tRel} {has_box : has_tBox}  
+  T (typing : ∥Σ ;;; [] |- t : T∥) :
+  let Σ_t := (transform verified_named_erasure_pipeline (Σ, t) (precond _ _ _ _ expΣ expt typing _)).1 in
+  forall decl, 
+    EGlobalEnv.lookup_env Σ_t kn = Some decl ->
+    exists decl', 
+    PCUICAst.PCUICEnvironment.lookup_global (PCUICExpandLets.trans_global_decls
+    (PCUICAst.PCUICEnvironment.declarations
+       Σ.1)) kn = Some decl'
+     /\ erase_decl_equal (fun decl' => ERemoveParams.strip_inductive_decl (ErasureFunction.erase_mutual_inductive_body decl'))
+                          decl decl'.
+  Proof.
+    intros ? decl. unfold Σ_t, verified_named_erasure_pipeline.
+    destruct_compose; intro; cbn. rewrite lookup_env_annotate.
+    destruct_compose; intro; cbn. rewrite lookup_env_implement_box. 
+    destruct_compose; intro; cbn. 
+    unfold enforce_extraction_conditions. unfold transform at 1.
+    intro Hlookup. set (EGlobalEnv.lookup_env _ _) in Hlookup. case_eq o.
+    2:{ intro Heq; rewrite Heq in Hlookup; inversion Hlookup. }
+    intros decl' Heq.
+    unshelve epose proof (verified_erasure_pipeline_lookup_env_in _ _ _ _ _ _ _ _ _ _ Heq) as [? [? ?]]; eauto.
+    eexists; split; eauto. rewrite Heq in Hlookup.
+    inversion Hlookup; subst; clear Hlookup. 
+    destruct decl', x; cbn in *; eauto.
+    destruct EAst.cst_body; eauto.
+  Qed.
+
+  Variable typing : ∥Σ ;;; [] |- t : mkApps (tInd i u) args∥.
+
+  Let Σ_t := (compile_malfunction_pipeline expΣ expt typing).1.
+  Variable Heval : ∥PCUICWcbvEval.eval Σ t v∥.
+  
+  Let Σ_v := (transform verified_named_erasure_pipeline (Σ, v) (precond2 _ _ _ _ expΣ expt typing _ _ Heval)).1.
+  Let Σ_t' := (transform verified_named_erasure_pipeline (Σ, t) (precond _ _ _ _ expΣ expt typing _)).1.
 
   Definition compile_named_value p := eval_fo (compile_value_box (PCUICExpandLets.trans_global_env Σ) p []).
 
@@ -670,6 +701,7 @@ Section malfunction_pipeline_theorem.
     epose proof (correctness _ _ H4). cbn in H5. now destruct H5.
   Qed.
 
+
   Lemma verified_malfunction_pipeline_compat p (efl := extraction_env_flags) 
     : firstorder_evalue_block Σ_v p -> compile_value Σ_t' (eval_fo p) = compile_value Σ_v (eval_fo p).
   Proof.
@@ -691,8 +723,8 @@ Section malfunction_pipeline_theorem.
       { now destruct H3. }
       { clear - H6. induction H6; cbn. eauto. now destruct H, IHForall. } 
     }
-  Qed. 
-  
+  Qed.
+
   Import SemanticsSpec.
 
   Definition malfunction_env_prop Σ' :=  forall (c : Kernames.kername) (decl : EAst.constant_body) 
@@ -725,7 +757,7 @@ Section malfunction_pipeline_theorem.
          unfold transform at 1; cbn -[transform]. 
          unfold transform at 1; cbn -[transform].
          unfold transform at 1; cbn -[transform].
-         unshelve epose proof (verified_erasure_pipeline_firstorder_evalue_block _ _ _ _ _ _ _ _ _ _ typing _ _ _); eauto.
+         unshelve epose proof (verified_erasure_pipeline_firstorder_evalue_block _ _ _ _ _ _ _ _ _ _ _ typing _ _); eauto.
          eapply annotate_firstorder_evalue_block.
          eapply implement_box_firstorder_evalue_block.
          eassumption.
@@ -748,7 +780,7 @@ Section malfunction_pipeline_theorem.
   Proof.
     unfold Σ_v, verified_named_erasure_pipeline.
     repeat (destruct_compose; simpl; intro).
-    unshelve epose proof ErasureCorrectness.verified_erasure_pipeline_firstorder_evalue_block _ _ _ _ _ _ _ _ _ _ typing _ _ _; eauto using Heval.
+    unshelve epose proof ErasureCorrectness.verified_erasure_pipeline_firstorder_evalue_block _ _ _ _ _ _ _ _ _ _ _ typing _ _; eauto using Heval.
     set (v' := compile_value_box _ _ _) in *. clearbody v'.
     clear -H2. eapply firstorder_evalue_block_elim; eauto. clear. intros; econstructor; eauto. 
     clear -H. cbn in *. 
@@ -762,32 +794,6 @@ Section malfunction_pipeline_theorem.
     
   Transparent compose.  
   
-  Lemma verified_named_erasure_pipeline_lookup_env_in kn  
-  (efl := EInlineProjections.switch_no_params all_env_flags)  {has_rel : has_tRel} {has_box : has_tBox}  :
-  forall decl, 
-    EGlobalEnv.lookup_env Σ_t' kn = Some decl ->
-    exists decl', 
-    PCUICAst.PCUICEnvironment.lookup_global (PCUICExpandLets.trans_global_decls
-    (PCUICAst.PCUICEnvironment.declarations
-       Σ.1)) kn = Some decl'
-     /\ erase_decl_equal (fun decl' => ERemoveParams.strip_inductive_decl (ErasureFunction.erase_mutual_inductive_body decl'))
-                          decl decl'.
-  Proof.
-    intro decl. unfold Σ_t', verified_named_erasure_pipeline.
-    destruct_compose; intro; cbn. rewrite lookup_env_annotate.
-    destruct_compose; intro; cbn. rewrite lookup_env_implement_box. 
-    destruct_compose; intro; cbn. 
-    unfold enforce_extraction_conditions. unfold transform at 1.
-    intro Hlookup. set (EGlobalEnv.lookup_env _ _) in Hlookup. case_eq o.
-    2:{ intro Heq; rewrite Heq in Hlookup; inversion Hlookup. }
-    intros decl' Heq.
-    unshelve epose proof (verified_erasure_pipeline_lookup_env_in _ _ _ _ _ _ _ _ _ _ _ _ Heq) as [? [? ?]]; eauto.
-    eexists; split; eauto. rewrite Heq in Hlookup.
-    inversion Hlookup; subst; clear Hlookup. 
-    destruct decl', x; cbn in *; eauto.
-    destruct EAst.cst_body; eauto.
-  Qed.
-
   Lemma verified_named_erasure_pipeline_lookup_env_in' kn  
   (efl := EInlineProjections.switch_no_params all_env_flags)  {has_rel : has_tRel} {has_box : has_tBox}  :
   forall decl, 
@@ -800,7 +806,7 @@ Section malfunction_pipeline_theorem.
                           decl decl'.
   Proof.
     intros; eapply verified_named_erasure_pipeline_lookup_env_in. 1-2: eauto.  
-    apply verified_malfunction_pipeline_lookup; eauto. 
+    apply verified_malfunction_pipeline_lookup in H. exact H.
   Qed. 
 
 End malfunction_pipeline_theorem.
@@ -869,7 +875,7 @@ Section malfunction_pipeline_theorem_red.
   Import SemanticsSpec.
 
   Lemma verified_malfunction_pipeline_theorem (efl := extraction_env_flags) Σ' :
-    malfunction_env_prop _ _ _ HΣ expΣ _ expt _ _ _ typing _ Σ' ->
+    malfunction_env_prop _ _ _ HΣ expΣ _ expt _ _ _ _ typing Σ' ->
     forall h, eval Σ' empty_locals h (compile_malfunction_pipeline expΣ expt typing).2 h (compile_value_mf Σ v).
   Proof. 
     now eapply verified_malfunction_pipeline_theorem_gen.
@@ -974,6 +980,48 @@ Section malfunction_pipeline_wellformed.
     eapply few_enough_blocks; eauto.
   Qed. 
 
+  Lemma verified_named_erasure_pipeline_inductive_irrel kn t' expt'
+  (efl := EInlineProjections.switch_no_params all_env_flags) {has_rel : has_tRel} {has_box : has_tBox}  
+  T' (typing' : ∥Σ ;;; [] |- t' : T'∥) :
+  let Σ_u := (transform verified_named_erasure_pipeline (Σ, t') (precond _ _ _ _ expΣ expt' typing' _)).1 in 
+  forall m m', 
+    EGlobalEnv.lookup_env Σ_t kn = Some (EAst.InductiveDecl m) ->
+    EGlobalEnv.lookup_env Σ_u kn = Some (EAst.InductiveDecl m')  -> m = m'.
+  Proof.
+    intros ? ? ? Hdecl Hdecl'.
+    eapply verified_named_erasure_pipeline_lookup_env_in in Hdecl as [? [? ?]]; eauto.
+    eapply verified_named_erasure_pipeline_lookup_env_in in Hdecl' as [? [? ?]]; eauto.
+    rewrite H1 in H. inversion H; subst. clear H H1. cbn in H0, H2.
+    destruct x; inversion H2. now subst.
+  Qed.
+
+  Derive Signature for firstorder_evalue_block.
+  
+  Lemma compile_value_mf_wellformed `{Pointer} (efl := named_extraction_env_flags) X u expu T' (typing' : ∥Σ ;;; [] |- u : T'∥) : 
+     let Σ_u := (Transform.transform verified_named_erasure_pipeline (Σ, u) (precond _ _ _ _ expΣ expu typing' _)).1 in
+     firstorder_evalue_block Σ_t X ->
+     firstorder_evalue_block Σ_u X -> 
+     compile_value_mf_aux _ Σ_u X = 
+     compile_value_mf_aux _ Σ_t X.
+  Proof.
+    intros ?. revert X. apply: firstorder_evalue_block_elim.
+    intros. depelim H3. cbn. unfold lookup_constructor_args.
+    unfold EGlobalEnv.lookup_constructor_pars_args, EGlobalEnv.lookup_constructor, EGlobalEnv.lookup_inductive, EGlobalEnv.lookup_minductive in *.
+    cbn in H0, H3. case_eq (EGlobalEnv.lookup_env Σ_t (inductive_mind i)).
+    2: { intro e. rewrite e in H0. depelim H0. }
+    case_eq (EGlobalEnv.lookup_env Σ_u (inductive_mind i)).
+    2: { intro e; rewrite e in H3. depelim H3. }
+    intros [] Hdecl' [] Hdecl; rewrite Hdecl in H0; rewrite Hdecl' in H3; inversion H0; inversion H3.
+    cbn. enough (m = m0).
+    { subst. destruct args; cbn; [eauto|].
+      destruct nth_error; cbn; [|eauto]. do 2 eapply f_equal. inversion H2; inversion H4. subst. 
+      specialize (H9 H13). eapply Forall_mix in H10; try exact H14. eapply Forall_impl in H10.
+      erewrite map_ext_Forall. 2: exact H10. 2: { intros ? [? ?]. eapply H8; eauto. } set (map _ _). 
+      apply f_equal2; eauto. }
+    symmetry. eapply verified_named_erasure_pipeline_inductive_irrel with (t':=u). 1-3: eauto. 
+    clear -Hdecl'. exact Hdecl'.
+  Admitted.     
+    
 End malfunction_pipeline_wellformed.
 
 About verified_malfunction_pipeline_theorem.
