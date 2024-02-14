@@ -994,15 +994,15 @@ Section malfunction_pipeline_wellformed.
     eapply few_enough_blocks; eauto.
   Qed. 
 
-  Lemma verified_named_erasure_pipeline_inductive_irrel kn t' expt'
+  Lemma verified_named_erasure_pipeline_inductive_irrel t' expt'
   (efl := EInlineProjections.switch_no_params all_env_flags) {has_rel : has_tRel} {has_box : has_tBox}  
   T' (typing' : ∥Σ ;;; [] |- t' : T'∥) :
   let Σ_u := (transform verified_named_erasure_pipeline (Σ, t') (precond _ _ _ _ expΣ expt' typing' _)).1 in 
-  forall m m', 
+  forall kn m m', 
     EGlobalEnv.lookup_env Σ_t kn = Some (EAst.InductiveDecl m) ->
     EGlobalEnv.lookup_env Σ_u kn = Some (EAst.InductiveDecl m')  -> m = m'.
   Proof.
-    intros ? ? ? Hdecl Hdecl'.
+    intros ? ? ? ? Hdecl Hdecl'.
     eapply verified_named_erasure_pipeline_lookup_env_in in Hdecl as [? [? ?]]; eauto.
     eapply verified_named_erasure_pipeline_lookup_env_in in Hdecl' as [? [? ?]]; eauto.
     rewrite H1 in H. inversion H; subst. clear H H1. cbn in H0, H2.
@@ -1011,15 +1011,20 @@ Section malfunction_pipeline_wellformed.
 
   Derive Signature for firstorder_evalue_block.
   
-  Lemma compile_value_mf_fo `{Pointer} (efl := named_extraction_env_flags) X u expu T' (typing' : ∥Σ ;;; [] |- u : T'∥) : 
+  Opaque EGlobalEnv.lookup_env.
+
+  Lemma compile_value_mf_fo' `{Pointer} (efl := named_extraction_env_flags) X u expu T' (typing' : ∥Σ ;;; [] |- u : T'∥) : 
      let Σ_u := (Transform.transform verified_named_erasure_pipeline (Σ, u) (precond _ _ _ _ expΣ expu typing' _)).1 in
      firstorder_evalue_block Σ_t X ->
      firstorder_evalue_block Σ_u X -> 
+     (forall kn m m', 
+     EGlobalEnv.lookup_env Σ_t kn = Some (EAst.InductiveDecl m) ->
+     EGlobalEnv.lookup_env Σ_u kn = Some (EAst.InductiveDecl m')  -> m = m') ->
      compile_value_mf_aux _ Σ_u X = 
      compile_value_mf_aux _ Σ_t X.
   Proof.
     intros ?. revert X. apply: firstorder_evalue_block_elim.
-    intros. depelim H3. cbn. unfold lookup_constructor_args.
+    intros. rename H4 into Hirr. depelim H3. cbn. clearbody Σ_t Σ_u. unfold lookup_constructor_args.
     unfold EGlobalEnv.lookup_constructor_pars_args, EGlobalEnv.lookup_constructor, EGlobalEnv.lookup_inductive, EGlobalEnv.lookup_minductive in *.
     cbn in H0, H3. case_eq (EGlobalEnv.lookup_env Σ_t (inductive_mind i)).
     2: { intro e. rewrite e in H0. depelim H0. }
@@ -1032,10 +1037,22 @@ Section malfunction_pipeline_wellformed.
       specialize (H9 H13). eapply Forall_mix in H10; try exact H14. eapply Forall_impl in H10.
       erewrite map_ext_Forall. 2: exact H10. 2: { intros ? [? ?]. eapply H8; eauto. } set (map _ _). 
       apply f_equal2; eauto. }
-    symmetry. eapply verified_named_erasure_pipeline_inductive_irrel with (t':=u). 1-3: eauto. 
-    clear -Hdecl'. exact Hdecl'.
-  Admitted.     
-    
+    symmetry. eapply Hirr; eauto.
+  Qed. 
+  
+  Transparent EGlobalEnv.lookup_env.
+
+  Lemma compile_value_mf_fo `{Pointer} (efl := named_extraction_env_flags) X u expu T' (typing' : ∥Σ ;;; [] |- u : T'∥) : 
+  let Σ_u := (Transform.transform verified_named_erasure_pipeline (Σ, u) (precond _ _ _ _ expΣ expu typing' _)).1 in
+  firstorder_evalue_block Σ_t X ->
+  firstorder_evalue_block Σ_u X -> 
+  compile_value_mf_aux _ Σ_u X = 
+  compile_value_mf_aux _ Σ_t X.
+  Proof.
+    intros ? Hfo Hfo'. eapply compile_value_mf_fo'. 1: exact Hfo. 1: exact Hfo'.
+    eapply verified_named_erasure_pipeline_inductive_irrel; eauto.
+  Qed.  
+
 End malfunction_pipeline_wellformed.
 
 About verified_malfunction_pipeline_theorem.
