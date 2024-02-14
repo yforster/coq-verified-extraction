@@ -423,10 +423,13 @@ Qed.
 
 Opaque Malfunction.Int63.wB PArray.max_length.
 
+Definition malfunction_env_prop `{Heap} Σ Σ' :=  
+  forall c decl body v, EGlobalEnv.declared_constant Σ c decl -> EAst.cst_body decl = Some body -> EWcbvEvalNamed.eval Σ [] body v -> In ((Kernames.string_of_kername c), compile_value Σ v) Σ'.
+  
 Lemma compile_correct `{Heap} Σ Σ' s t Γ Γ' :
   (forall i mb ob, EGlobalEnv.lookup_inductive Σ i = Some (mb, ob) -> #|ob.(EAst.ind_ctors)| < Z.to_nat Malfunction.Int63.wB /\ forall n b, nth_error ob.(EAst.ind_ctors) n = Some b -> b.(EAst.cstr_nargs) < int_to_nat PArray.max_length) ->
   (forall na, Malfunction.Ident.Map.find na Γ' =  match lookup Γ na with Some v => compile_value Σ v | _ => fail "notfound" end) ->
-  (forall c decl body v, EGlobalEnv.declared_constant Σ c decl -> EAst.cst_body decl = Some body -> EWcbvEvalNamed.eval Σ [] body v -> In ((Kernames.string_of_kername c), compile_value Σ v) Σ') ->
+   malfunction_env_prop Σ Σ' -> 
    EWcbvEvalNamed.eval Σ Γ s t ->
    forall h, SemanticsSpec.eval Σ' Γ' h (compile Σ s) h (compile_value Σ t).
 Proof.

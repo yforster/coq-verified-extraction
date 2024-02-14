@@ -402,14 +402,20 @@ Next Obligation.
   red. intros. exists (compile_value p.1 v); eauto. 
 Qed.
 
+Program Definition post_verified_named_erasure_pipeline (efl := EWellformed.all_env_flags) `{Heap}:
+ Transform.t EAst.global_declarations _ _ _ _ EWcbvEvalNamed.value  
+ (eval_eprogram EConstructorsAsBlocks.block_wcbv_flags)
+ (fun p v => ∥ EWcbvEvalNamed.eval p.1 [] p.2 v ∥)  :=
+  enforce_extraction_conditions ▷
+  implement_box_transformation ▷
+  name_annotation.
+
 Program Definition verified_named_erasure_pipeline (efl := EWellformed.all_env_flags) `{Heap}:
  Transform.t global_env_ext_map _ _ _ _ EWcbvEvalNamed.value 
              PCUICTransform.eval_pcuic_program
              (fun p v => ∥ EWcbvEvalNamed.eval p.1 [] p.2 v ∥) :=
   verified_erasure_pipeline ▷
-  enforce_extraction_conditions ▷
-  implement_box_transformation ▷
-  name_annotation.
+  post_verified_named_erasure_pipeline.
 
 Program Definition verified_malfunction_pipeline (efl := EWellformed.all_env_flags) `{Heap} :
  Transform.t global_env_ext_map _ _ _ _ SemanticsSpec.value 
@@ -422,7 +428,6 @@ Next Obligation.
   destruct p as [Σ t]. split. apply H1. sq. split. 2: eauto.
   eexists. split. 2:sq. all:eauto. 
 Qed.
-
 
 Section compile_malfunction_pipeline.
 
@@ -624,9 +629,8 @@ Section malfunction_pipeline_theorem.
                           decl decl'.
   Proof.
     intros ? decl. unfold Σ_t, verified_named_erasure_pipeline.
-    destruct_compose; intro; cbn. rewrite lookup_env_annotate.
-    destruct_compose; intro; cbn. rewrite lookup_env_implement_box. 
-    destruct_compose; intro; cbn. 
+    destruct_compose; intro; cbn. rewrite lookup_env_annotate. unfold run, time.  
+    destruct_compose; intro; cbn. rewrite lookup_env_implement_box.
     unfold enforce_extraction_conditions. unfold transform at 1.
     intro Hlookup. set (EGlobalEnv.lookup_env _ _) in Hlookup. case_eq o.
     2:{ intro Heq; rewrite Heq in Hlookup; inversion Hlookup. }
@@ -682,10 +686,10 @@ Section malfunction_pipeline_theorem.
     EGlobalEnv.lookup_env Σ_v kn = Some g ->
     EGlobalEnv.lookup_env Σ_t' kn = Some g. 
   Proof.
-    unfold Σ_t', Σ_v. unfold verified_named_erasure_pipeline.
+    unfold Σ_t', Σ_v. unfold verified_named_erasure_pipeline, post_verified_named_erasure_pipeline.
     repeat (destruct_compose; intro). 
     unfold transform at 1 3; cbn -[transform].
-    repeat (destruct_compose; intro). 
+    repeat (destruct_compose; intro).  
     unfold transform at 1 3; cbn -[transform].
     repeat (destruct_compose; intro). 
     unfold transform at 1 3; cbn -[transform].
@@ -698,7 +702,7 @@ Section malfunction_pipeline_theorem.
     intros ? Heq. rewrite Heq in Hlookup. cbn in Hlookup. 
     eapply extends_lookup in Heq. rewrite Heq. eauto.
     2: { eapply verified_erasure_pipeline_extends; eauto. }
-    epose proof (correctness _ _ H4). cbn in H5. now destruct H5.
+    epose proof (correctness _ _ H4). cbn in H5. now destruct H4.
   Qed.
 
 
@@ -727,33 +731,28 @@ Section malfunction_pipeline_theorem.
 
   Import SemanticsSpec.
 
-  Definition malfunction_env_prop Σ' :=  forall (c : Kernames.kername) (decl : EAst.constant_body) 
-  (body : EAst.term) (v : EWcbvEvalNamed.value),
-  EGlobalEnv.declared_constant Σ_t' c decl ->
-  EAst.cst_body decl = Some body ->
-  EWcbvEvalNamed.eval Σ_t' [] body v ->
-  In (Kernames.string_of_kername c, compile_value Σ_t' v) Σ'.
-
   Lemma verified_malfunction_pipeline_theorem_gen (efl := extraction_env_flags) Σ' :
-    malfunction_env_prop Σ' ->
+    malfunction_env_prop Σ_t' Σ' ->
     forall (h:heap), eval Σ' empty_locals h (compile_malfunction_pipeline expΣ expt typing).2 h (compile_value_mf Σ v).
   Proof.
     intros HΣ'; cbn.  
     unshelve epose proof (verified_erasure_pipeline_theorem _ _ _ _ _ _ _ _ _ _ _ _ _ Heval); eauto.
     rewrite compile_value_mf_eq. 
     { eapply fo_v; eauto. }
-    unfold compile_malfunction_pipeline, verified_malfunction_pipeline, verified_named_erasure_pipeline in *. 
-    revert HΣ'.
-    repeat destruct_compose ; intros.
-    unfold compile_to_malfunction. unfold transform at 1. simpl.
+    unfold compile_malfunction_pipeline, verified_malfunction_pipeline, verified_named_erasure_pipeline,
+       post_verified_named_erasure_pipeline in *.
+    intros. destruct_compose ; intros. 
+    unfold compile_to_malfunction. unfold transform at 1. simpl.  
+    repeat (destruct_compose ; intros). unfold name_annotation. unfold transform at 1 4.
+    repeat (destruct_compose ; intros). simpl. unfold enforce_extraction_conditions. unfold transform at 1 3.
     unshelve epose proof (Himpl := implement_box_transformation.(preservation) _ _ _ _); try eapply H1; eauto.
     destruct Himpl as [? [Himpl_eval Himpl_obs]].
     unfold obseq in Himpl_obs. simpl in Himpl_obs. rewrite Himpl_obs in Himpl_eval.
-    unshelve epose proof (Hname := name_annotation.(preservation) _ _ _ _);  try eapply H2; eauto.
+    unshelve epose proof (Hname := name_annotation.(preservation) _ _ _ _); try eapply H2; eauto.
     { rewrite Himpl_obs; eauto. }
-    destruct Hname as [? [Hname_eval Hname_obs]]. simpl in *. sq.
+    destruct Hname as [? [Hname_eval Hname_obs]]. simpl in *. sq. revert Hname_eval. destruct_compose; intros.    
     unfold compile_named_value. rewrite <- verified_malfunction_pipeline_compat.
-    2: { unfold Σ_v. repeat destruct_compose ; intros.
+    2: { unfold Σ_v. repeat (destruct_compose ; intros).
          unfold transform at 1; cbn -[transform]. 
          unfold transform at 1; cbn -[transform].
          unfold transform at 1; cbn -[transform].
@@ -762,34 +761,51 @@ Section malfunction_pipeline_theorem.
          eapply implement_box_firstorder_evalue_block.
          eassumption.
        }
-    unfold Σ_t'. repeat destruct_compose ; intros.
-    eapply compile_correct with (Γ := []); intros.
-    - split.
-      + eapply H3. eassumption.
-      + eapply H3. eassumption.
+    unfold Σ_t'. repeat (destruct_compose ; intros).
+    unfold name_annotation. unfold transform at 3.
+    repeat (destruct_compose ; intros). simpl. unfold enforce_extraction_conditions. unfold transform at 3. 
+    eapply compile_correct with (Γ := []). intros.
+    -  rename H7 into H7'.  rename H8 into H7.  split.
+      + eapply H3. unfold enforce_extraction_conditions. unfold transform at 1.
+        unfold EGlobalEnv.lookup_inductive, EGlobalEnv.lookup_minductive in *.
+        rewrite lookup_env_annotate lookup_env_implement_box in H7. cbn in H7. clear - H7.
+        instantiate (2:= i0).
+        destruct EGlobalEnv.lookup_env; cbn in *; try inversion H7.  destruct g; cbn in *; eauto.
+        destruct c; cbn in *. destruct cst_body0; cbn in *; inversion H7.           
+        + eapply H3. unfold enforce_extraction_conditions. unfold transform at 1.
+        unfold EGlobalEnv.lookup_inductive, EGlobalEnv.lookup_minductive in *. 
+        rewrite lookup_env_annotate lookup_env_implement_box in H7. cbn in H7. clear - H7.
+        instantiate (2:= i0).
+        destruct EGlobalEnv.lookup_env; cbn in *; try inversion H7.  destruct g; cbn in *; eauto.
+        destruct c; cbn in *. destruct cst_body0; cbn in *; inversion H7.           
     - eauto.  
-    - eapply HΣ'; eauto.  
+    - revert HΣ'. unfold malfunction_env_prop, Σ_t'.
+      destruct_compose ; intros. 
+      revert HΣ'. destruct_compose ; intros. unfold name_annotation in *.
+      unfold transform at 1 4 7 in HΣ'. 
+      revert HΣ'. destruct_compose ; intros. simpl in HΣ'.
+      eapply HΣ'; eauto.
     - rewrite Himpl_obs in Hname_obs. 
       rewrite <- implement_box_fo in Hname_obs. 2: { eapply fo_v; eauto. }
       eapply represent_value_eval_fo in Hname_obs. 2: { eapply fo_v; eauto. }
-      unfold compile_named_value. rewrite <- Hname_obs. exact Hname_eval.
+      rewrite Hname_obs in Hname_eval. exact Hname_eval.
   Qed. 
 
   Lemma verified_named_erasure_pipeline_fo :
     firstorder_evalue_block Σ_v (compile_value_box (PCUICExpandLets.trans_global_env Σ) v []).
   Proof.
-    unfold Σ_v, verified_named_erasure_pipeline.
+    unfold Σ_v, verified_named_erasure_pipeline, post_verified_named_erasure_pipeline.
     repeat (destruct_compose; simpl; intro).
     unshelve epose proof ErasureCorrectness.verified_erasure_pipeline_firstorder_evalue_block _ _ _ _ _ _ _ _ _ _ _ typing _ _; eauto using Heval.
     set (v' := compile_value_box _ _ _) in *. clearbody v'.
     clear -H2. eapply firstorder_evalue_block_elim; eauto. clear. intros; econstructor; eauto. 
-    clear -H. cbn in *. 
+    clear -H0. cbn in *. 
     unfold EGlobalEnv.lookup_constructor_pars_args, EGlobalEnv.lookup_constructor,
     EGlobalEnv.lookup_inductive, EGlobalEnv.lookup_minductive in *. cbn.
     rewrite lookup_env_annotate lookup_env_implement_box.
     unfold enforce_extraction_conditions. unfold transform at 1.
-    destruct EGlobalEnv.lookup_env; [|inversion H].
-    destruct g; inversion H; subst; eauto.   
+    destruct EGlobalEnv.lookup_env; [|inversion H0].
+    destruct g; inversion H0; subst; eauto.
   Qed.    
     
   Transparent compose.  
@@ -875,7 +891,7 @@ Section malfunction_pipeline_theorem_red.
   Import SemanticsSpec.
 
   Lemma verified_malfunction_pipeline_theorem (efl := extraction_env_flags) Σ' :
-    malfunction_env_prop _ _ _ HΣ expΣ _ expt _ _ _ _ typing Σ' ->
+    malfunction_env_prop Σ_t' Σ' ->
     forall h, eval Σ' empty_locals h (compile_malfunction_pipeline expΣ expt typing).2 h (compile_value_mf Σ v).
   Proof. 
     now eapply verified_malfunction_pipeline_theorem_gen.
@@ -912,13 +928,11 @@ Section malfunction_pipeline_wellformed.
   Proof.
     set (P := Transform.pre _). intros.  
     unshelve epose proof (erasure_pipeline_extends_app _ _ _ pre _ _) as [pre' [pre'' [ [? ?] Happ]]]; eauto.
-    exists pre', pre''. unfold verified_named_erasure_pipeline.
+    exists pre', pre''. unfold verified_named_erasure_pipeline, post_verified_named_erasure_pipeline.
     repeat (destruct_compose; intros).
-    unfold transform at 1 3 5 7 9 11 13 15. cbn -[P transform].
+    unfold transform at 1 4 7 10 13 16 19 22. cbn -[P transform].
     repeat (destruct_compose; intros).   
-    unfold transform at 1 3 5 7 9 11 13 15 17. cbn -[P transform].
-    repeat (destruct_compose; intros).
-    unfold transform at 1 3 5 7 9 11 13 15 17. cbn -[P transform].
+    unfold transform at 1 4 7 10 13 16 19 22. cbn -[P transform].
     repeat split. 
     { unshelve eapply annotate_extends, implement_box_env_extends.
       - exact extraction_env_flags. 
