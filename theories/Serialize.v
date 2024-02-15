@@ -11,7 +11,7 @@ Require Import Malfunction.Ceres.CeresFormat Malfunction.Ceres.CeresSerialize.
 Local Open Scope sexp.
 Local Open Scope string.
 
-Compute match "'"%bs with bytestring.String.String b _ => b | _ => Byte.x00 end.
+(* Compute match "'"%bs with bytestring.String.String b _ => b | _ => Byte.x00 end. *)
 
 Fixpoint _escape_ident (_end s : String.t) : String.t :=
   match s with

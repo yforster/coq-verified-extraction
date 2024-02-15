@@ -6,15 +6,26 @@ open Datatypes
 open Vernacextend
 open Tm_util
 
+type malfunction_command_args =
+  | Unsafe
+  | Time
+  | Typed
+  | BypassQeds
+  | Fast
+
+type malfunction_plugin_config = 
+  { malfunction_pipeline_config : Pipeline.malfunction_pipeline_config;
+    bypass_qeds : bool;
+    time : bool }
 
 (* Separate registration of primitive extraction *)
 
-type prim = Kernames.kername * String.t
+type prim = Kernames.kername * (Bytestring.String.t * Bytestring.String.t)
 
 type package = string (* Findlib package names to link for external references *)
 
 let global_registers = 
-  Summary.ref ([], []) : prim list * package list) ~name:"MetaCoq Malfunction Registration"
+  Summary.ref (([], []) : prim list * package list) ~name:"MetaCoq Malfunction Registration"
 
 let global_registers_name = "metacoq-malfunction-registration"
 
@@ -50,15 +61,38 @@ let pr_char_list l =
   (* We allow utf8 encoding *)
   str (Caml_bytestring.caml_string_of_bytestring l)
 
-let make_externals () =
+let make_options l =
+  let open Pipeline in
   let prims = get_global_prims () in
-  
-
-let extract ~bypass env evm c dest =
-  debug (fun () -> str"Quoting");
-  let prog = time (str"Quoting") (Ast_quoter.quote_term_rec ~bypass env) evm (EConstr.to_constr evm c) in
-  let eprog = time (str"Extraction") Pipeline.compile_malfunction prog
+  let default = {
+    malfunction_pipeline_config = { default_malfunction_config with prims };
+    bypass_qeds = false; time = false }  
   in
+  let rec parse_options opts l = 
+    let open Erasure0 in
+    match l with
+    | [] -> opts
+    | Unsafe :: l -> parse_options { opts with 
+      malfunction_pipeline_config = { opts.malfunction_pipeline_config with erasure_config = 
+      { opts.malfunction_pipeline_config.erasure_config with enable_cofix_to_fix = true } } } l
+    | Typed :: l -> parse_options { opts with 
+      malfunction_pipeline_config = { opts.malfunction_pipeline_config with erasure_config = 
+      { opts.malfunction_pipeline_config.erasure_config with enable_typed_erasure = true } } } l
+    | Fast :: l -> parse_options { opts with
+      malfunction_pipeline_config = { opts.malfunction_pipeline_config with erasure_config = 
+      { opts.malfunction_pipeline_config.erasure_config with enable_fast_remove_params = true } } } l
+    | BypassQeds :: l -> parse_options { opts with bypass_qeds = true } l
+    | Time :: l -> parse_options { opts with time = true } l
+  in parse_options default l
+
+let extract opts env evm c dest =
+  let opts = make_options opts in
+  let time = 
+    if opts.time then (fun label fn arg -> time label fn arg) 
+    else fun _label fn arg -> fn arg
+  in
+  let prog = time (str"Quoting") (Ast_quoter.quote_term_rec ~bypass:opts.bypass_qeds env) evm (EConstr.to_constr evm c) in
+  let eprog = time (str"Extraction") (Pipeline.compile_malfunction_gen opts.malfunction_pipeline_config) prog in
   match dest with
   | None -> Feedback.msg_info (pr_char_list eprog)
   | Some fname -> 
@@ -66,4 +100,4 @@ let extract ~bypass env evm c dest =
     let () = output_string oc (Caml_bytestring.caml_string_of_bytestring eprog) in
     let () = output_char oc '\n' in
     close_out oc;
-    Feedback.msg_notice (str"Extracted written to " ++ str fname)
+    Feedback.msg_notice (str"Extracted code written to " ++ str fname)

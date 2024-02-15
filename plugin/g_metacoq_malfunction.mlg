@@ -1,30 +1,41 @@
+(*i camlp4deps: "grammar/grammar.cma" i*)
 
 DECLARE PLUGIN "coq-metacoq-malfunction.plugin"
 
 {
 
-open Stdarg
+open Names
 open Pp
-open PeanoNat.Nat
-open Vernacextend
+open Ltac_plugin
+open Stdarg
+open Pcoq.Prim
+open Tacexpr
+open Tacinterp
+open Stdarg
+open Tacarg
+open Genredexpr
+
+open Metacoq_malfunction
 
 }
+
+ARGUMENT EXTEND extract_args
+| [ "-unsafe" ] -> { Unsafe }
+| [ "-time" ] -> { Time }
+| [ "-typed" ] -> { Typed }
+| [ "-bypass-qeds" ] -> { BypassQeds }
+| [ "-fast" ] -> { Fast }
+END
 
 VERNAC COMMAND EXTEND MetaCoqExtract CLASSIFIED AS QUERY
 | [ "MetaCoq" "Extraction" "-help" ] -> {
   let usage = "MetaCoq (Bypass)? Extraction [term] [output_file]?" in
   Feedback.msg_notice (str usage)
   }
-| [ "MetaCoq" "Bypass" "Extraction" constr(c) string_opt(dest) ] -> {
+| [ "MetaCoq" "Extraction" extract_args_list(l) constr(c) string_opt(dest) ] -> {
     let env = Global.env () in
     let evm = Evd.from_env env in
     let (c, _) = Constrintern.interp_constr env evm c in
-    Metacoq_malfunction.extract ~bypass:true env evm c dest
-  }
-| [ "MetaCoq" "Extraction" constr(c) string_opt(dest) ] -> {
-    let env = Global.env () in
-    let evm = Evd.from_env env in
-    let (c, _) = Constrintern.interp_constr env evm c in
-    Metacoq_malfunction.extract ~bypass:false env evm c dest
+    Metacoq_malfunction.extract l env evm c dest
   }
 END
