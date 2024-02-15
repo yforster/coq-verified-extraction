@@ -1082,7 +1082,7 @@ Program Definition malfunction_pipeline (efl := EWellformed.all_env_flags)
   pre_erasure_pipeline ▷ 
   switchable_erasure_pipeline config ▷ 
   post_verified_named_erasure_pipeline ▷ 
-  compile_to_malfunction.
+  compile_to_malfunction .
 Next Obligation.
   unfold switchable_erasure_pipeline.
   destruct enable_typed_erasure => //.
@@ -1094,10 +1094,10 @@ Qed.
 Definition compile_malfunction_gen (cf := config.extraction_checker_flags) config (p : Ast.Env.program) 
   : string :=
   let p' := run (malfunction_pipeline config) p (todo "assume we run compilation on a welltyped term"%bs) in
-  time "Pretty printing"%bs (fun p =>(@to_string _ Serialize_module p)) p'.
+  time "Pretty printing"%bs (fun p =>(@to_string _ (Serialize_module config.(prims)) p)) p'.
 
 Definition default_malfunction_config : malfunction_pipeline_config :=
-  {| erasure_config := default_erasure_config; prims := [] |}.
+  {| erasure_config := safe_erasure_config; prims := [] |}.
 
 Definition compile_malfunction (cf := config.extraction_checker_flags) := 
   compile_malfunction_gen default_malfunction_config.

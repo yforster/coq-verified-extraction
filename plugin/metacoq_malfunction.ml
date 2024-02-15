@@ -24,6 +24,19 @@ type prim = Kernames.kername * (Bytestring.String.t * Bytestring.String.t)
 
 type package = string (* Findlib package names to link for external references *)
 
+let extract_constant (g : Names.GlobRef.t) (s : string) : prim =
+  match g with
+  | Names.GlobRef.ConstRef c -> 
+    let s = String.split_on_char '.' s in 
+    let label, module_ = CList.sep_last s in
+    let label = Caml_bytestring.bytestring_of_caml_string label in
+    let module_ = Caml_bytestring.bytestring_of_caml_string (String.concat "." module_) in
+    (Obj.magic (Metacoq_template_plugin.Ast_quoter.quote_kn (Names.Constant.canonical c)), (module_, label))
+  | Names.GlobRef.VarRef(v) -> CErrors.user_err (str "Expected a constant but found a variable. Only constants can be realized in Malfunction.")
+  | Names.GlobRef.IndRef(i) -> CErrors.user_err (str "Expected a constant but found an inductive type. Only constants can be realized in Malfunction.")
+  | Names.GlobRef.ConstructRef(c) -> CErrors.user_err (str "Expected a constant but found a constructor. Only constants can be realized in Malfunction. ")
+
+
 let global_registers = 
   Summary.ref (([], []) : prim list * package list) ~name:"MetaCoq Malfunction Registration"
 
@@ -94,7 +107,7 @@ let extract opts env evm c dest =
   let prog = time (str"Quoting") (Ast_quoter.quote_term_rec ~bypass:opts.bypass_qeds env) evm (EConstr.to_constr evm c) in
   let eprog = time (str"Extraction") (Pipeline.compile_malfunction_gen opts.malfunction_pipeline_config) prog in
   match dest with
-  | None -> Feedback.msg_info (pr_char_list eprog)
+  | None -> Feedback.msg_notice (pr_char_list eprog)
   | Some fname -> 
     let oc = open_out fname in (* Does not raise? *)
     let () = output_string oc (Caml_bytestring.caml_string_of_bytestring eprog) in

@@ -19,6 +19,18 @@ open Metacoq_malfunction
 
 }
 
+
+VERNAC ARGUMENT EXTEND metaCoqRegister_extract_cnst 
+| [ reference(gr) "=>" string(str) ] -> { (extract_constant (Option.get (Constrintern.locate_reference gr)) str) }
+END
+
+VERNAC COMMAND EXTEND MetaCoqExtract_Register CLASSIFIED AS SIDEFF
+| [ "MetaCoq" "Register" "Extraction" "[" metaCoqRegister_extract_cnst_list_sep(prims, ",") "]" "Packages" "[" string_list_sep(packages, ",") "]" ] -> {
+    register prims packages
+  }
+END
+
+
 ARGUMENT EXTEND extract_args
 | [ "-unsafe" ] -> { Unsafe }
 | [ "-time" ] -> { Time }
