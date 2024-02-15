@@ -205,3 +205,6 @@ extraction/decimalString.mli
 extraction/decimalString.ml
 extraction/hexadecimalString.mli
 extraction/hexadecimalString.ml
+
+extraction/optimizePropDiscr.mli
+extraction/optimizePropDiscr.ml

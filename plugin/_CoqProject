@@ -137,8 +137,8 @@ extraction/erasureFunctionProperties.ml
 # extraction/ePretty.ml
 extraction/ePrimitive.mli
 extraction/ePrimitive.ml
-extraction/optimizePropDiscr.mli
-extraction/optimizePropDiscr.ml
+# extraction/optimizePropDiscr.mli
+# extraction/optimizePropDiscr.ml
 extraction/eOptimizePropDiscr.mli
 extraction/eOptimizePropDiscr.ml
 extraction/eProgram.mli
@@ -179,6 +179,8 @@ extraction/compile.ml
 extraction/malfunction.mli
 extraction/malfunction.ml
 
+metacoq_malfunction.mli
+metacoq_malfunction.ml
 g_metacoq_malfunction.mlg
 metacoq_malfunction_plugin.mlpack
 

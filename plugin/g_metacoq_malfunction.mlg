@@ -6,39 +6,8 @@ DECLARE PLUGIN "coq-metacoq-malfunction.plugin"
 open Stdarg
 open Pp
 open PeanoNat.Nat
-open Datatypes
 open Vernacextend
-open Tm_util
 
-let pr_char c = str (Char.escaped c)
-
-let bytes_of_list l =
-  let bytes = Bytes.create (List.length l) in
-  let rec fill acc = function
-    | [] -> bytes
-    | c :: cs ->
-      Bytes.set bytes acc c;
-      fill (1 + acc) cs
-  in fill 0 l
-
-let pr_char_list l =
-  (* We allow utf8 encoding *)
-  str (Caml_bytestring.caml_string_of_bytestring l)
-
-let extract ~bypass env evm c dest =
-  debug (fun () -> str"Quoting");
-  let prog = time (str"Quoting") (Ast_quoter.quote_term_rec ~bypass env) evm (EConstr.to_constr evm c) in
-  let eprog = time (str"Extraction") 
-     Pipeline.compile_malfunction prog
-  in
-  match dest with
-  | None -> Feedback.msg_info (pr_char_list eprog)
-  | Some fname -> 
-    let oc = open_out fname in (* Does not raise? *)
-    let () = output_string oc (Caml_bytestring.caml_string_of_bytestring eprog) in
-    let () = output_char oc '\n' in
-    close_out oc;
-    Feedback.msg_notice (str"Extracted written to " ++ str fname)
 }
 
 VERNAC COMMAND EXTEND MetaCoqExtract CLASSIFIED AS QUERY
@@ -50,12 +19,12 @@ VERNAC COMMAND EXTEND MetaCoqExtract CLASSIFIED AS QUERY
     let env = Global.env () in
     let evm = Evd.from_env env in
     let (c, _) = Constrintern.interp_constr env evm c in
-    extract ~bypass:true env evm c dest
+    Metacoq_malfunction.extract ~bypass:true env evm c dest
   }
 | [ "MetaCoq" "Extraction" constr(c) string_opt(dest) ] -> {
     let env = Global.env () in
     let evm = Evd.from_env env in
     let (c, _) = Constrintern.interp_constr env evm c in
-    extract ~bypass:false env evm c dest
+    Metacoq_malfunction.extract ~bypass:false env evm c dest
   }
 END

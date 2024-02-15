@@ -139,7 +139,7 @@ From MetaCoq.Erasure Require Import EImplementBox EWellformed EProgram.
 
 Program Definition implement_box_transformation (efl := extraction_env_flags) :
   Transform.t _ _ EAst.term EAst.term _ _ (eval_eprogram block_wcbv_flags) (eval_eprogram block_wcbv_flags) :=
-  {| name := "transforming to constructors as blocks";
+  {| name := "implementing box";
     transform p _ := EImplementBox.implement_box_program p ;
     pre p := good_for_extraction extraction_env_flags p ;
     post p := good_for_extraction extraction_env_flags p /\ wf_eprogram (switch_off_box efl) p ;

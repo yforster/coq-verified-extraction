@@ -76,4 +76,5 @@ Serialize
 SemanticsSpec
 Pipeline
 
+Metacoq_malfunction
 G_metacoq_malfunction
