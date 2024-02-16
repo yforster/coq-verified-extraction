@@ -1,3 +1,4 @@
+INSTALLDEFAULTROOT=Malfunction/Plugin
 CAMLFLAGS+=-open Metacoq_template_plugin
 CAMLFLAGS+=-w -20 # Unused arguments
 CAMLFLAGS+=-w -33 # Unused opens

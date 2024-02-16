@@ -1,17 +1,10 @@
 -I .
--I extraction
--Q . Malfunction.Plugin
+-R theories Malfunction.Plugin
 
-META.coq-metacoq-malfunction
+theories/Loader.v
+theories/PrimInt63.v
+theories/CoqMsgFFI.v
+theories/OCamlFFI.v
+theories/Extract.v
 
-# ls extraction/*.ml{i,}
-
-extraction/carryType.ml extraction/carryType.mli extraction/ceresFormat.ml extraction/ceresFormat.mli extraction/ceresS.ml extraction/ceresS.mli extraction/ceresSerialize.ml extraction/ceresSerialize.mli extraction/ceresString.ml extraction/ceresString.mli extraction/compile.ml extraction/compile.mli extraction/eAst.ml extraction/eAst.mli extraction/eAstUtils.ml extraction/eAstUtils.mli extraction/eCSubst.ml extraction/eCSubst.mli extraction/eCoInductiveToInductive.ml extraction/eCoInductiveToInductive.mli extraction/eConstructorsAsBlocks.ml extraction/eConstructorsAsBlocks.mli extraction/eEnvMap.ml extraction/eEnvMap.mli extraction/eEtaExpanded.ml extraction/eEtaExpanded.mli extraction/eGlobalEnv.ml extraction/eGlobalEnv.mli extraction/eImplementBox.ml extraction/eImplementBox.mli extraction/eInduction.ml extraction/eInduction.mli extraction/eInlineProjections.ml extraction/eInlineProjections.mli extraction/eLiftSubst.ml extraction/eLiftSubst.mli extraction/eOptimizePropDiscr.ml extraction/eOptimizePropDiscr.mli extraction/ePretty.ml extraction/ePretty.mli extraction/ePrimitive.ml extraction/ePrimitive.mli extraction/eProgram.ml extraction/eProgram.mli extraction/eRemoveParams.ml extraction/eRemoveParams.mli extraction/eSpineView.ml extraction/eSpineView.mli extraction/eTransform.ml extraction/eTransform.mli extraction/eWcbvEval.ml extraction/eWcbvEval.mli extraction/eWcbvEvalNamed.ml extraction/eWcbvEvalNamed.mli extraction/eWellformed.ml extraction/eWellformed.mli extraction/erasure.ml extraction/erasure.mli extraction/erasure0.ml extraction/erasure0.mli extraction/erasureFunction.ml extraction/erasureFunction.mli extraction/erasureFunctionProperties.ml extraction/erasureFunctionProperties.mli extraction/etaExpand.ml extraction/etaExpand.mli extraction/exAst.ml extraction/exAst.mli extraction/extract.ml extraction/extract.mli extraction/extractionCorrectness.ml extraction/extractionCorrectness.mli extraction/fin.ml extraction/fin.mli extraction/init.ml extraction/init.mli extraction/malfunction.ml extraction/malfunction.mli extraction/optimize.ml extraction/optimize.mli extraction/optimizeCorrectness.ml extraction/optimizeCorrectness.mli extraction/optimizePropDiscr.ml extraction/optimizePropDiscr.mli extraction/pCUICAst.ml extraction/pCUICAst.mli extraction/pCUICAstUtils.ml extraction/pCUICAstUtils.mli extraction/pCUICCases.ml extraction/pCUICCases.mli extraction/pCUICEqualityDec.ml extraction/pCUICEqualityDec.mli extraction/pCUICErrors.ml extraction/pCUICErrors.mli extraction/pCUICExpandLets.ml extraction/pCUICExpandLets.mli extraction/pCUICNormal.ml extraction/pCUICNormal.mli extraction/pCUICPosition.ml extraction/pCUICPosition.mli extraction/pCUICPrimitive.ml extraction/pCUICPrimitive.mli extraction/pCUICProgram.ml extraction/pCUICProgram.mli extraction/pCUICSafeReduce.ml extraction/pCUICSafeReduce.mli extraction/pCUICSafeRetyping.ml extraction/pCUICSafeRetyping.mli extraction/pCUICTransform.ml extraction/pCUICTransform.mli extraction/pCUICTyping.ml extraction/pCUICTyping.mli extraction/pCUICWfEnv.ml extraction/pCUICWfEnv.mli extraction/pCUICWfEnvImpl.ml extraction/pCUICWfEnvImpl.mli extraction/pipeline.ml extraction/pipeline.mli extraction/resultMonad.ml extraction/resultMonad.mli extraction/semanticsSpec.ml extraction/semanticsSpec.mli extraction/serialize.ml extraction/serialize.mli extraction/ssrbool.ml extraction/ssrbool.mli extraction/templateToPCUIC.ml extraction/templateToPCUIC.mli extraction/uGraph0.ml extraction/uGraph0.mli extraction/utils.ml extraction/utils.mli extraction/utils_array.ml extraction/utils_array.mli extraction/vector.ml extraction/vector.mli extraction/vectorDef.ml extraction/vectorDef.mli extraction/wGraph.ml extraction/wGraph.mli
-
-metacoq_malfunction.mli
-metacoq_malfunction.ml
-g_metacoq_malfunction.mlg
-metacoq_malfunction_plugin.mlpack
-
-Loader.v
 tests/test_extract.v

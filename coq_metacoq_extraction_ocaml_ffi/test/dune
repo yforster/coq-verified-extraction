@@ -1,0 +1,2 @@
+(test
+ (name metacoq_extraction_ocaml_ffi))
