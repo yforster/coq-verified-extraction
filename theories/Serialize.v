@@ -277,22 +277,19 @@ Fixpoint thename a (s : bytestring.String.t) :=
                         else thename (b :: a)%list s
   end.
 
-Program Definition Serialize_module prims : Serialize program :=
+Program Definition Serialize_module prims (names : list bytestring.string): Serialize program :=
   fun '(m, x) =>
-    let name : Ident.t  := match m with
-                           | (x :: l)%list => fst x
-                           | nil => ""%bs
-                           end in
-    let shortname : Ident.t := uncapitalize (thename nil name) in
-    let longname : list sexp := (to_sexp ("def_" ++ name)%bs :: nil)%list in
-    let exports : list sexp := (Atom ("$" ++ String.to_string shortname)%string :: nil)%list in
+    let shortnames : list Ident.t := List.map (fun name => uncapitalize (thename nil name)) names in
+    let longnames : list sexp := List.map (fun name => (to_sexp ("def_" ++ name)%bs)) names in
+    let allnames := List.combine shortnames longnames in
+    let exports : list sexp := List.map (fun shortname => Atom ("$" ++ String.to_string shortname)%string) shortnames  in
     match
       Cons (Atom "module") (@Serialize_list _ (global_serializer prims) (List.rev m))
     with
       List l =>
         List (l                 (* the extracted function *)
-              ++  (Cons (Atom ("$" ++ String.to_string shortname)%string)
-                         (List longname) :: nil)%list
+              ++ List.map (fun '(shortname,longname) => Cons (Atom ("$" ++ String.to_string shortname)%string)
+                             (List (longname :: nil))) allnames
               ++ (Cons (Atom "export") (List exports) :: nil))%list (* export *)
     | x => x
     end.

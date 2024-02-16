@@ -30,12 +30,6 @@ Definition eval_malfunction_sexp (cf := config.extraction_checker_flags) (p : As
   let t := Mlet_ (MCList.rev_map Malfunction.Named (List.flat_map (fun '(x, d) => match d with Some b => cons (x,b) nil | None => nil end) (fst p')), snd p') in
   time "Pretty printing"%bs id t.
 
-
-Definition compile_malfunction {cf : config.checker_flags} (p : Ast.Env.program)
-  : string :=
-  let p' := run (malfunction_pipeline default_malfunction_config) p (MCUtils.todo "wf_env and welltyped term"%bs) in
-  time "Pretty printing"%bs (@to_string _ (Serialize_module nil)) p'.
-
 Section something.
 
 Import Loader All.

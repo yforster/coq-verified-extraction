@@ -172,19 +172,33 @@ Fixpoint print_globals (Σ : global_declarations) :=
   | _ :: l => print_globals l
   end.
 
-Definition print_mli na (p : program) :=
-  print_globals (p.1.(declarations)) ++ nl ++ "val " ++ na ++ " : " ++ print_type p.1.(declarations) p.2.
+Fixpoint decompose_prod (t : Ast.term) : list Ast.term :=
+  match t with
+  | Ast.tApp (Ast.tInd _ _) [l ; r ] => r :: decompose_prod l
+  | r => [r]
+  end.
+
+Definition print_mli names (p : program) :=
+  print_globals (p.1.(declarations)) ++ nl ++ fold_right (fun '(na,t) str => "val " ++ na ++ " : " ++ print_type p.1.(declarations) t ++ nl ++ str) ""%bs (combine names (rev (decompose_prod p.2))).
+
 Import MCMonadNotation.
+
+Fixpoint extract_names (t : Ast.term) : list ident :=
+  match t with
+  | Ast.tConst kn _ => [kn.2]
+  | Ast.tApp (Ast.tConstruct _ _ _) [_ ; _ ; l ; Ast.tConst kn _ ] => kn.2 :: extract_names l
+  | _ => []
+  end.
 
 Definition PrintMLI {A} (a : A) :=
   A <- tmEval cbv A ;;
   p <- tmQuoteRec A ;;
   t <- tmQuote a ;;
-  match t with
-  | tConst kn _ =>
-      tmEval cbv (print_mli kn.2 p) >>= tmMsg
-  | _ =>
-      tmEval cbv (print_mli "<no name given>" p) >>= tmMsg
+  match rev (extract_names t) with
+  | [] =>
+      tmEval cbv (print_mli ["<no name given>"] p) >>= tmMsg
+  | names =>
+      tmEval cbv (print_mli names p) >>= tmMsg
   end.
 
 Notation "'Print' 'mli' x" := (PrintMLI x) (at level 0).
@@ -200,7 +214,7 @@ Notation "'Print' 'mli' x" := (PrintMLI x) (at level 0).
 
 (* Definition test (A : Type) (u : testrec) (a : list A) (l : ltree) := a. *)
 
-(* MetaCoq Run Print mli test. *)
+(* MetaCoq Run Print mli (test, add). *)
 
 (* Definition ho (f : bool -> bool) := f true. *)
 

@@ -1091,10 +1091,18 @@ Next Obligation.
   intuition auto; destruct H; intuition eauto.
 Qed.
 
+Fixpoint extract_names (t : Ast.term) : list ident :=
+  match t with
+  | Ast.tConst kn _ => [Kernames.string_of_kername kn]
+  | Ast.tApp (Ast.tConstruct _ _ _) [_ ; _ ; l ; Ast.tConst kn _ ] => (Kernames.string_of_kername kn) :: extract_names l
+  | _ => []
+  end.
+
 Definition compile_malfunction_gen (cf := config.extraction_checker_flags) config (p : Ast.Env.program) 
   : string :=
+  let nms := extract_names p.2 in
   let p' := run (malfunction_pipeline config) p (todo "assume we run compilation on a welltyped term"%bs) in
-  time "Pretty printing"%bs (fun p =>(@to_string _ (Serialize_module config.(prims)) p)) p'.
+  time "Pretty printing"%bs (fun p_c =>(@to_string _ (Serialize_module config.(prims) (rev nms)) p_c)) p'.
 
 Definition default_malfunction_config : malfunction_pipeline_config :=
   {| erasure_config := safe_erasure_config; prims := [] |}.
