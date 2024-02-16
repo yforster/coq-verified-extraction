@@ -268,7 +268,7 @@ End binders.
 
 Definition mk_eta_exp n s := 
   let binders := binders "x"%bs n nil in
-  [ Atom "lambda" ; to_sexp binders ; List (Atom "apply" :: Atom s :: List.map to_sexp binders) ].
+  [ Atom "lambda" ; to_sexp binders ; List (Atom s :: List.map to_sexp binders) ].
 
 Definition global_serializer (prims : primitives) : Serialize (Ident.t * option t) :=
   fun '(i, b) => 

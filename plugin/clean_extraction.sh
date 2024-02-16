@@ -42,6 +42,7 @@ fi
 OUT="$(patch -p0 --forward < fix_extraction.patch)" || echo "${OUT}" | grep "Skipping patch" -q || (echo "$OUT" && false);
 OUT="$(patch -p0 --forward < fix_extraction2.patch)" || echo "${OUT}" | grep "Skipping patch" -q || (echo "$OUT" && false);
 OUT="$(patch -p0 --forward < fix_extraction3.patch)" || echo "${OUT}" | grep "Skipping patch" -q || (echo "$OUT" && false);
+OUT="$(patch -p0 --forward < fix_extraction4.patch)" || echo "${OUT}" | grep "Skipping patch" -q || (echo "$OUT" && false);
 # patch -N -p0 < fix_extraction.patch || exit $?
 # patch -N -p0 < fix_extraction2.patch || exit $?
 # patch -N -p0 < fix_extraction3.patch || exit $?

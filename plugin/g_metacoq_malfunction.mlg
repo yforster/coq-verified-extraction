@@ -21,6 +21,9 @@ open Metacoq_malfunction
 
 
 VERNAC ARGUMENT EXTEND metaCoqRegister_extract_cnst 
+| [ reference(gr) "=>" string(str) natural(arity) ] -> { 
+    try (extract_primitive (Option.get (Constrintern.locate_reference gr)) str arity)
+    with Not_found -> CErrors.user_err ~loc Pp.(str"Reference " ++ Libnames.pr_qualid gr ++ str" not found") }
 | [ reference(gr) "=>" string(str) ] -> { 
     try (extract_constant (Option.get (Constrintern.locate_reference gr)) str)
     with Not_found -> CErrors.user_err ~loc Pp.(str"Reference " ++ Libnames.pr_qualid gr ++ str" not found") }

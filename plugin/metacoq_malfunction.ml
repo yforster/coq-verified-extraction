@@ -65,22 +65,32 @@ let time opts =
 
 (* Separate registration of primitive extraction *)
 
-type prim = Malfunction.primitives
+type prim = Bytestring.String.t * Bytestring.String.t Malfunction.prim_def
 
 type package = string (* Findlib package names to link for external references *)
 
-let extract_constant (g : Names.GlobRef.t) (s : string) : prim =
+let extract_gr (g : Names.GlobRef.t) : Bytestring.String.t =
   match g with
   | Names.GlobRef.ConstRef c -> 
-    let s = String.split_on_char '.' s in 
-    let label, module_ = CList.sep_last s in
-    let label = Caml_bytestring.bytestring_of_caml_string label in
-    let module_ = Caml_bytestring.bytestring_of_caml_string (String.concat "." module_) in
-    (Obj.magic (Metacoq_template_plugin.Ast_quoter.quote_kn (Names.Constant.canonical c)), (module_, label))
+    let quoted_kn = Metacoq_template_plugin.Ast_quoter.quote_kn (Names.Constant.canonical c) in
+    Kernames.string_of_kername quoted_kn
   | Names.GlobRef.VarRef(v) -> CErrors.user_err (str "Expected a constant but found a variable. Only constants can be realized in Malfunction.")
   | Names.GlobRef.IndRef(i) -> CErrors.user_err (str "Expected a constant but found an inductive type. Only constants can be realized in Malfunction.")
   | Names.GlobRef.ConstructRef(c) -> CErrors.user_err (str "Expected a constant but found a constructor. Only constants can be realized in Malfunction. ")
 
+let extract_constant (g : Names.GlobRef.t) (s : string) : prim =
+  let gr = extract_gr g in
+  let s = String.split_on_char '.' s in 
+  let label, module_ = CList.sep_last s in
+  let label = Caml_bytestring.bytestring_of_caml_string label in
+  let module_ = Caml_bytestring.bytestring_of_caml_string (String.concat "." module_) in
+  (gr, Global (module_, label))
+  
+let extract_primitive (g : Names.GlobRef.t) (symb : string) (arity : int) : prim =
+  let gr = extract_gr g in
+  let symbol = Caml_bytestring.bytestring_of_caml_string symb in
+  let arity = Caml_nat.nat_of_caml_int arity in
+  (gr, Primitive (symbol, arity))
 
 let global_registers = 
   Summary.ref (([], []) : prim list * package list) ~name:"MetaCoq Malfunction Registration"

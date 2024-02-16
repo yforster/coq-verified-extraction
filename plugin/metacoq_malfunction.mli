@@ -14,8 +14,10 @@ type malfunction_command_args =
   | Run
   | Format
 
-type prim = Kernames.kername * (Bytestring.String.t * Bytestring.String.t)
+type prim = Bytestring.String.t * Bytestring.String.t Malfunction.prim_def
 
+val extract_primitive : Names.GlobRef.t -> string -> int -> prim
+  
 val extract_constant : Names.GlobRef.t -> string -> prim
 
 type package = string (* Findlib package names to link for external references *)
