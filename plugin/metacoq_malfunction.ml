@@ -215,7 +215,7 @@ let compile opts fname =
       let output = Filename.chop_extension fname in
       let flags, packages =
         if link_coq then 
-          "-thread -linkpkg", statically_linked_pkgs ^ packages
+          "-thread -linkpkg", statically_linked_pkgs ^ "," ^ packages
         else "-thread -linkpkg", packages
       in
       let compile_cmd = 
@@ -229,8 +229,10 @@ let compile opts fname =
 let run opts result =
   match result with
   | SharedLib shared_lib -> Dynlink.loadfile_private shared_lib
-  | StandaloneProgram s -> ignore (execute opts s)
-
+  | StandaloneProgram s -> 
+    let out, err = execute opts ("./" ^ s) in
+    if err <> "" then Feedback.msg_warning (Pp.str err);
+    if out <> "" then Feedback.msg_notice (Pp.str out)
 
 let extract ?loc opts env evm c dest =
   let opts = make_options loc opts in
