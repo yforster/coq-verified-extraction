@@ -86,7 +86,7 @@ Section fix_global.
         "Obj.t"
     | tRel n =>
         nth n names " Obj.t"
-    | t => def
+    | _t => def
     end.
 
   Definition typevariable_from_aname (a : aname) :=

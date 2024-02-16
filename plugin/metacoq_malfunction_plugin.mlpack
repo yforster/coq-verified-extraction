@@ -9,6 +9,10 @@ WGraph
 UGraph0
 EtaExpand
 
+Fin
+VectorDef
+Vector
+
 WcbvEval
 Classes0
 Logic1
@@ -40,6 +44,7 @@ PCUICUnivSubst
 PCUICSafeReduce
 PCUICSafeRetyping
 
+ResultMonad
 EPrimitive
 EAst
 EAstUtils
@@ -61,10 +66,16 @@ EOptimizePropDiscr
 OptimizePropDiscr
 EInlineProjections
 EConstructorsAsBlocks
+ECoInductiveToInductive
 EImplementBox
+ExAst
+Optimize
+OptimizeCorrectness
 EProgram
-ETransform
 Erasure
+ExtractionCorrectness
+ETransform
+Erasure0
 EWcbvEvalNamed
 DecimalString
 CeresString
@@ -76,4 +87,5 @@ Serialize
 SemanticsSpec
 Pipeline
 
+Metacoq_malfunction
 G_metacoq_malfunction

@@ -11,7 +11,7 @@ Require Import Malfunction.Ceres.CeresFormat Malfunction.Ceres.CeresSerialize.
 Local Open Scope sexp.
 Local Open Scope string.
 
-Compute match "'"%bs with bytestring.String.String b _ => b | _ => Byte.x00 end.
+(* Compute match "'"%bs with bytestring.String.String b _ => b | _ => Byte.x00 end. *)
 
 Fixpoint _escape_ident (_end s : String.t) : String.t :=
   match s with
@@ -237,14 +237,37 @@ Definition encode_name (s : bytestring.string) : bytestring.string :=
 Definition exports (m : list (Ident.t * option t)) : list (Ident.t * option t) :=
   List.map (fun '(x, v) => (("def_" ++ encode_name x)%bs, Some (Mglobal x))) m.
 
-Definition global_serializer : Serialize (Ident.t * option t) :=
-  fun '(i, b) => match b with
-              | Some x => to_sexp ("def_" ++ i, x)%bs
-              | None => let na := bytestring.String.to_string (uncapitalize ("def_" ++ encode_name i)%bs) in
-                       List ( Atom (Raw ("$" :: na)) ::
-                                [Atom "global" ; Atom (Raw ("$Axioms")) ; Atom (Raw ("$" :: na))   ]
-                                :: nil)
-              end.
+From MetaCoq.Common Require Import Kernames. 
+  
+Definition primitives := list (kername * (bytestring.string * bytestring.string)).
+
+Definition bytestring_atom s := 
+  ("$" :: bytestring.String.to_string s).
+
+Fixpoint find_prim (id : Ident.t) (prims : primitives) : option (string * string) :=
+  match prims with
+  | nil%list => None
+  | ((kn, (modname, label)) :: prims)%list =>
+    if ReflectEq.eqb id (string_of_kername kn) then 
+      Some (bytestring_atom modname, bytestring_atom label)
+    else find_prim id prims
+  end.
+
+Definition global_serializer (prims : primitives) : Serialize (Ident.t * option t) :=
+  fun '(i, b) => 
+  match b with
+  | Some x => to_sexp ("def_" ++ i, x)%bs
+  | None => 
+    match find_prim i prims with
+    | Some (modname, label) => 
+      let na := bytestring.String.to_string (uncapitalize ("def_" ++ encode_name i)%bs) in
+      List ( Atom (Raw ("$" :: na)) :: [Atom "global" ; Atom (Raw modname) ; Atom (Raw label)] :: nil)
+    | None =>
+    let na := bytestring.String.to_string (uncapitalize ("def_" ++ encode_name i)%bs) in
+      List ( Atom (Raw ("$" :: na)) :: [Atom "global" ; Atom (Raw ("$Axioms")) ; Atom (Raw ("$" :: na)) ]
+             :: nil)
+    end
+  end.
 
 Fixpoint thename a (s : bytestring.String.t) :=
   match s with
@@ -254,7 +277,7 @@ Fixpoint thename a (s : bytestring.String.t) :=
                         else thename (b :: a)%list s
   end.
 
-Program Definition Serialize_module : Serialize program :=
+Program Definition Serialize_module prims : Serialize program :=
   fun '(m, x) =>
     let name : Ident.t  := match m with
                            | (x :: l)%list => fst x
@@ -264,7 +287,7 @@ Program Definition Serialize_module : Serialize program :=
     let longname : list sexp := (to_sexp ("def_" ++ name)%bs :: nil)%list in
     let exports : list sexp := (Atom ("$" ++ String.to_string shortname)%string :: nil)%list in
     match
-      Cons (Atom "module") (@Serialize_list _ global_serializer (List.rev m))
+      Cons (Atom "module") (@Serialize_list _ (global_serializer prims) (List.rev m))
     with
       List l =>
         List (l                 (* the extracted function *)

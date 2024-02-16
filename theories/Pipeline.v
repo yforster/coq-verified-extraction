@@ -139,7 +139,7 @@ From MetaCoq.Erasure Require Import EImplementBox EWellformed EProgram.
 
 Program Definition implement_box_transformation (efl := extraction_env_flags) :
   Transform.t _ _ EAst.term EAst.term _ _ (eval_eprogram block_wcbv_flags) (eval_eprogram block_wcbv_flags) :=
-  {| name := "transforming to constructors as blocks";
+  {| name := "implementing box";
     transform p _ := EImplementBox.implement_box_program p ;
     pre p := good_for_extraction extraction_env_flags p ;
     post p := good_for_extraction extraction_env_flags p /\ wf_eprogram (switch_off_box efl) p ;
@@ -1061,14 +1061,45 @@ Print Assumptions verified_malfunction_pipeline_theorem.
 Local Existing Instance CanonicalHeap.
 Local Existing Instance CanonicalPointer.
 
-Program Definition malfunction_pipeline (efl := EWellformed.all_env_flags) :
- Transform.t _ _ _ _ _ _ TemplateProgram.eval_template_program
-             (fun _ _ => True) :=
-  pre_erasure_pipeline ▷ verified_malfunction_pipeline.
+Record malfunction_pipeline_config := 
+  { erasure_config :> erasure_configuration; 
+    prims : list (kername * (string * string)) }.
 
-Definition compile_malfunction (cf := config.extraction_checker_flags) (p : Ast.Env.program) 
+(* This also optionally runs typed erasure and/or the cofix to fix translation *)
+Program Definition switchable_erasure_pipeline econf :=
+  if econf.(enable_typed_erasure) then verified_typed_erasure_pipeline econf
+  else verified_erasure_pipeline ▷ (optional_cofix_to_fix_transform econf).
+Next Obligation.
+Proof.
+  unfold optional_cofix_to_fix_transform.
+  destruct enable_cofix_to_fix => //.
+Qed.
+
+Program Definition malfunction_pipeline (efl := EWellformed.all_env_flags) 
+  (config : malfunction_pipeline_config) :
+  Transform.t _ _ _ _ _ _ TemplateProgram.eval_template_program
+             (fun _ _ => True) :=
+  pre_erasure_pipeline ▷ 
+  switchable_erasure_pipeline config ▷ 
+  post_verified_named_erasure_pipeline ▷ 
+  compile_to_malfunction .
+Next Obligation.
+  unfold switchable_erasure_pipeline.
+  destruct enable_typed_erasure => //.
+Qed.
+Next Obligation.
+  intuition auto; destruct H; intuition eauto.
+Qed.
+
+Definition compile_malfunction_gen (cf := config.extraction_checker_flags) config (p : Ast.Env.program) 
   : string :=
-  let p' := run malfunction_pipeline p (todo "assume we run compilation on a welltyped term"%bs) in
-  time "Pretty printing"%bs (fun p =>(@to_string _ Serialize_module p)) p'.
+  let p' := run (malfunction_pipeline config) p (todo "assume we run compilation on a welltyped term"%bs) in
+  time "Pretty printing"%bs (fun p =>(@to_string _ (Serialize_module config.(prims)) p)) p'.
+
+Definition default_malfunction_config : malfunction_pipeline_config :=
+  {| erasure_config := safe_erasure_config; prims := [] |}.
+
+Definition compile_malfunction (cf := config.extraction_checker_flags) := 
+  compile_malfunction_gen default_malfunction_config.
 
 About compile_malfunction.

@@ -100,3 +100,40 @@ Definition arden: forest bool :=
                (leaf false)).
 
 MetaCoq Extraction (forest_size arden).
+
+(** Typed extraction *)
+
+Definition sub : { x : nat | x = 0 } := @exist _ _ 0 eq_refl.
+MetaCoq Extraction sub.
+MetaCoq Extraction -typed sub.
+
+(** Primitives *)
+
+MetaCoq Register Extraction [
+  Coq.Numbers.Cyclic.Int63.PrimInt63.add => "PrimInt63.prim_int63_add",
+  Coq.Numbers.Cyclic.Int63.PrimInt63.eqb => "PrimInt63.prim_int63_eqb",
+  Coq.Numbers.Cyclic.Int63.PrimInt63.land => "PrimInt63.prim_int63_land", 
+  Coq.Numbers.Cyclic.Int63.PrimInt63.lsr => "PrimInt63.prim_int63_lsr", 
+  Coq.Numbers.Cyclic.Int63.PrimInt63.lsl => "PrimInt63.prim_int63_lsl", 
+  Coq.Numbers.Cyclic.Int63.PrimInt63.head0 => "PrimInt63.prim_int63_head0", 
+  Coq.Numbers.Cyclic.Int63.PrimInt63.tail0 => "PrimInt63.prim_int63_tail0", 
+  Coq.Numbers.Cyclic.Int63.PrimInt63.compare => "PrimInt63.prim_int63_compare", 
+  Coq.Numbers.Cyclic.Int63.PrimInt63.subc => "PrimInt63.prim_int63_subc",
+  Coq.Numbers.Cyclic.Int63.PrimInt63.sub => "PrimInt63.prim_int63_sub", 
+  Coq.Numbers.Cyclic.Int63.PrimInt63.addc => "PrimInt63.prim_int63_addc", 
+  Coq.Numbers.Cyclic.Int63.PrimInt63.addcarryc => "PrimInt63.prim_int63_addcarryc", 
+  Coq.Numbers.Cyclic.Int63.PrimInt63.subcarryc => "PrimInt63.prim_int63_subcarryc", 
+  Coq.Numbers.Cyclic.Int63.PrimInt63.mulc => "PrimInt63.prim_int63_mulc", 
+  Coq.Numbers.Cyclic.Int63.PrimInt63.mul => "PrimInt63.prim_int63_mul", 
+  Coq.Numbers.Cyclic.Int63.PrimInt63.diveucl_21 => "PrimInt63.prim_int63_diveucl_21", 
+  Coq.Numbers.Cyclic.Int63.PrimInt63.diveucl => "PrimInt63.prim_int63_diveucl", 
+  Coq.Numbers.Cyclic.Int63.PrimInt63.mod => "PrimInt63.prim_int63_mod", 
+  Coq.Numbers.Cyclic.Int63.PrimInt63.addmuldiv => "PrimInt63.prim_int63_addmuldiv", 
+  Coq.Numbers.Cyclic.Int63.PrimInt63.leb => "PrimInt63.prim_int63_leb", 
+  Coq.Numbers.Cyclic.Int63.PrimInt63.ltb => "PrimInt63.prim_int63_ltb", 
+  Coq.Numbers.Cyclic.Int63.PrimInt63.div => "PrimInt63.prim_int63_div", 
+  Coq.Numbers.Cyclic.Int63.PrimInt63.lor => "PrimInt63.prim_int63_lor", 
+  Coq.Numbers.Cyclic.Int63.PrimInt63.lxor => "PrimInt63.prim_int63_lxor"
+] Packages [].
+
+MetaCoq Extraction PrimInt63.add.
