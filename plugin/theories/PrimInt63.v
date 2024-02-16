@@ -4,7 +4,7 @@ From Coq.Numbers.Cyclic.Int63 Require Import PrimInt63.
 (** Primitives *)
 
 MetaCoq Extract Constants [
-  Coq.Numbers.Cyclic.Int63.PrimInt63.add => "Uint63.add",
+  Coq.Numbers.Cyclic.Int63.PrimInt63.add => "+",
   Coq.Numbers.Cyclic.Int63.PrimInt63.sub => "Uint63.sub", 
   Coq.Numbers.Cyclic.Int63.PrimInt63.mul => "Uint63.mul", 
   Coq.Numbers.Cyclic.Int63.PrimInt63.div => "Uint63.div", 

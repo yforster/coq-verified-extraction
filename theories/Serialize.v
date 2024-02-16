@@ -1,4 +1,5 @@
 From MetaCoq.Utils Require Import bytestring ReflectEq.
+From MetaCoq.Common Require Kernames.
 
 Require Import String Ascii Bool Arith.
 Require Import Malfunction.Malfunction.
@@ -237,21 +238,37 @@ Definition encode_name (s : bytestring.string) : bytestring.string :=
 Definition exports (m : list (Ident.t * option t)) : list (Ident.t * option t) :=
   List.map (fun '(x, v) => (("def_" ++ encode_name x)%bs, Some (Mglobal x))) m.
 
-From MetaCoq.Common Require Import Kernames. 
-  
-Definition primitives := list (kername * (bytestring.string * bytestring.string)).
 
 Definition bytestring_atom s := 
   ("$" :: bytestring.String.to_string s).
 
-Fixpoint find_prim (id : Ident.t) (prims : primitives) : option (string * string) :=
+Fixpoint find_prim (id : Ident.t) (prims : primitives) : option (prim_def string) :=
   match prims with
   | nil%list => None
-  | ((kn, (modname, label)) :: prims)%list =>
-    if ReflectEq.eqb id (string_of_kername kn) then 
-      Some (bytestring_atom modname, bytestring_atom label)
+  | ((kn, primdef) :: prims)%list =>
+    if ReflectEq.eqb id kn then
+      match primdef with
+      | Global modname label => Some (Global (bytestring_atom modname) (bytestring_atom label))
+      | Primitive symbol arity => Some (Primitive symbol arity) 
+      end
     else find_prim id prims
   end.
+
+Section binders.
+  Context (x : bytestring.string).
+  
+  Definition add_suffix n := (x ++ MCString.string_of_nat n)%bs.
+
+  Fixpoint binders n acc := 
+    match n with
+    | 0 => acc
+    | S n => binders n (add_suffix n :: acc)%list
+    end.
+End binders.
+
+Definition mk_eta_exp n s := 
+  let binders := binders "x"%bs n nil in
+  [ Atom "lambda" ; to_sexp binders ; List (Atom "apply" :: Atom s :: List.map to_sexp binders) ].
 
 Definition global_serializer (prims : primitives) : Serialize (Ident.t * option t) :=
   fun '(i, b) => 
@@ -259,9 +276,13 @@ Definition global_serializer (prims : primitives) : Serialize (Ident.t * option 
   | Some x => to_sexp ("def_" ++ i, x)%bs
   | None => 
     match find_prim i prims with
-    | Some (modname, label) => 
+    | Some (Global modname label) => 
       let na := bytestring.String.to_string (uncapitalize ("def_" ++ encode_name i)%bs) in
       List ( Atom (Raw ("$" :: na)) :: [Atom "global" ; Atom (Raw modname) ; Atom (Raw label)] :: nil)
+    | Some (Primitive symbol arity) => 
+      let na := bytestring.String.to_string (uncapitalize ("def_" ++ encode_name i)%bs) in
+      List ( Atom (Raw ("$" :: na)) :: 
+      mk_eta_exp arity (Raw (bytestring.String.to_string symbol)) :: nil)
     | None =>
     let na := bytestring.String.to_string (uncapitalize ("def_" ++ encode_name i)%bs) in
       List ( Atom (Raw ("$" :: na)) :: [Atom "global" ; Atom (Raw ("$Axioms")) ; Atom (Raw ("$" :: na)) ]

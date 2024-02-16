@@ -4,6 +4,8 @@ From MetaCoq.Template Require Import All.
 From Coq Require Import String.
 From Coq Require Vector.
 
+Set MetaCoq Extraction Build Directory "_build".
+
 Inductive three := ZERO | ONE | TWO | THREE.
 
 Definition two := TWO.
@@ -106,9 +108,3 @@ MetaCoq Extraction (forest_size arden).
 Definition sub : { x : nat | x = 0 } := @exist _ _ 0 eq_refl.
 MetaCoq Extraction sub.
 MetaCoq Extraction -typed sub.
-
-From Coq Require Import PrimInt63 Uint63.
-
-Definition foo : int := (50 + 80)%uint63. 
-
-MetaCoq Extraction foo "foo.ml".

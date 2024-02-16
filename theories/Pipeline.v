@@ -42,6 +42,10 @@ Import EWcbvEval.
 
 From Malfunction Require Import Compile Serialize.
 
+Record malfunction_pipeline_config := 
+  { erasure_config :> erasure_configuration; 
+    prims : Malfunction.primitives }.
+
 Definition int_to_nat (i : Uint63.int) : nat :=
   Z.to_nat (Uint63.to_Z i).
 
@@ -1060,10 +1064,6 @@ Print Assumptions verified_malfunction_pipeline_theorem.
 
 Local Existing Instance CanonicalHeap.
 Local Existing Instance CanonicalPointer.
-
-Record malfunction_pipeline_config := 
-  { erasure_config :> erasure_configuration; 
-    prims : list (kername * (string * string)) }.
 
 (* This also optionally runs typed erasure and/or the cofix to fix translation *)
 Program Definition switchable_erasure_pipeline econf :=

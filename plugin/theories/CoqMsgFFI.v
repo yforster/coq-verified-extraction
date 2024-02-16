@@ -7,8 +7,8 @@ Axiom (coq_msg_debug : string -> unit).
 Axiom (coq_user_error : string -> unit).
 
 MetaCoq Extract Constants [ 
-  coq_msg_info => "coq_msg_info",
-  coq_msg_notice => "coq_msg_notice",
-  coq_msg_debug => "coq_msg_debug",
-  coq_user_error => "coq_user_error" ]
+  coq_msg_info => "Feedback.coq_msg_info",
+  coq_msg_notice => "Feedback.coq_msg_notice",
+  coq_msg_debug => "Feedback.coq_msg_debug",
+  coq_user_error => "Feedback.coq_user_error" ]
 Packages [ "coq-core.lib" ].

@@ -1,4 +1,3 @@
-
 open Stdarg
 open Pp
 open PeanoNat.Nat
@@ -21,9 +20,6 @@ type malfunction_command_args =
   | Run
   | Format
 
-let debug_extract = CDebug.create ~name:"Metacoq Extraction" ()
-let debug = debug_extract
-  
 type malfunction_plugin_config = 
   { malfunction_pipeline_config : Pipeline.malfunction_pipeline_config;
     bypass_qeds : bool;
@@ -33,6 +29,26 @@ type malfunction_plugin_config =
     run : bool;
     loc : Loc.t option;
     format : bool }
+
+let debug_extract = CDebug.create ~name:"Metacoq Extraction" ()
+let debug = debug_extract
+
+let get_stringopt_option key =
+  let open Goptions in
+  let tables = get_tables () in
+  try
+    let _ = OptionMap.find key tables in
+    fun () ->
+      let tables = get_tables () in
+      let opt = OptionMap.find key tables in
+      match opt.opt_value with
+      | StringOptValue b -> b
+      | _ -> assert false
+  with Not_found ->
+    declare_stringopt_option_and_ref ~depr:false ~key
+
+let get_build_dir_opt =
+  get_stringopt_option ["MetaCoq"; "Extraction"; "Build"; "Directory"]
 
 (* When building standalone programs still relying on Coq's/MetaCoq's FFIs, use these packages for linking *)
 let statically_linked_pkgs =
@@ -49,7 +65,7 @@ let time opts =
 
 (* Separate registration of primitive extraction *)
 
-type prim = Kernames.kername * (Bytestring.String.t * Bytestring.String.t)
+type prim = Malfunction.primitives
 
 type package = string (* Findlib package names to link for external references *)
 
@@ -196,6 +212,14 @@ type compilation_result =
   | SharedLib of string
   | StandaloneProgram of string
 
+let get_prefix () = 
+  match get_build_dir_opt () with
+  | None -> "."
+  | Some s -> s 
+
+let build_fname f = 
+  Filename.concat (get_prefix ()) f
+
 let compile opts fname = 
   match opts.program_type with
   | None -> None
@@ -238,14 +262,16 @@ let extract ?loc opts env evm c dest =
   let opts = make_options loc opts in
   let prog = time opts (str"Quoting") (Ast_quoter.quote_term_rec ~bypass:opts.bypass_qeds env) evm (EConstr.to_constr evm c) in
   let eprog = time opts (str"Extraction") (Pipeline.compile_malfunction_gen opts.malfunction_pipeline_config) prog in
-  let () = match dest with
-  | None -> notice opts (fun () -> pr_char_list eprog)
-  | Some fname -> 
+  let dest = match dest with
+  | None -> notice opts (fun () -> pr_char_list eprog); None
+  | Some fname ->
+    let fname = build_fname fname in
     let oc = open_out fname in (* Does not raise? *)
     let () = output_string oc (Caml_bytestring.caml_string_of_bytestring eprog) in
     let () = output_char oc '\n' in
     close_out oc;
     notice opts (fun () -> str"Extracted code written to " ++ str fname);
+    Some fname
   in
   match dest with
   | None -> ()

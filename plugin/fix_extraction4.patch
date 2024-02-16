@@ -1,0 +1,36 @@
+--- extraction/serialize.mli.orig	2024-02-16 17:29:25
++++ extraction/serialize.mli	2024-02-16 17:29:37
+@@ -10,7 +10,6 @@
+ open Kernames
+ open List0
+ open MCString
+-open Malfunction
+ open Nat0
+ open PeanoNat
+ open PrimFloat
+@@ -19,6 +18,7 @@
+ open String0
+ open Uint0
+ open Bytestring
++open Malfunction
+ 
+ val _escape_ident : String.t -> String.t -> String.t
+ 
+--- extraction/serialize.ml.orig	2024-02-16 17:28:37
++++ extraction/serialize.ml	2024-02-16 17:29:00
+@@ -10,7 +10,6 @@
+ open Kernames
+ open List0
+ open MCString
+-open Malfunction
+ open Nat0
+ open PeanoNat
+ open PrimFloat
+@@ -19,6 +18,7 @@
+ open String0
+ open Uint0
+ open Bytestring
++open Malfunction
+ 
+ (** val _escape_ident : String.t -> String.t -> String.t **)
+ 
