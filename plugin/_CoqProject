@@ -3,6 +3,7 @@
 
 theories/Loader.v
 theories/PrimInt63.v
+theories/PrimFloats.v
 theories/CoqMsgFFI.v
 theories/OCamlFFI.v
 theories/Extract.v
