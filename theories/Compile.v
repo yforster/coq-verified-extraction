@@ -76,13 +76,15 @@ Section Compile.
 
   Obligation Tactic := idtac.
 
-  Definition to_primitive (v : EPrimitive.prim_val EAst.term) : Malfunction.t :=
-    match projT2 v with
-    | EPrimitive.primIntModel i => Mnum (numconst_Int i)
-    | EPrimitive.primFloatModel f => Mnum (numconst_Float64 f)
-    (* error: primitive arrays not supported *)
-    | EPrimitive.primArrayModel a => Mnum (numconst_Int (int_of_nat 0))
-    end.
+  Definition num_of_nat n := Mnum (numconst_Int (int_of_nat n)).
+
+  Definition compile_array (values : list Malfunction.t) (default : Malfunction.t) : Malfunction.t :=
+    let init := Mvecnew (Array, num_of_nat (List.length values), default) in
+    fold_left_i (fun v idx arr => Mvecset (Array, arr, num_of_nat idx, v)) values init.
+
+  (* Definition to_primitive (compile : term -> Malfunction.t) 
+    (v : EPrimitive.prim_val EAst.term) : Malfunction.t := *)
+
 
   Definition force_lambda (t : Malfunction.t) :=
     match t with
@@ -123,7 +125,13 @@ Section Compile.
               let len := List.length args in
               Mfield (int_of_nat (len - 1 - nargs), compile bod)
           | None => Mstring "inductive not found" }
-      | tPrim p => to_primitive p
+      | tPrim (existT (EPrimitive.primIntModel i)) => Mnum (numconst_Int i)
+      | tPrim (existT (EPrimitive.primFloatModel f)) => Mnum (numconst_Float64 f)
+      | tPrim (existT (EPrimitive.primArrayModel a)) => 
+          let default := compile (EPrimitive.array_default a) in
+          let values := map_InP (EPrimitive.array_value a) (fun v H => compile v) in
+          let arr := compile_array values default in
+          Mapply (Mglobal "PArray.of_array", [ arr ; default ])
       | tRel n => Mstring "error: tRel has been translated away"
       | tBox => Mstring "error: tBox has been translated away"
       | tCoFix mfix idx => Mstring "error: tCofix not supported"
@@ -136,6 +144,8 @@ Section Compile.
       - eapply (In_size snd size) in H. cbn in *.
         lia.
       - eapply (In_size dbody size) in H. cbn in *. lia.
+      - eapply (In_size id size) in H. unfold id in *; cbn in *.
+        change (fun x => size x) with size in H. lia.
     Qed.
  
 End Compile.

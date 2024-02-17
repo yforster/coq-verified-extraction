@@ -154,6 +154,7 @@ metacoq_malfunction_plugin.mlpack
 Loader.v
 PrimInt63.v
 PrimFloats.v
+PrimArray.v
 CoqMsgFFI.v
 OCamlFFI.v
 Extract.v

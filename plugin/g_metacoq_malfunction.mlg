@@ -21,12 +21,10 @@ open Metacoq_malfunction
 
 
 VERNAC ARGUMENT EXTEND metaCoqRegister_extract_cnst 
-| [ reference(gr) "=>" string(str) natural(arity) ] -> { 
-    try (extract_primitive (Option.get (Constrintern.locate_reference gr)) str arity)
-    with Not_found -> CErrors.user_err ~loc Pp.(str"Reference " ++ Libnames.pr_qualid gr ++ str" not found") }
-| [ reference(gr) "=>" string(str) ] -> { 
-    try (extract_constant (Option.get (Constrintern.locate_reference gr)) str)
-    with Not_found -> CErrors.user_err ~loc Pp.(str"Reference " ++ Libnames.pr_qualid gr ++ str" not found") }
+| [ reference(gr) "erased" ] -> { (bytestring_of_qualid ~loc gr, Malfunction.Erased) }
+| [ reference(gr) "=>" string(str) natural(arity) ] -> 
+  { extract_primitive (bytestring_of_qualid ~loc gr) str arity }
+| [ reference(gr) "=>" string(str) ] -> { extract_constant (bytestring_of_qualid ~loc gr) str }
 END
 
 VERNAC COMMAND EXTEND MetaCoqExtract_Register CLASSIFIED AS SIDEFF

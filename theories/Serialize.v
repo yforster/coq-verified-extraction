@@ -250,6 +250,7 @@ Fixpoint find_prim (id : Ident.t) (prims : primitives) : option (prim_def string
       match primdef with
       | Global modname label => Some (Global (bytestring_atom modname) (bytestring_atom label))
       | Primitive symbol arity => Some (Primitive symbol arity) 
+      | Erased => Some Erased
       end
     else find_prim id prims
   end.
@@ -283,12 +284,24 @@ Definition global_serializer (prims : primitives) : Serialize (Ident.t * option 
       let na := bytestring.String.to_string (uncapitalize ("def_" ++ encode_name i)%bs) in
       List ( Atom (Raw ("$" :: na)) :: 
       mk_eta_exp arity (Raw (bytestring.String.to_string symbol)) :: nil)
+    | Some Erased
     | None =>
     let na := bytestring.String.to_string (uncapitalize ("def_" ++ encode_name i)%bs) in
       List ( Atom (Raw ("$" :: na)) :: [Atom "global" ; Atom (Raw ("$Axioms")) ; Atom (Raw ("$" :: na)) ]
              :: nil)
     end
   end.
+
+Fixpoint filter_erased_prims prims (l : list (Ident.t * option t)) : list (Ident.t * option t) :=
+  match l with
+  | nil => nil
+  | cons ((id, Some _) as x) xs => x :: filter_erased_prims prims xs
+  | cons ((id, None) as x) xs => 
+    match find_prim id prims with 
+    | Some Erased => filter_erased_prims prims xs
+    | _ => x :: filter_erased_prims prims xs
+    end
+  end.  
 
 Fixpoint thename a (s : bytestring.String.t) :=
   match s with
@@ -299,11 +312,16 @@ Fixpoint thename a (s : bytestring.String.t) :=
   end.
 
 Program Definition Serialize_module prims (names : list bytestring.string): Serialize program :=
-  fun '(m, x) =>
+  fun '(m, x) =>    
+    let name : Ident.t  := match m with
+                           | (x :: l)%list => fst x
+                           | nil => ""%bs
+                           end in
     let shortnames : list Ident.t := List.map (fun name => uncapitalize (thename nil name)) names in
     let longnames : list sexp := List.map (fun name => (to_sexp ("def_" ++ name)%bs)) names in
     let allnames := List.combine shortnames longnames in
     let exports : list sexp := List.map (fun shortname => Atom ("$" ++ String.to_string shortname)%string) shortnames  in
+    let m := filter_erased_prims prims m in
     match
       Cons (Atom "module") (@Serialize_list _ (global_serializer prims) (List.rev m))
     with

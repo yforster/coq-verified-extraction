@@ -474,7 +474,7 @@ Proof.
         destruct lookup_constructor_args; cbn in *; congruence.
       * revert H0. destruct p. simp compile. unfold compile_unfold_clause_11.
         destruct lookup_record_projs; congruence.
-      * revert H0. destruct prim; cbn. unfold to_primitive. cbn. destruct p; cbn; congruence.
+      * revert H0. destruct prim as [? []]; simp compile; cbn; congruence.
     + rewrite Mapply_spec. 2: destruct arg; cbn; congruence.
       eapply Mapply_eval.
       * rewrite <- E. cbn in IHHeval1. eauto.
@@ -616,7 +616,7 @@ Proof.
         destruct lookup_constructor_args; cbn; try congruence. unfold Mcase. congruence.
       * revert H0. destruct p; simp compile. unfold compile_unfold_clause_11.
         destruct lookup_record_projs; cbn; congruence.
-      * revert H0. destruct prim; destruct p; cbn; try congruence. 
+      * revert H0. destruct prim; destruct p; simp compile; cbn; try congruence. 
     + rewrite Mapply_spec. 2: destruct arg; cbn; congruence.
       eapply Mapply_eval_rec. 2: rewrite <- E.
       2: cbn in IHHeval1.
@@ -767,7 +767,8 @@ Proof.
     rewrite firstn_length in H0.
     destruct nth_error eqn:E; try congruence.
     eapply nth_error_Some_length in E. lia.
-  - inversion ev; subst; econstructor. 
+  - destruct p as [? []]; inversion ev; subst; simp compile; econstructor.
+    cbn. todo "arrays". 
 Qed.
 Print Assumptions compile_correct.
 
@@ -1036,7 +1037,10 @@ Proof.
           reflexivity. }
       cbn. eapply nth_error_In in Eq.
       eapply in_map_iff; eexists; split; eauto.
-  - inversion X; subst; eauto.  
+  - depelim X; eauto. subst a0.
+    simp compile; cbn.
+    unfold EPrimitive.prim_array. simp compile.
+    cbn. todo "arrays".
 Qed.
 
 Lemma compile_extends Γ n s t (Σ Σ' : EAst.global_declarations) :
@@ -1097,6 +1101,11 @@ Proof.
       repeat eapply andb_and in H1 as [H1 ?]. destruct idx; cbn. 
       f_equal; eauto. f_equal; eauto. unshelve eapply (IHa0 _ _ (S n)); eauto.
       replace (#|l'| + S n) with (S (#|l'| + n)) by lia. eauto.
+  - destruct p as [? []]; simp compile; eauto.
+    depelim X. specialize (e eq_refl). cbn in Hwf.
+    f_equal. f_equal. rewrite !map_InP_spec; cbn.
+    subst a' a1; cbn in *. apply andb_and in Hwf as []. cbn in *. f_equal; eauto.
+    todo "arrays". f_equal. eapply e; tea.
 Qed.  
 
 Lemma Mapply_eval_fail `{Heap} globals locals 
@@ -1160,5 +1169,5 @@ Proof.
     + erewrite compile_equation_12 in Ht'. destruct lookup_constructor_args; inversion Ht'.
   - destruct p. erewrite compile_equation_13 in Ht'. unfold compile_unfold_clause_11 in Ht'.
     destruct lookup_record_projs; inversion Ht'.
-  - erewrite compile_equation_16 in Ht'. destruct prim as [[] []]; inversion Ht'.  
+  - destruct prim as [? []]; simp compile in Ht'; congruence.
 Qed.

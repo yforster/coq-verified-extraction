@@ -35,9 +35,9 @@ Import ListNotations.
 Polymorphic Record myprod@{i j} (A : Type@{i}) (B : Type@{j}) := mypair { fst : A; snd : B }.
 
 Notation "( x , y , .. , z )" := (mypair _ _ .. (mypair _ _ x y) .. z) : core_scope.
-Definition many_list_functions : myprod _ _ := (@List.firstn, @List.filter, @List.skipn).
+Definition many_list_functions : myprod _ _ := (@List.firstn nat, @List.filter nat, @List.skipn nat).
 
-MetaCoq Extraction many_list_functions "list.mlf".
+MetaCoq Extraction -fmt -typed many_list_functions "list.mlf".
 
 Definition prf := match conj I I with conj x y => (x,0) end.
 

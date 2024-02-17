@@ -16,9 +16,12 @@ type malfunction_command_args =
 
 type prim = Bytestring.String.t * Bytestring.String.t Malfunction.prim_def
 
-val extract_primitive : Names.GlobRef.t -> string -> int -> prim
+(** Checks that the qualid is defined and translate it to a fully qualified name *)
+val bytestring_of_qualid : loc:Loc.t -> Libnames.qualid -> Bytestring.String.t
+
+val extract_primitive : Bytestring.String.t -> string -> int -> prim
   
-val extract_constant : Names.GlobRef.t -> string -> prim
+val extract_constant : Bytestring.String.t -> string -> prim
 
 type package = string (* Findlib package names to link for external references *)
 

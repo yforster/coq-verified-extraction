@@ -3,6 +3,7 @@ From Coq.Numbers.Cyclic.Int63 Require Import PrimInt63.
 
 (** Primitive ints, using the built-in malfunction symbols *)
 MetaCoq Extract Constants [
+  Coq.Numbers.Cyclic.Int63.PrimInt63.int erased,
   Coq.Numbers.Cyclic.Int63.PrimInt63.add => "+" 2,
   Coq.Numbers.Cyclic.Int63.PrimInt63.sub => "-" 2, 
   Coq.Numbers.Cyclic.Int63.PrimInt63.mul => "*" 2, 
@@ -37,6 +38,7 @@ MetaCoq Extract Constants [
 
 (* Using Uint63 module only *)
 (*MetaCoq Extract Constants [
+  Coq.Numbers.Cyclic.Int63.PrimInt63.int erased,
   Coq.Numbers.Cyclic.Int63.PrimInt63.add => "Uint63.add",
   Coq.Numbers.Cyclic.Int63.PrimInt63.sub => "Uint63.sub", 
   Coq.Numbers.Cyclic.Int63.PrimInt63.mul => "Uint63.mul", 

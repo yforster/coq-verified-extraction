@@ -2,7 +2,7 @@ From Malfunction.Plugin Require Loader.
 From Coq.Floats Require Import PrimFloat.
 
 MetaCoq Extract Constants [ 
-  Coq.Floats.PrimFloat.float => "erased",
+  Coq.Floats.PrimFloat.float erased,
   Coq.Floats.PrimFloat.compare => "Float64.compare",
   Coq.Floats.PrimFloat.eqb => "Float64.equal",
   Coq.Floats.PrimFloat.ltb => "Float64.lt",

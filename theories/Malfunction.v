@@ -142,9 +142,11 @@ Definition program : Type := list (Ident.t * option t) * t.
 
 Inductive prim_def (id : Type) := 
  | Global (modname : id) (label : id)
- | Primitive (symbol : string) (arity : nat).
+ | Primitive (symbol : string) (arity : nat)
+ | Erased.
 Arguments Global {id}.
 Arguments Primitive {id}.
+Arguments Erased {id}.
 
 Definition primitives := list (bytestring.string * prim_def bytestring.string).
 
