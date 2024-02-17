@@ -34,3 +34,15 @@
  
  (** val _escape_ident : String.t -> String.t -> String.t **)
  
+--- extraction/compile.mli.orig	2024-02-17 06:54:01
++++ extraction/compile.mli	2024-02-17 06:54:12
+@@ -8,8 +8,8 @@
+ open Kernames
+ open List0
+ open MCList
+-open Malfunction
+ open Nat0
++open Malfunction
+ open Specif
+ open Bytestring
+ open Utils_array

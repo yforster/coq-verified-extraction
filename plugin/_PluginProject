@@ -150,3 +150,12 @@ metacoq_malfunction.mli
 metacoq_malfunction.ml
 g_metacoq_malfunction.mlg
 metacoq_malfunction_plugin.mlpack
+
+Loader.v
+PrimInt63.v
+PrimFloats.v
+CoqMsgFFI.v
+OCamlFFI.v
+Extract.v
+
+tests/test_extract.v

@@ -16,10 +16,10 @@ clean: Makefile.coq
 	rm -f Makefile.coq
 	rm -f Makefile.coq.conf
 
-plugin/Makefile: plugin/_CoqProject
-	cd plugin && coq_makefile -f _CoqProject -o Makefile
+plugin/Makefile.plugin: plugin/_PluginProject
+	cd plugin && make Makefile.plugin
 
-plugin: coq install-coq plugin/Makefile
+plugin: coq install-coq plugin/Makefile.plugin
 	cd plugin && ./clean_extraction.sh
 	+make -C plugin
 	+make -C plugin install

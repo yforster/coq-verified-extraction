@@ -1,6 +1,5 @@
 -Q theories Malfunction
--Q plugin/theories Malfunction.Plugin
--Q plugin/tests Malfunction.Plugin.Tests
+-Q plugin Malfunction.Plugin
 -I plugin
 
 theories/Ceres/CeresFormat.v
