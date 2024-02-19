@@ -1,20 +1,26 @@
 From MetaCoq.Template Require Import Loader.
 From MetaCoq.ErasurePlugin Require Import Loader.
-From Malfunction.VerifiedPlugin Require Import Loader.
+From Malfunction.VerifiedPlugin Require Import Loader PrimInt63 PrimFloat OCamlFFI.
 From MetaCoq.Template Require Import All.
 
 From Coq Require Import ZArith PrimInt63 Sint63.
 Eval compute in PrimInt63.ltb Sint63.min_int Sint63.min_int.
 
+Set Warnings "-primitive-turned-into-axiom".
 
-Print Sint63.to_Z.
-(* Eval compute in Uint63.to_Z (opp Sint63.min_int)%Z.
-Eval compute in Sint63.max_int.
-Eval compute in (Sint63.min_int + Sint63.min_int - Sint63.max_int - 1)%uint63.
-Eval compute in (Sint63.min_int)%uint63. *)
+Definition test := print_int ( Sint63.max_int).
+MetaCoq Verified Extraction -fmt -verbose -compile-with-coq -run test "test.mlf".
+MetaCoq Verified Extraction -verbose Sint63.min_int.
+MetaCoq Verified Extraction -verbose Uint63.max_int.
 
-MetaCoq Verified Extraction Sint63.min_int "minint.mlf".
-MetaCoq Verified Extraction Sint63.max_int.
+Definition max_to_Z := print_string (string_of_Z (Uint63.to_Z Uint63.max_int)).
+MetaCoq Verified Extraction -verbose -compile-with-coq -run max_to_Z "max_to_Z.mlf".
+
+From Coq Require Import PrimFloat.
+Definition test_float := print_float (7500.50)%float.
+Eval compute in FloatOps.Prim2SF 75000.5%float.
+MetaCoq Verified Extraction -fmt -compile-with-coq -run test_float "test_float.mlf".
+
 (*
 Open Scope bs.
 

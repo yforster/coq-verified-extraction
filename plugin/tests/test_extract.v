@@ -1,10 +1,24 @@
-From Malfunction.Plugin Require Import Extract.
+From Malfunction.Plugin Require Import Extract OCamlFFI.
 From MetaCoq.Template Require Import All.
 
 From Coq Require Import String.
 From Coq Require Vector.
 
 Set MetaCoq Extraction Build Directory "_build".
+
+From Coq Require Import PrimInt63 Sint63.
+Definition test_primint := 
+  let _ := print_int Sint63.min_int in
+  let _ := print_newline tt in
+  let _ := print_int Sint63.max_int in
+  tt.
+Eval compute in test_primint.
+MetaCoq Extraction -fmt -compile-with-coq -run test_primint "test_primint.mlf".
+
+From Coq Require Import PrimFloat.
+Definition test_floats := print_float (100.5)%float.
+Eval compute in test_floats.
+MetaCoq Extraction -fmt -compile-with-coq -run test_floats "test_floats.mlf".
 
 Inductive three := ZERO | ONE | TWO | THREE.
 
@@ -22,14 +36,7 @@ Axiom axiom : nat.
 
 MetaCoq Extraction axiom "axiom.mlf".
 
-From Malfunction Require Import Compile.
-Set Warnings "-primitive-turned-into-axiom".
-(* MetaCoq Extraction -fmt compile "compile.mlf". *)
-
-From Malfunction Require Import Pipeline.
-Set Warnings "-primitive-turned-into-axiom".
-(* MetaCoq Run Print mli compile_malfunction_gen. *)
-MetaCoq Extraction -fmt compile_malfunction_gen "compile_malfunction.mlf".
+From Malfunction Require Import Compile Pipeline.
 
 From Coq Require Import List.
 Import ListNotations.

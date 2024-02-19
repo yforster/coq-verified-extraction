@@ -1,4 +1,4 @@
-From MetaCoq.Utils Require Import bytestring ReflectEq.
+From MetaCoq.Utils Require Import bytestring ReflectEq utils.
 From MetaCoq.Common Require Kernames.
 
 Require Import String Ascii Bool Arith.
@@ -48,11 +48,26 @@ Definition sint_to_Z := Sint63.to_Z.
 #[export] Instance Serialize_int : Serialize int :=
    fun i => to_sexp (sint_to_Z i).
 
+Import SpecFloat.
+From Coq Require Numbers.HexadecimalString. 
+Definition string_of_specfloat (f : SpecFloat.spec_float) : string :=
+  match f with
+  | S754_zero sign => if sign then "-0.0" else "0.0"
+  | S754_infinity sign => if sign then "neg_infinity" else "infinity"
+  | S754_nan => "nan"
+  | S754_finite sign p z => 
+    let abs := 
+    "0x" ++ HexadecimalString.NilZero.string_of_uint (Pos.to_hex_uint p) ++ "p" ++
+      DecimalString.NilZero.string_of_int (Z.to_int z)
+    in
+    if sign then "-" ++ abs else abs
+  end.
+
 #[export] Instance Serialize_numconst : Serialize numconst :=
   fun a => match a with
         | numconst_Int i => to_sexp (sint_to_Z i)
         | numconst_Bigint x => Atom (append (CeresString.string_of_Z x) ".ibig")
-        | numconst_Float64 x => Atom (append (CeresString.string_of_Z (Int63.to_Z (snd (PrimFloat.frshiftexp x)))) ".0")
+        | numconst_Float64 x => Atom (append (string_of_specfloat (FloatOps.Prim2SF x)) ".f64")
         end.
 
 Definition Cons x (l : sexp) :=

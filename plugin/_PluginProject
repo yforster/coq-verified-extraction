@@ -153,11 +153,10 @@ metacoq_extraction_ocaml.mlpack
 
 Loader.v
 PrimInt63.v
-PrimFloats.v
+PrimFloat.v
 PrimArray.v
 CoqMsgFFI.v
 OCamlFFI.v
 Extract.v
-extract_extraction.v
 
 tests/test_extract.v

@@ -6,5 +6,9 @@ META.coq-metacoq-extraction-malfunction
 g_metacoq_extraction_malfunction.mlg
 metacoq_extraction_malfunction.mlpack
 
+PrimInt63.v
+PrimFloat.v
+OCamlFFI.v
+extract_extraction.v
 Loader.v
 test_extraction_malfunction.v

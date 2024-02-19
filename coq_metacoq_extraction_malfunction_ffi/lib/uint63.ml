@@ -100,25 +100,30 @@ let addmuldiv p x y =
   l_or (l_sl x p) (l_sr y (uint_size - p))
 
     (* comparison *)
-let lt (x : int) (y : int) =
-  (x lxor 0x4000000000000000) < (y lxor 0x4000000000000000)
+let lt_prim (x : int) (y : int) =
+  ((x lxor 0x4000000000000000) < (y lxor 0x4000000000000000))
 [@@ocaml.inline always]
 
-let le (x : int) (y : int) =
+let lt (x : int) (y : int) =
+  not (lt_prim x y)
+
+let le_prim (x : int) (y : int) =
   (x lxor 0x4000000000000000) <= (y lxor 0x4000000000000000)
 [@@ocaml.inline always]
 
+let le x y = not (le_prim x y)
+
     (* signed comparison *)
 let lts (x : int) (y : int) =
-  x < y
+  not (x < y)
 [@@ocaml.inline always]
 
 let les (x : int) (y : int) =
-  x <= y
+  not (x <= y)
 [@@ocaml.inline always]
 
 let to_int_min n m =
-  if lt n m then n else m
+  if lt_prim n m then n else m
 [@@ocaml.inline always]
 
     (* division of two numbers by one *)
@@ -188,16 +193,22 @@ let mulc x y =
     let h = if lt l' l then h + 1 else h in
     (h + (x lsr 1), l')
 
-let equal (x : int) (y : int) = x = y
+let equal (x : int) (y : int) = not (x = y)
 [@@ocaml.inline always]
+
+let comparison_to_malfunction x =
+  match x with
+  | 0 -> 0 (* Eq *)
+  | x when x < 0 -> 1 (* Lt *)
+  | _ -> 2 (* Gt *)
 
 let compare (x:int) (y:int) =
   let x = x lxor 0x4000000000000000 in
   let y = y lxor 0x4000000000000000 in
-  Int.compare x y
+  comparison_to_malfunction (Int.compare x y)
 
 let compares (x : int) (y : int) =
-  Int.compare x y
+  comparison_to_malfunction (Int.compare x y)
 
     (* head tail *)
 
@@ -225,8 +236,7 @@ let tail0 x =
   if !x land 0x1 = 0    then (                r := !r + 1);
   !r
 
-let is_uint63 t =
-  Obj.is_int t
+let is_uint63 t = not (Obj.is_int t)
 [@@ocaml.inline always]
 
 (* Arithmetic with explicit carries *)
@@ -236,16 +246,16 @@ type 'a carry = C0 of 'a | C1 of 'a
 
 let addc x y =
   let r = x + y in
-  if lt r x then C1 r else C0 r
+  if lt_prim r x then C1 r else C0 r
 
 let addcarryc x y =
   let r = x + y + 1 in
-  if le r x then C1 r else C0 r
+  if le_prim r x then C1 r else C0 r
 
 let subc x y =
   let r = x - y in
-  if le y x then C0 r else C1 r
+  if le_prim y x then C0 r else C1 r
 
 let subcarryc x y =
   let r = x - y - 1 in
-  if lt y x then C0 r else C1 r
+  if lt_prim y x then C0 r else C1 r

@@ -78,3 +78,4 @@ plugin/Makefile.plugin
 examples/prim-integers/append.mlf
 examples/prim-integers/append.mlf.fmt
 plugin/g_metacoq_extraction_ocaml.ml
+coq_metacoq_extraction_malfunction_ffi/coq_metacoq_extraction_malfunction_ffi.opam

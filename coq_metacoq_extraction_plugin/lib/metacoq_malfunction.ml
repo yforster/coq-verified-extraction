@@ -50,7 +50,7 @@ type malfunction_plugin_config =
     format : bool;
     pipeline : pipeline }
 
-let debug_extract = CDebug.create ~name:"Metacoq Extraction" ()
+let debug_extract = CDebug.create ~name:"metacoq-extraction" ()
 let debug = debug_extract
 
 let get_stringopt_option key =

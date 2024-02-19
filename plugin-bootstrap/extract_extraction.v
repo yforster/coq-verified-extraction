@@ -1,4 +1,5 @@
-From Malfunction.Plugin Require Import Extract.
+From Malfunction.Plugin Require Import Loader.
+From Malfunction.VerifiedPlugin Require Import PrimInt63 PrimFloat.
 From Malfunction Require Import Pipeline.
 
 Set MetaCoq Extraction Build Directory "_build".
