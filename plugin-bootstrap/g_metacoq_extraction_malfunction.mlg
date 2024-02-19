@@ -1,5 +1,6 @@
+(*i camlp4deps: "grammar/grammar.cma" i*)
 
-DECLARE PLUGIN "coq-metacoq-verified-malfunction.plugin"
+DECLARE PLUGIN "coq-metacoq-extraction-Compile_malfunction.plugin"
 
 {
 
@@ -9,6 +10,9 @@ open PeanoNat.Nat
 open Datatypes
 open Vernacextend
 open Tm_util
+
+open Coq_metacoq_extraction_plugin.Metacoq_malfunction
+open Coq_metacoq_extraction_plugin.G_metacoq_malfunction
 
 let pr_char c = str (Char.escaped c)
 
@@ -84,8 +88,12 @@ module FixProgram = struct
     | Coq_tProj (p, t) -> Coq_tProj (p, aux t)
     | Coq_tFix (mfix, i) -> Coq_tFix (map aux_def mfix, i)
     | Coq_tCoFix (mfix, i) -> Coq_tCoFix (map aux_def mfix, i)
-    | Coq_tInt i -> Coq_tInt i
+    | Coq_tInt i -> 
+      Feedback.msg_debug Pp.(str"Fixing representation of primitive uint: " ++ str (Uint63.to_string i) ++ 
+        str "as signed int:" ++ int (Obj.magic i));
+      Coq_tInt i
     | Coq_tFloat f -> Coq_tFloat f
+    | Coq_tArray (u, v, def, ty) -> Coq_tArray (u, map aux v, aux def, aux ty)
     and aux_pred { puinst = puinst; pparams = pparams; pcontext = pcontext; preturn = preturn } =
       { puinst; pparams = map aux pparams; pcontext; preturn = aux preturn }
     and aux_branch { bcontext = bcontext; bbody = bbody } =
@@ -153,38 +161,118 @@ module FixProgram = struct
     { Ast0.Env.universes = universes; declarations; retroknowledge = retro }, term
 end
 
-let extract ~bypass env evm c dest =
-  debug (fun () -> str"Quoting");
-  let prog = time (str"Quoting") (Ast_quoter.quote_term_rec ~bypass env) evm (EConstr.to_constr evm c) in
-  let prog = FixProgram.fix_quoted_program prog in
-  let eprog = time (str"Extraction") 
-    Compile_malfunction.compile_malfunction prog
+module Caml_byte =
+struct
+  open Compile_malfunction
+
+  (* Same representations in OCaml and Malfunction )
+  let char_of_byte (x : byte) : char = Obj.magic x
+  let byte_of_char (x : char) : byte = Obj.magic x
+
+end
+
+module Caml_bytestring =
+struct
+
+  open Compile_malfunction
+  open Caml_byte
+
+  let rec caml_bytestring_length_aux s acc =
+    match s with
+    | EmptyString -> acc
+    | String (_, s) -> caml_bytestring_length_aux s (succ acc)
+
+  let caml_bytestring_length s = caml_bytestring_length_aux s 0
+    
+  let caml_string_of_bytestring (l : t) : string =
+    let len = caml_bytestring_length l in
+    let buf = Bytes.create len in
+    let rec aux i = function
+      | EmptyString -> ()
+      | String (c, cs) ->
+        Bytes.set buf i (Caml_byte.char_of_byte c); aux (succ i) cs
+    in
+    aux 0 l;
+    Bytes.to_string buf
+
+  let bytestring_of_caml_string (s : string) : Bytestring.String.t =
+    let rec aux acc i =
+      if i < 0 then acc
+      else aux (String (byte_of_char s.[i], acc)) (i - 1)
+    in aux EmptyString (String.length s - 1)
+end
+
+module Caml_bool =
+struct
+  open Compile_malfunction
+
+  let of_coq = function
+    | True -> true
+    | False -> false
+
+  let to_coq x = 
+    if x then True else False
+end
+
+let interp_prim = function
+  | Global (module_, label) ->
+    let module_ = Caml_bytestring.bytestring_of_caml_string module_ in
+    let label = Caml_bytestring.bytestring_of_caml_string label in
+    Compile_malfunction.Global (module_, label)
+  | Erased -> Compile_malfunction.Erased
+  | Primitive (symb, arity) ->
+    let symbol = Caml_bytestring.bytestring_of_caml_string symb in
+    let arity = Caml_nat.nat_of_caml_int arity in
+    Compile_malfunction.Primitive (symbol, arity)
+
+let interp_prims prims = 
+  (* Caution, we're using the string_of_kername of the pure ocaml extraction *)
+  List.map (fun (kn, p) -> (Kernames.string_of_kername kn, interp_prim p)) prims
+
+let interp_pipeline_config c : Compile_malfunction.malfunction_pipeline_config = 
+  let { 
+    erasure_config = 
+      { enable_cofix_to_fix = enable_cofix_to_fix; 
+        enable_typed_erasure = enable_typed_erasure; 
+        enable_fast_remove_params = enable_fast_remove_params;
+        dearging_config = { do_trim_ind_masks = do_trim_ind_masks; 
+          do_trim_const_masks = do_trim_const_masks;
+          overridden_masks = overridden_masks }
+    prims = prims } = c in
+  let erasure_config = 
+    Erasure0.({ 
+      enable_cofix_to_fix = Caml_bool.to_coq enable_cofix_to_fix; 
+      enable_typed_erasure = Caml_bool.to_coq enable_typed_erasure; 
+      enable_fast_remove_params = Caml_bool.to_coq enable_fast_remove_params;
+      dearging_config = 
+        { do_trim_ind_masks = Caml_bool.to_coq do_trim_ind_masks; 
+          do_trim_const_masks = Caml_bool.to_coq do_trim_const_masks;
+          overriden_masks = (fun _ => None) } })
   in
-  match dest with
-  | None -> Feedback.msg_info (pr_char_list eprog)
-  | Some fname -> 
-    let oc = open_out fname in (* Does not raise? *)
-    let () = output_string oc (Caml_bytestring.caml_string_of_bytestring eprog) in
-    let () = output_char oc '\n' in
-    close_out oc;
-    Feedback.msg_notice (str"Extracted written to " ++ str fname)
+  Compile_malfunction.{ 
+    erasure_config;
+    prims = interp_prims prims
+  }
+
+let compile_malfunction conf p = 
+  let conf = interp_pipeline_config conf in
+  let p = FixProgram.fix_quoted_program p in
+  Caml_bytestring.caml_string_of_bytestring (Compile_malfunction.compile_malfunction_gen conf p)
+
+let extract = extract compile_malfunction
+
 }
 
-VERNAC COMMAND EXTEND MetaCoqVerifiedExtract CLASSIFIED AS QUERY
+VERNAC COMMAND EXTEND MetaCoq_Verified_Extraction CLASSIFIED AS QUERY
 | [ "MetaCoq" "Verified" "Extraction" "-help" ] -> {
   let usage = "MetaCoq (Bypass)? Extraction [term] [output_file]?" in
   Feedback.msg_notice (str usage)
   }
-| [ "MetaCoq" "Verified" "Bypass" "Extraction" constr(c) string_opt(dest) ] -> {
+| [ "MetaCoq" "Verified" "Extraction" extract_args_list(l) constr(c) string_opt(dest) ] -> {
     let env = Global.env () in
     let evm = Evd.from_env env in
+    let loc = Constrexpr_ops.constr_loc c in
     let (c, _) = Constrintern.interp_constr env evm c in
-    extract ~bypass:true env evm c dest
-  }
-| [ "MetaCoq" "Verified" "Extraction" constr(c) string_opt(dest) ] -> {
-    let env = Global.env () in
-    let evm = Evd.from_env env in
-    let (c, _) = Constrintern.interp_constr env evm c in
-    extract ~bypass:false env evm c dest
+    extract ?loc l env evm c dest
   }
 END

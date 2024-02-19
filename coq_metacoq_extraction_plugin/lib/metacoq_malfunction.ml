@@ -279,49 +279,12 @@ let run opts result =
     if err <> "" then Feedback.msg_warning (Pp.str err);
     if out <> "" then Feedback.msg_notice (Pp.str out)
 
-module type ExtractionInterface =
-sig
-  type pipeline_config
-  val interp_pipeline_config : malfunction_pipeline_config -> pipeline_config
-  val compile_malfunction : pipeline_config -> TemplateProgram.template_program -> string
-end
-
-type pipelines = 
-  { ocaml_pipeline : (module ExtractionInterface) option;
-    malfunction_pipeline : (module ExtractionInterface) option }
-
-let pipelines = Summary.ref ~name:"metacoq-extraction-pipelines" 
-  { ocaml_pipeline = None; malfunction_pipeline = None }
-
-let register_ocaml_interface (module E : ExtractionInterface) : unit =
-  pipelines := { !pipelines with ocaml_pipeline = Some (module E : ExtractionInterface) }
-  
-let register_malfunction_interface (module E : ExtractionInterface) : unit =
-  pipelines := { !pipelines with malfunction_pipeline = Some (module E : ExtractionInterface) }
-
-let pr_pipeline = function
-  | OCaml -> Pp.str "Extraction + OCaml"
-  | Malfunction -> Pp.str "Verified Extraction + Malfunction"
-
-let extract ?loc opts env evm c dest =
+let extract (compile_malfunction : malfunction_pipeline_config -> TemplateProgram.template_program -> string)
+  ?loc opts env evm c dest =
   let opts = make_options loc opts in
   let prog = time opts Pp.(str"Quoting") (Ast_quoter.quote_term_rec ~bypass:opts.bypass_qeds env) evm (EConstr.to_constr evm c) in
-  let run_pipeline opts prog =
-    let module E = (val 
-      (match opts.pipeline with
-      | OCaml ->
-        (match !pipelines.ocaml_pipeline with 
-        | Some p -> p
-        | None -> CErrors.user_err ?loc Pp.(str "OCaml pipeline not found"))
-      | Malfunction -> match !pipelines.malfunction_pipeline with
-        | Some p -> p
-        | None -> CErrors.user_err ?loc Pp.(str "Malfunction pipeline not found")) 
-        : ExtractionInterface)
-    in
-      (E.compile_malfunction (E.interp_pipeline_config opts.malfunction_pipeline_config)) prog in
-  let eprog = time opts Pp.(str"Extraction through " ++ pr_pipeline opts.pipeline) 
-    (run_pipeline opts) prog
-  in
+  let run_pipeline opts prog = compile_malfunction opts.malfunction_pipeline_config prog in
+  let eprog = time opts Pp.(str"Extraction") (run_pipeline opts) prog in
   let dest = match dest with
   | None -> notice opts Pp.(fun () -> str eprog); None
   | Some fname ->

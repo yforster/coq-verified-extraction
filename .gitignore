@@ -77,3 +77,4 @@ plugin/Makefile.plugin.conf
 plugin/Makefile.plugin
 examples/prim-integers/append.mlf
 examples/prim-integers/append.mlf.fmt
+plugin/g_metacoq_extraction_ocaml.ml
