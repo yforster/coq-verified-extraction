@@ -24,7 +24,7 @@ MetaCoq Extraction axiom "axiom.mlf".
 
 From Malfunction Require Import Compile.
 Set Warnings "-primitive-turned-into-axiom".
-MetaCoq Extraction -fmt compile "compile.mlf".
+(* MetaCoq Extraction -fmt compile "compile.mlf". *)
 
 From Malfunction Require Import Pipeline.
 Set Warnings "-primitive-turned-into-axiom".

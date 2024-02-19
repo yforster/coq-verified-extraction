@@ -1,5 +1,5 @@
 -I .
--Q . VerifiedExtraction.Plugin
+-Q . Malfunction.VerifiedPlugin
 
 META.coq-metacoq-extraction-malfunction
 
