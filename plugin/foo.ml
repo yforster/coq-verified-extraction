@@ -1,1 +1,0 @@
-(module ($def_Coq_Numbers_Cyclic_Int63_PrimInt63_add (global $Uint63 $add)) ($def_test_extract_foo (apply $def_Coq_Numbers_Cyclic_Int63_PrimInt63_add 50 80)) ($foo $def_test_extract_foo) (export $foo))

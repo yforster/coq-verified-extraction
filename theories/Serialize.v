@@ -41,26 +41,9 @@ Fixpoint _escape_ident (_end s : String.t) : String.t :=
 #[export] Instance Serialize_Ident : Serialize Ident.t :=
   fun a => Atom (append "$" (bytestring.String.to_string (_escape_ident ""%bs a))).
 
-Require PrimInt63.
+Require Sint63.
 
-Section primint.
-
-Import PrimInt63.
-Definition min_int := Eval vm_compute in (PrimInt63.lsl 1 62).
-Definition max_int := Eval vm_compute in (PrimInt63.sub min_int 1).
-
-Definition Z_opp := fun x : BinNums.Z =>
-match x with
-| BinNums.Z0 => BinNums.Z0
-| BinNums.Zpos x0 => BinNums.Zneg x0
-| BinNums.Zneg x0 => BinNums.Zpos x0
-end.
-
-Definition sint_to_Z (i : int) :=  match PrimInt63.ltb i min_int return BinNums.Z with
-                      | true => Uint63.to_Z i
-                      | false => Z_opp (Uint63.to_Z (Int63.opp i))
-                      end.
-End primint.
+Definition sint_to_Z := Sint63.to_Z.
 
 #[export] Instance Serialize_int : Serialize int :=
    fun i => to_sexp (sint_to_Z i).

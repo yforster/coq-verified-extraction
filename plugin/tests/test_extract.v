@@ -14,7 +14,7 @@ From MetaCoq.Utils Require Import bytestring.
 
 Definition test_bytestring (u : unit) := bytestring.String.compare "" "bug".
 
-MetaCoq Extraction -compile test_bytestring "test_bytestring.mlf".
+MetaCoq Extraction -compile-with-coq test_bytestring "test_bytestring.mlf".
 
 MetaCoq Extraction two "two.mlf".
 
@@ -23,12 +23,14 @@ Axiom axiom : nat.
 MetaCoq Extraction axiom "axiom.mlf".
 
 From Malfunction Require Import Compile.
-
 Set Warnings "-primitive-turned-into-axiom".
-MetaCoq Extraction compile "compile.mlf".
+MetaCoq Extraction -fmt compile "compile.mlf".
 
 From Malfunction Require Import Pipeline.
-MetaCoq Extraction compile_malfunction "compile_malfunction.mlf".
+Set Warnings "-primitive-turned-into-axiom".
+(* MetaCoq Run Print mli compile_malfunction_gen. *)
+MetaCoq Extraction -fmt compile_malfunction_gen "compile_malfunction.mlf".
+
 From Coq Require Import List.
 Import ListNotations.
 

@@ -1,4 +1,4 @@
-META.coq-metacoq-malfunction
+META.coq-metacoq-extraction-ocaml
 -I extraction
 -R . Malfunction.Plugin
 -I .
@@ -17,6 +17,8 @@ extraction/ceresSerialize.ml
 extraction/ceresSerialize.mli
 extraction/ceresString.ml
 extraction/ceresString.mli
+extraction/sint63.mli
+extraction/sint63.ml
 extraction/compile.ml
 extraction/compile.mli
 extraction/eAst.ml
@@ -146,10 +148,8 @@ extraction/vectorDef.mli
 extraction/wGraph.ml
 extraction/wGraph.mli
 
-metacoq_malfunction.mli
-metacoq_malfunction.ml
-g_metacoq_malfunction.mlg
-metacoq_malfunction_plugin.mlpack
+g_metacoq_extraction_ocaml.mlg
+metacoq_extraction_ocaml.mlpack
 
 Loader.v
 PrimInt63.v
@@ -158,5 +158,6 @@ PrimArray.v
 CoqMsgFFI.v
 OCamlFFI.v
 Extract.v
+extract_extraction.v
 
 tests/test_extract.v

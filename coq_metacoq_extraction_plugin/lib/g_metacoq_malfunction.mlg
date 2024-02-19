@@ -1,6 +1,6 @@
 (*i camlp4deps: "grammar/grammar.cma" i*)
 
-DECLARE PLUGIN "coq-metacoq-malfunction.plugin"
+DECLARE PLUGIN "coq_metacoq_extraction.plugin"
 
 {
 
@@ -17,14 +17,14 @@ open Genredexpr
 
 open Metacoq_malfunction
 
+
 }
 
-
 VERNAC ARGUMENT EXTEND metaCoqRegister_extract_cnst 
-| [ reference(gr) "erased" ] -> { (bytestring_of_qualid ~loc gr, Malfunction.Erased) }
-| [ reference(gr) "=>" string(str) natural(arity) ] -> 
-  { extract_primitive (bytestring_of_qualid ~loc gr) str arity }
-| [ reference(gr) "=>" string(str) ] -> { extract_constant (bytestring_of_qualid ~loc gr) str }
+| [ reference(gr) "erased" ] -> { (kername_of_qualid ~loc gr, Erased) }
+| [ reference(gr) "=>" string(str) natural(arity) ] ->
+  { extract_primitive (kername_of_qualid ~loc gr) str arity }
+| [ reference(gr) "=>" string(str) ] -> { extract_constant (kername_of_qualid ~loc gr) str }
 END
 
 VERNAC COMMAND EXTEND MetaCoqExtract_Register CLASSIFIED AS SIDEFF
@@ -49,18 +49,6 @@ ARGUMENT EXTEND extract_args
 | [ "-run" ] -> { Run }
 | [ "-verbose" ] -> { Verbose }
 | [ "-fmt" ] -> { Format }
-END
-
-VERNAC COMMAND EXTEND MetaCoqExtract CLASSIFIED AS QUERY
-| [ "MetaCoq" "Extraction" "-help" ] -> {
-  let usage = "MetaCoq (Bypass)? Extraction [term] [output_file]?" in
-  Feedback.msg_notice (str usage)
-  }
-| [ "MetaCoq" "Extraction" extract_args_list(l) constr(c) string_opt(dest) ] -> {
-    let env = Global.env () in
-    let evm = Evd.from_env env in
-    let loc = Constrexpr_ops.constr_loc c in
-    let (c, _) = Constrintern.interp_constr env evm c in
-    Metacoq_malfunction.extract ?loc l env evm c dest
-  }
+| [ "-pipeline" "OCaml" ] -> { Pipeline OCaml }
+| [ "-pipeline" "Malfunction" ] -> { Pipeline Malfunction }
 END

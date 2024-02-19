@@ -75,3 +75,5 @@ plugin/Makefile.theories.conf
 plugin/Makefile.theories
 plugin/Makefile.plugin.conf
 plugin/Makefile.plugin
+examples/prim-integers/append.mlf
+examples/prim-integers/append.mlf.fmt

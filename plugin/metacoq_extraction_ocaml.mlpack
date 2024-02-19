@@ -86,11 +86,11 @@ CeresString
 CeresS
 CeresFormat
 CeresSerialize
+Sint63
 Malfunction
 Compile
 Serialize
 SemanticsSpec
 Pipeline
 
-Metacoq_malfunction
-G_metacoq_malfunction
+G_metacoq_extraction_ocaml

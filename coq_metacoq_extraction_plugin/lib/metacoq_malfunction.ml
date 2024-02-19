@@ -1,14 +1,32 @@
-open Stdarg
-open Pp
-open PeanoNat.Nat
-open Datatypes
-open Vernacextend
-open Tm_util
+type erasure_configuration = { enable_cofix_to_fix : bool;
+                               enable_typed_erasure : bool;
+                               enable_fast_remove_params : bool }
+
+type prim_def =
+| Global of string * string
+| Primitive of string * int
+| Erased
+
+type prim = Kernames.kername * prim_def
+
+type primitives = prim list
+
+type malfunction_pipeline_config = { erasure_config : erasure_configuration;
+                                     prims : primitives }
+
+
+let default_erasure_config = 
+  { enable_cofix_to_fix = false; enable_typed_erasure = false; enable_fast_remove_params = false }
+
+let default_malfunction_config = 
+  { erasure_config = default_erasure_config; prims = [] }
 
 type program_type =
   | Standalone of bool (* Link statically with Coq's libraries *)
   | Plugin
   
+type pipeline = OCaml | Malfunction
+
 type malfunction_command_args =
   | Unsafe
   | Verbose
@@ -19,16 +37,18 @@ type malfunction_command_args =
   | ProgramType of program_type
   | Run
   | Format
+  | Pipeline of pipeline
 
 type malfunction_plugin_config = 
-  { malfunction_pipeline_config : Pipeline.malfunction_pipeline_config;
+  { malfunction_pipeline_config : malfunction_pipeline_config;
     bypass_qeds : bool;
     time : bool;
     verbose : bool;
     program_type : program_type option;
     run : bool;
     loc : Loc.t option;
-    format : bool }
+    format : bool;
+    pipeline : pipeline }
 
 let debug_extract = CDebug.create ~name:"Metacoq Extraction" ()
 let debug = debug_extract
@@ -65,33 +85,28 @@ let time opts =
 
 (* Separate registration of primitive extraction *)
 
-type prim = Bytestring.String.t * Bytestring.String.t Malfunction.prim_def
-
 type package = string (* Findlib package names to link for external references *)
 
-let bytestring_of_qualid ~loc (gr : Libnames.qualid) : Bytestring.String.t =
+let kername_of_qualid ~loc (gr : Libnames.qualid) : Kernames.kername =
   match Constrintern.locate_reference gr with
-  | None -> CErrors.user_err ~loc (Libnames.pr_qualid gr ++ str " not found.")
+  | None -> CErrors.user_err ~loc Pp.(Libnames.pr_qualid gr ++ str " not found.")
   | Some g ->
     match g with
     | Names.GlobRef.ConstRef c -> 
       let quoted_kn = Metacoq_template_plugin.Ast_quoter.quote_kn (Names.Constant.canonical c) in
-      Kernames.string_of_kername quoted_kn
-    | Names.GlobRef.VarRef(v) -> CErrors.user_err ~loc (str "Expected a constant but found a variable. Only constants can be realized in Malfunction.")
-    | Names.GlobRef.IndRef(i) -> CErrors.user_err ~loc (str "Expected a constant but found an inductive type. Only constants can be realized in Malfunction.")
-    | Names.GlobRef.ConstructRef(c) -> CErrors.user_err ~loc (str "Expected a constant but found a constructor. Only constants can be realized in Malfunction. ")
-
-let extract_constant (gr : Bytestring.String.t) (s : string) : prim =
+      quoted_kn
+    | Names.GlobRef.VarRef(v) -> CErrors.user_err ~loc Pp.(str "Expected a constant but found a variable. Only constants can be realized in Malfunction.")
+    | Names.GlobRef.IndRef(i) -> CErrors.user_err ~loc Pp.(str "Expected a constant but found an inductive type. Only constants can be realized in Malfunction.")
+    | Names.GlobRef.ConstructRef(c) -> CErrors.user_err ~loc Pp.(str "Expected a constant but found a constructor. Only constants can be realized in Malfunction. ")
+    
+let extract_constant (gr : Kernames.kername) (s : string) : prim =
   let s = String.split_on_char '.' s in 
   let label, module_ = CList.sep_last s in
-  let label = Caml_bytestring.bytestring_of_caml_string label in
-  let module_ = Caml_bytestring.bytestring_of_caml_string (String.concat "." module_) in
+  let module_ =  (String.concat "." module_) in
   (gr, Global (module_, label))
   
-let extract_primitive (gr : Bytestring.String.t) (symb : string) (arity : int) : prim =
-  let symbol = Caml_bytestring.bytestring_of_caml_string symb in
-  let arity = Caml_nat.nat_of_caml_int arity in
-  (gr, Primitive (symbol, arity))
+let extract_primitive (gr : Kernames.kername) (symb : string) (arity : int) : prim =
+  (gr, Primitive (symb, arity))
 
 let global_registers = 
   Summary.ref (([], []) : prim list * package list) ~name:"MetaCoq Malfunction Registration"
@@ -115,7 +130,7 @@ let register (prims : prim list) (packages : package list) : unit =
 let get_global_prims () = fst !global_registers
 let get_global_packages () = snd !global_registers
 
-let pr_char c = str (Char.escaped c)
+let pr_char c = Pp.str (Char.escaped c)
 
 let bytes_of_list l =
   let bytes = Bytes.create (List.length l) in
@@ -126,20 +141,14 @@ let bytes_of_list l =
       fill (1 + acc) cs
   in fill 0 l
 
-let pr_char_list l =
-  (* We allow utf8 encoding *)
-  str (Caml_bytestring.caml_string_of_bytestring l)
-
 let make_options loc l =
-  let open Pipeline in
   let prims = get_global_prims () in
   let default = {
     malfunction_pipeline_config = { default_malfunction_config with prims };
     bypass_qeds = false; time = false; program_type = None; run = false;
-    verbose = false; loc; format = false }  
+    verbose = false; loc; format = false; pipeline = OCaml }  
   in
   let rec parse_options opts l = 
-    let open Erasure0 in
     match l with
     | [] -> opts
     | Unsafe :: l -> parse_options { opts with 
@@ -157,6 +166,7 @@ let make_options loc l =
     | ProgramType t :: l -> parse_options { opts with program_type = Some t } l
     | Run :: l -> parse_options { opts with run = true } l
     | Format :: l -> parse_options { opts with format = true } l
+    | Pipeline p :: l -> parse_options { opts with pipeline = p } l
   in parse_options default l
 
 let find_executable opts cmd = 
@@ -170,7 +180,7 @@ let find_executable opts cmd =
   | Unix.WEXITED 0 -> debug Pp.(fun () -> str "Compiler is" ++ spc () ++ str result);
     result
   | _ -> 
-    CErrors.user_err ?loc:opts.loc (Pp.str "Executable" ++ spc () ++ str cmd ++ spc () ++ str "not found." ++ fnl () ++
+    CErrors.user_err ?loc:opts.loc Pp.(str "Executable" ++ spc () ++ str cmd ++ spc () ++ str "not found." ++ fnl () ++
       str result)
       
 type line = 
@@ -269,19 +279,58 @@ let run opts result =
     if err <> "" then Feedback.msg_warning (Pp.str err);
     if out <> "" then Feedback.msg_notice (Pp.str out)
 
+module type ExtractionInterface =
+sig
+  type pipeline_config
+  val interp_pipeline_config : malfunction_pipeline_config -> pipeline_config
+  val compile_malfunction : pipeline_config -> TemplateProgram.template_program -> string
+end
+
+type pipelines = 
+  { ocaml_pipeline : (module ExtractionInterface) option;
+    malfunction_pipeline : (module ExtractionInterface) option }
+
+let pipelines = Summary.ref ~name:"metacoq-extraction-pipelines" 
+  { ocaml_pipeline = None; malfunction_pipeline = None }
+
+let register_ocaml_interface (module E : ExtractionInterface) : unit =
+  pipelines := { !pipelines with ocaml_pipeline = Some (module E : ExtractionInterface) }
+  
+let register_malfunction_interface (module E : ExtractionInterface) : unit =
+  pipelines := { !pipelines with malfunction_pipeline = Some (module E : ExtractionInterface) }
+
+let pr_pipeline = function
+  | OCaml -> Pp.str "Extraction + OCaml"
+  | Malfunction -> Pp.str "Verified Extraction + Malfunction"
+
 let extract ?loc opts env evm c dest =
   let opts = make_options loc opts in
-  let prog = time opts (str"Quoting") (Ast_quoter.quote_term_rec ~bypass:opts.bypass_qeds env) evm (EConstr.to_constr evm c) in
-  let eprog = time opts (str"Extraction") (Pipeline.compile_malfunction_gen opts.malfunction_pipeline_config) prog in
+  let prog = time opts Pp.(str"Quoting") (Ast_quoter.quote_term_rec ~bypass:opts.bypass_qeds env) evm (EConstr.to_constr evm c) in
+  let run_pipeline opts prog =
+    let module E = (val 
+      (match opts.pipeline with
+      | OCaml ->
+        (match !pipelines.ocaml_pipeline with 
+        | Some p -> p
+        | None -> CErrors.user_err ?loc Pp.(str "OCaml pipeline not found"))
+      | Malfunction -> match !pipelines.malfunction_pipeline with
+        | Some p -> p
+        | None -> CErrors.user_err ?loc Pp.(str "Malfunction pipeline not found")) 
+        : ExtractionInterface)
+    in
+      (E.compile_malfunction (E.interp_pipeline_config opts.malfunction_pipeline_config)) prog in
+  let eprog = time opts Pp.(str"Extraction through " ++ pr_pipeline opts.pipeline) 
+    (run_pipeline opts) prog
+  in
   let dest = match dest with
-  | None -> notice opts (fun () -> pr_char_list eprog); None
+  | None -> notice opts Pp.(fun () -> str eprog); None
   | Some fname ->
     let fname = build_fname fname in
     let oc = open_out fname in (* Does not raise? *)
-    let () = output_string oc (Caml_bytestring.caml_string_of_bytestring eprog) in
+    let () = output_string oc eprog in
     let () = output_char oc '\n' in
     close_out oc;
-    notice opts (fun () -> str"Extracted code written to " ++ str fname);
+    notice opts Pp.(fun () -> str"Extracted code written to " ++ str fname);
     Some fname
   in
   match dest with
@@ -297,4 +346,3 @@ let extract ?loc opts env evm c dest =
     | Some result -> 
       if opts.run then run opts result
       else ()
-  
