@@ -3,6 +3,19 @@ From MetaCoq.ErasurePlugin Require Import Loader.
 From VerifiedExtraction.Plugin Require Import Loader.
 From MetaCoq.Template Require Import All.
 
+From Coq Require Import ZArith PrimInt63 Sint63.
+Eval compute in PrimInt63.ltb Sint63.min_int Sint63.min_int.
+
+
+Print Sint63.to_Z.
+(* Eval compute in Uint63.to_Z (opp Sint63.min_int)%Z.
+Eval compute in Sint63.max_int.
+Eval compute in (Sint63.min_int + Sint63.min_int - Sint63.max_int - 1)%uint63.
+Eval compute in (Sint63.min_int)%uint63. *)
+
+MetaCoq Verified Extraction Sint63.min_int.
+MetaCoq Verified Extraction Sint63.max_int.
+
 Open Scope bs.
 
 From MetaCoq.Common Require Import Kernames.
