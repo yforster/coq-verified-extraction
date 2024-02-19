@@ -443,7 +443,7 @@ ind_universes0 ind_variance0) x Hparam Hfo'); eauto.
     lookup_env Σ i = Some (InductiveDecl mdecl) ->
     ind_npars mdecl = 0):
     firstorder_value Σ [] t ->
-    isPure_value (compile_value_mf' _ Σ Σ' t).
+    isPure_value (compile_value_mf' Σ Σ' t).
   Proof.
     revert t. eapply firstorder_value_inds. intros.
     cbn. unfold compile_value_mf'. rewrite compile_value_box_mkApps. cbn.
@@ -677,7 +677,7 @@ ind_universes0 ind_variance0) x Hparam Hfo'); eauto.
             ssrbool.not_false_is_true H2)
            (tConstruct_tFix_discr i n inst)
            Hirred)))).1 in
-  let vargs :=  map (compile_value_mf' _ Σ0 Σ_v) args in
+  let vargs :=  map (compile_value_mf' Σ0 Σ_v) args in
   eval Σ' empty_locals h (compile_pipeline Σ (mkApps (tConstruct i n inst) args) HΣ expΣ expt (existT _ _ wt))
   h match Compile.lookup_constructor_args Σ_t i with
   | Some num_args => let num_args_until_m := firstn n num_args in
@@ -1499,13 +1499,13 @@ Proof.
         set (size := #|_|) in Hcompile. set (size' := #|_|).
         enough (size = size').
         { rewrite <- H2. 
-          set (vv := map (compile_value_mf' _ _ _) _) in Hcompile.
+          set (vv := map (compile_value_mf' _ _) _) in Hcompile.
           enough (v' = vv). { now subst. }
           unfold vv; clear vv Hcompile. revert Hlv_eval; intro.
           rewrite -/ t. rewrite <- (map_id v'). specialize (Hlv_eval h).
           eapply Forall2_map_eq. set (Σ0 := mk_global_env _ _ _) in Σ.
           rewrite -/ Σ -/ Σ0. set (precond2 _ _ _ _ _ _ _ _ _ _). unfold t.
-          set (f := compile_value_mf' _ _ _).
+          set (f := compile_value_mf' _ _).
           eapply Forall2_Forall_mix; try apply Hirred. 
           erewrite Hnparam, skipn_0 in H3.
           2: cbn; now erewrite ReflectEq.eqb_refl.
@@ -1921,7 +1921,7 @@ Proof.
     unshelve eapply PCUICInductiveInversion.Construct_Ind_ind_eq' with (args' := []) in wval; eauto.
     repeat destruct wval as [? wval]. repeat destruct p.
     subst. reflexivity. } 
-  rewrite (compile_value_mf_eq _ _ _ _ _ _ _ _ _ _ [] _ _ (sq wt)) in Heval'; eauto. 
+  rewrite (compile_value_mf_eq _ _ _ _ _ _ _ _ _ _ _ (sq wt)) in Heval'; eauto. 
 
   unshelve epose proof (Hlookup_Σ := verified_named_erasure_pipeline_lookup_env_in' _ _ _ wfΣ expΣ _ expt val
     i []
@@ -2728,3 +2728,5 @@ Proof.
     7:eauto. all:eauto. inversion H10. intros ? ? ? [].
   Unshelve. all: eauto.
 Qed.
+
+Print Assumptions interoperability_firstorder_function.
