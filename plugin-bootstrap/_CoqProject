@@ -8,6 +8,7 @@ metacoq_extraction_malfunction.mlpack
 
 PrimInt63.v
 PrimFloat.v
+PrimArray.v
 OCamlFFI.v
 extract_extraction.v
 Loader.v

@@ -2,8 +2,8 @@ From Malfunction.Plugin Require Loader PrimInt63.
 From Coq Require Import PArray.
 
 (* This only interfaces with primitive integers, so no wrapping is needed. *)
-(* However the polymorphic functions should be masked to remove type argument 
-  applications *)
+(* However the polymorphic functions HAVE TO be masked to remove type argument 
+  applications, hence typed erasure is mandatory. *)
 
 MetaCoq Extract Constants [ 
   Coq.Array.PArray.array erased,
