@@ -20,6 +20,78 @@ Definition test_floats := print_float (100.5)%float.
 Eval compute in test_floats.
 MetaCoq Extraction -fmt -compile-with-coq -run test_floats "test_floats.mlf".
 
+(* Lazy cofixpoint implentation *)
+
+Module NegativeCoind.
+Set Primitive Projections.
+CoInductive stream := Cons
+  { head : nat; tail : stream }.
+
+CoFixpoint ones : stream := {| head := 0; tail := ones |}.
+CoFixpoint naturals (n : nat) : stream := 
+  {| head := n; tail := naturals (S n) |}.
+
+MetaCoq Extraction -fmt -unsafe naturals.
+
+Fixpoint take (n : nat) (s : stream) : list nat :=
+  match n with
+  | 0 => []
+  | S n => s.(head) :: take n s.(tail)
+  end.
+
+Definition test_take := print_string (show (take 10 (naturals 0))).
+
+MetaCoq Extraction -fmt -unsafe -compile-with-coq -run test_take "naturals.mlf".
+
+From Coq Require Import ZArith Lists.StreamMemo.
+Local Open Scope Z_scope.
+Fixpoint tfact (n: nat) :=
+  match n with
+   | O => 1
+   | S n1 => Z.of_nat n * tfact n1
+  end.
+
+Definition lfact_list :=
+  dimemo_list _ tfact (fun n z => (Z.of_nat (S  n) * z)).
+
+Definition lfact n := dmemo_get _ tfact n lfact_list.
+
+Theorem lfact_correct n: lfact n = tfact n.
+Proof.
+unfold lfact, lfact_list.
+rewrite dimemo_get_correct; auto.
+Qed.
+
+Fixpoint nop p :=
+  match p with
+   | xH => 0
+   | xI p1 => nop p1
+   | xO p1 => nop p1
+  end.
+
+Definition test z :=
+  match z with
+   | Z0 => 0
+   | Zpos p1 => nop p1
+   | Zneg p1 => nop p1
+  end.
+
+(*  
+Time Eval vm_compute in test (lfact 2000). (* 4.7s *)
+Time Eval vm_compute in test (lfact 2000). (* Immediate due to sharing?? *)
+Time Eval vm_compute in test (lfact 1500).
+Time Eval vm_compute in (lfact 1500). (* 20s *) *)
+Arguments print_string s%bs.
+
+Definition test_lfact := test (lfact 2000).
+
+Definition show_lfact := print_string ("test_lfact: " ++ show (lfact 2000)).
+
+MetaCoq Extraction -time -fmt -typed -unsafe -compile-with-coq -run test_lfact "test_lfact_typed.mlf". (* 2s *)
+MetaCoq Extraction -time -fmt -unsafe -compile-with-coq -run test_lfact "test_lfact.mlf". (* 2s *)
+
+End NegativeCoind.
+
 Inductive three := ZERO | ONE | TWO | THREE.
 
 Definition two := TWO.

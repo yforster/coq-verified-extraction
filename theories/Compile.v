@@ -132,6 +132,8 @@ Section Compile.
           let values := map_InP (EPrimitive.array_value a) (fun v H => compile v) in
           let arr := compile_array values default in
           Mapply (Mglobal "PArray.of_array", [ arr ; default ])
+      | tLazy t => Mlazy (compile t)
+      | tForce t => Mforce (compile t)
       | tRel n => Mstring "error: tRel has been translated away"
       | tBox => Mstring "error: tBox has been translated away"
       | tCoFix mfix idx => Mstring "error: tCofix not supported"

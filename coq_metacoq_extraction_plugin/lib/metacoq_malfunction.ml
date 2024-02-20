@@ -286,7 +286,7 @@ let extract (compile_malfunction : malfunction_pipeline_config -> TemplateProgra
   let run_pipeline opts prog = compile_malfunction opts.malfunction_pipeline_config prog in
   let eprog = time opts Pp.(str"Extraction") (run_pipeline opts) prog in
   let dest = match dest with
-  | None -> notice opts Pp.(fun () -> str eprog); None
+  | None -> Feedback.msg_notice Pp.(str eprog); None
   | Some fname ->
     let fname = build_fname fname in
     let oc = open_out fname in (* Does not raise? *)
