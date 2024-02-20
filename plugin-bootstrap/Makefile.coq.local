@@ -12,10 +12,12 @@ axioms.ml:
 axioms.cmx: axioms.ml
 	ocamlfind opt -thread ${CAMLPKGS} -for-pack Metacoq_extraction_malfunction -c axioms.ml
 
+compile_malfunction.cmi: compile_malfunction.mli
+	ocamlfind opt ${CAMLFLAGS} ${FINDLIBPKGS} -for-pack Metacoq_extraction_malfunction compile_malfunction.mli
+	
 compile_malfunction.cmx: axioms.cmx extract_extraction.vo
 	cp _build/compile_malfunction.mlf compile_malfunction.mlf
 	# ocamlfind opt ${CAMLFLAGS} ${FINDLIBPKGS} -for-pack Metacoq_extraction_malfunction axioms.mli
-	ocamlfind opt ${CAMLFLAGS} ${FINDLIBPKGS} -for-pack Metacoq_extraction_malfunction compile_malfunction.mli
 	malfunction cmx -O2 -shared ${FINDLIBPKGS} -for-pack Metacoq_extraction_malfunction compile_malfunction.mlf
 
 clean::

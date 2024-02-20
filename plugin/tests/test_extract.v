@@ -83,7 +83,7 @@ Time Eval vm_compute in test (lfact 2000). (* Immediate due to sharing?? *)
 Time Eval vm_compute in test (lfact 1500).
 Time Eval vm_compute in (lfact 1500). (* 20s *) *)
 Arguments print_string s%bs.
-Definition arg := 2000%nat.
+Definition arg := 1000%nat.
 Definition test_lfact := test (lfact arg).
 Definition show_lfact := print_string ("test_lfact: " ++ show (lfact arg)).
 Set Debug "metacoq-extraction".

@@ -1,5 +1,6 @@
 
 all: Makefile.coq
+	mkdir -p _build
 	make -f Makefile.coq
 
 install: Makefile.coq all
@@ -10,3 +11,4 @@ Makefile.coq: _CoqProject
 
 clean: Makefile.coq
 	make -f Makefile.coq clean
+	rm -rf _build
