@@ -49,6 +49,6 @@ Makefile.coq: _CoqProject
 plugin-bootstrap/Makefile.coq: plugin/_CoqProject
 	cd plugin && make Makefile.coq
 
-bootstrap: coq plugin extraction_plugin extraction_ocaml_ffi
+bootstrap: coq plugin extraction_plugin extraction_malfunction_ffi
 	+make -C plugin-bootstrap -j 1
 	cd plugin-bootstrap && make -f Makefile.coq install

@@ -85,13 +85,17 @@ Section Compile.
   (* Definition to_primitive (compile : term -> Malfunction.t) 
     (v : EPrimitive.prim_val EAst.term) : Malfunction.t := *)
 
+  Fixpoint is_wf_rec_body (t : Malfunction.t) : bool :=
+    match t with
+    | Mlambda _ => true
+    | Mlazy _ => true
+    | Mlet (_bindings, t) => is_wf_rec_body t
+    | _ => false
+    end.
 
   Definition force_lambda (t : Malfunction.t) :=
-    match t with
-    | Mlambda _ => t
-    | Mlazy _ => t
-    | _ => Mlambda (["__expanded"], Mapply_u t (Mvar "__expanded"))
-    end.
+    if is_wf_rec_body t then t
+    else Mlambda (["__expanded"], Mapply_u t (Mvar "__expanded")).
 
   Equations? compile (t: term) : Malfunction.t
     by wf t (fun x y : EAst.term => size x < size y) :=
