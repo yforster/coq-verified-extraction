@@ -4,8 +4,7 @@ META.coq-metacoq-extraction-ocaml
 -I .
 
 # ls extraction/*.ml{i,}
-extraction/carryType.ml
-extraction/carryType.mli
+
 extraction/init.mli
 extraction/init.ml
 
