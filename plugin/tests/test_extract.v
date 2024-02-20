@@ -28,17 +28,22 @@ Set Primitive Projections.
 CoInductive stream := Cons
   { head : nat; tail : stream }.
 
-CoFixpoint ones : stream := {| head := 0; tail := ones |}.
-CoFixpoint naturals (n : nat) : stream := 
-  {| head := n; tail := naturals (S n) |}.
-
-MetaCoq Extraction -fmt -unsafe naturals.
-
 Fixpoint take (n : nat) (s : stream) : list nat :=
   match n with
   | 0 => []
   | S n => s.(head) :: take n s.(tail)
   end.
+  
+CoFixpoint ones : stream := {| head := 1; tail := ones |}.
+
+Definition test_ones := print_string (show (take 10 ones)).
+
+MetaCoq Extraction -fmt -unsafe -compile-with-coq -run test_ones "ones.mlf".
+
+CoFixpoint naturals (n : nat) : stream := 
+  {| head := n; tail := naturals (S n) |}.
+
+MetaCoq Extraction -fmt -unsafe naturals.
 
 Definition test_take := print_string (show (take 10 (naturals 0))).
 

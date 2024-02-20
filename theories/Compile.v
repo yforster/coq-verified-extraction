@@ -89,6 +89,7 @@ Section Compile.
   Definition force_lambda (t : Malfunction.t) :=
     match t with
     | Mlambda _ => t
+    | Mlazy _ => t
     | _ => Mlambda (["__expanded"], Mapply_u t (Mvar "__expanded"))
     end.
 
