@@ -49,6 +49,5 @@ ARGUMENT EXTEND extract_args
 | [ "-run" ] -> { Run }
 | [ "-verbose" ] -> { Verbose }
 | [ "-fmt" ] -> { Format }
-| [ "-pipeline" "OCaml" ] -> { Pipeline OCaml }
-| [ "-pipeline" "Malfunction" ] -> { Pipeline Malfunction }
+| [ "-optimize" ] -> { Optimize }
 END

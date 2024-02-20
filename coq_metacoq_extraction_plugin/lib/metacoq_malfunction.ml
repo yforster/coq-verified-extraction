@@ -24,8 +24,6 @@ let default_malfunction_config =
 type program_type =
   | Standalone of bool (* Link statically with Coq's libraries *)
   | Plugin
-  
-type pipeline = OCaml | Malfunction
 
 type malfunction_command_args =
   | Unsafe
@@ -37,7 +35,7 @@ type malfunction_command_args =
   | ProgramType of program_type
   | Run
   | Format
-  | Pipeline of pipeline
+  | Optimize
 
 type malfunction_plugin_config = 
   { malfunction_pipeline_config : malfunction_pipeline_config;
@@ -48,7 +46,7 @@ type malfunction_plugin_config =
     run : bool;
     loc : Loc.t option;
     format : bool;
-    pipeline : pipeline }
+    optimize : bool }
 
 let debug_extract = CDebug.create ~name:"metacoq-extraction" ()
 let debug = debug_extract
@@ -79,8 +77,15 @@ let notice opts pp =
     Feedback.msg_notice ?loc:opts.loc (pp ())
   else ()
 
+let time prefix f x =
+  let start = Unix.gettimeofday () in
+  let res = f x in
+  let stop = Unix.gettimeofday () in
+  let () = Feedback.msg_info Pp.(prefix ++ str " executed in: " ++ Pp.real (stop -. start) ++ str "s") in
+  res
+
 let time opts = 
-  if opts.time then (fun label fn arg -> Tm_util.time label fn arg) 
+  if opts.time then (fun label fn arg -> time label fn arg) 
   else fun _label fn arg -> fn arg
 
 (* Separate registration of primitive extraction *)
@@ -146,7 +151,7 @@ let make_options loc l =
   let default = {
     malfunction_pipeline_config = { default_malfunction_config with prims };
     bypass_qeds = false; time = false; program_type = None; run = false;
-    verbose = false; loc; format = false; pipeline = OCaml }  
+    verbose = false; loc; format = false; optimize = false }  
   in
   let rec parse_options opts l = 
     match l with
@@ -166,7 +171,7 @@ let make_options loc l =
     | ProgramType t :: l -> parse_options { opts with program_type = Some t } l
     | Run :: l -> parse_options { opts with run = true } l
     | Format :: l -> parse_options { opts with format = true } l
-    | Pipeline p :: l -> parse_options { opts with pipeline = p } l
+    | Optimize :: l -> parse_options { opts with optimize = true } l
   in parse_options default l
 
 let find_executable opts cmd = 
@@ -201,6 +206,7 @@ let push_line buf line =
 let string_of_buffer buf = Bytes.to_string (Buffer.to_bytes buf)
 
 let execute cmd =
+  debug Pp.(fun () -> str "Executing: " ++ str cmd);
   let (stdout, stdin, stderr) = Unix.open_process_full cmd (Unix.environment ()) in
   let continue = ref true in
   let outbuf, errbuf = Buffer.create 100, Buffer.create 100 in
@@ -248,10 +254,11 @@ let compile opts fname =
     let malfunction = find_executable opts "which malfunction" in
     let packages = get_global_packages () in
     let packages = String.concat "," packages in
+    let optimize = if opts.optimize then "-O2" else "" in
     match t with
     | Plugin -> 
       let compile_cmd = 
-        Printf.sprintf "%s cmx -shared -package %s %s" malfunction packages fname
+        Printf.sprintf "%s cmx %s -shared -package %s %s" malfunction optimize packages fname
       in
       let _out, _err = execute opts compile_cmd in (* we now have fname . cmx *)
       let shared_lib = Filename.chop_extension fname ^ ".cmxs" in
@@ -264,9 +271,10 @@ let compile opts fname =
         else "-thread -linkpkg", packages
       in
       let compile_cmd = 
-        Printf.sprintf "%s compile %s -package %s -o %s %s" malfunction flags packages output fname
+        Printf.sprintf "%s compile %s %s -package %s -o %s %s" 
+          malfunction optimize flags packages output fname
       in
-      let _out, _err = execute opts compile_cmd in (* we now have fname . cmx *)
+      let _out, _err = time opts Pp.(str "Compilation") (execute opts) compile_cmd in (* we now have fname . cmx *)
       notice opts Pp.(fun () -> str "Compiled to " ++ str output);
       Some (StandaloneProgram output)
 
@@ -275,7 +283,7 @@ let run opts result =
   match result with
   | SharedLib shared_lib -> Dynlink.loadfile_private shared_lib
   | StandaloneProgram s -> 
-    let out, err = execute opts ("./" ^ s) in
+    let out, err = time opts Pp.(str s) (execute opts) ("./" ^ s) in
     if err <> "" then Feedback.msg_warning (Pp.str err);
     if out <> "" then Feedback.msg_notice (Pp.str out)
 

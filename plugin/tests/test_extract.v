@@ -1,5 +1,6 @@
 From Malfunction.Plugin Require Import Extract OCamlFFI.
 From MetaCoq.Template Require Import All.
+From Coq Require ZArith Lists.StreamMemo.
 
 From Coq Require Import String.
 From Coq Require Vector.
@@ -43,7 +44,7 @@ Definition test_take := print_string (show (take 10 (naturals 0))).
 
 MetaCoq Extraction -fmt -unsafe -compile-with-coq -run test_take "naturals.mlf".
 
-From Coq Require Import ZArith Lists.StreamMemo.
+Import ZArith Lists.StreamMemo.
 Local Open Scope Z_scope.
 Fixpoint tfact (n: nat) :=
   match n with
@@ -82,13 +83,20 @@ Time Eval vm_compute in test (lfact 2000). (* Immediate due to sharing?? *)
 Time Eval vm_compute in test (lfact 1500).
 Time Eval vm_compute in (lfact 1500). (* 20s *) *)
 Arguments print_string s%bs.
+Definition arg := 2000%nat.
+Definition test_lfact := test (lfact arg).
+Definition show_lfact := print_string ("test_lfact: " ++ show (lfact arg)).
+Set Debug "metacoq-extraction".
 
-Definition test_lfact := test (lfact 2000).
+MetaCoq Extraction -time -fmt -typed -unsafe -compile-with-coq -run test_lfact "test_lfact_typed.mlf". (* 2.5s running time *)
+MetaCoq Extraction -time -fmt -unsafe -compile-with-coq -run test_lfact "test_lfact.mlf". (* 2.5s running time *)
+MetaCoq Extraction -optimize -time -fmt -typed -unsafe -compile-with-coq -run 
+  test_lfact "test_lfact_typed_opt.mlf". (* 2.5s running time *)
 
-Definition show_lfact := print_string ("test_lfact: " ++ show (lfact 2000)).
-
-MetaCoq Extraction -time -fmt -typed -unsafe -compile-with-coq -run test_lfact "test_lfact_typed.mlf". (* 2s *)
-MetaCoq Extraction -time -fmt -unsafe -compile-with-coq -run test_lfact "test_lfact.mlf". (* 2s *)
+MetaCoq Extraction -time -fmt -typed -unsafe -compile-with-coq -run 
+  show_lfact "show_lfact_typed.mlf". (* 3.4s running time *)
+MetaCoq Extraction -time -fmt -unsafe -compile-with-coq -run 
+  show_lfact "show_lfact.mlf". (* 3.4s running time *)
 
 End NegativeCoind.
 

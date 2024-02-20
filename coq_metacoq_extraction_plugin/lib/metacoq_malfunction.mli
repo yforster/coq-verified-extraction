@@ -18,8 +18,6 @@ type program_type =
   | Standalone of bool (* Link statically with Coq's libraries *)
   | Plugin
   
-type pipeline = OCaml | Malfunction
-
 type malfunction_command_args =
   | Unsafe
   | Verbose
@@ -30,7 +28,7 @@ type malfunction_command_args =
   | ProgramType of program_type
   | Run
   | Format
-  | Pipeline of pipeline
+  | Optimize
 
 val kername_of_qualid : loc:Loc.t -> Libnames.qualid -> Kernames.kername
 val extract_constant : Kernames.kername -> string -> prim
