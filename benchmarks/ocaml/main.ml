@@ -8,7 +8,7 @@ let demo0_main =
     Demo0.demo0 Tt
   done;
   let t' = Unix.gettimeofday () -. t in
-  Printf.printf "demo1 execution time: %f miliseconds\n" (t'*.1000.0)
+  Printf.printf "demo0 execution time: %f miliseconds\n" (t'*.1000.0)
 
 let demo1_main =
   let n = int_of_string Sys.argv.(1) in

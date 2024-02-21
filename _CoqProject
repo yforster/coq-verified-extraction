@@ -1,6 +1,7 @@
 -Q theories Malfunction
 -Q plugin Malfunction.Plugin
 -I plugin
+-R benchmarks MetaCoq.VerifiedExtraction.Benchmarks
 
 theories/Ceres/CeresFormat.v
 theories/Ceres/CeresSerialize.v

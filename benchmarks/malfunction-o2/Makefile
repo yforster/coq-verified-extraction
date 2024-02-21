@@ -50,3 +50,5 @@ run: build
 #	./main 10
 	@echo "Malfunction with -O2 optimisations"
 	./mainopt 10
+
+.NOTPARALLEL: tests run

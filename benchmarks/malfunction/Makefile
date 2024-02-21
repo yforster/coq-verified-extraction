@@ -31,18 +31,18 @@ cleanml :
 	rm -f $(MLFFILES) $(MLIFILES)
 
 $(TESTS): axioms.cmx $(MLFFILES)
-	@ocamlc -c $@.mli 
-	@malfunction cmx $@.mlf
+	ocamlc -c $@.mli 
+	malfunction cmx $@.mlf
 
 axioms.cmx: axioms.ml
-	@ocamlopt -c axioms.ml
+	ocamlopt -c axioms.ml
 
 mainopt: $(MLFFILES) $(CMXFILES)
-	@ocamlopt -c -w -a-1  main.ml 
-	@ocamlopt -o mainopt unix.cmxa axioms.cmx $(CMXFILES) main.cmx
+	ocamlopt -c -w -a-1  main.ml 
+	ocamlopt -o mainopt unix.cmxa axioms.cmx $(CMXFILES) main.cmx
 
 tests: tests.v
-	@coqc $(COQOPTS) tests.v > /dev/null
+	coqc $(COQOPTS) tests.v > /dev/null
 
 build: $(TESTS) mainopt 
 
@@ -50,3 +50,5 @@ run: build
 #	./main 10
 	@echo "Malfunction with no optimisations"
 	./mainopt 10
+
+.NOTPARALLEL: tests run
