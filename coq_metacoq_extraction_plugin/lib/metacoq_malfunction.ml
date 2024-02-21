@@ -1,6 +1,10 @@
+type inductive_mapping = Kernames.inductive * (string * int list) (* Target inductive type and mapping of constructor names to constructor tags *)
+type inductives_mapping = inductive_mapping list
+
 type erasure_configuration = { enable_cofix_to_fix : bool;
                                enable_typed_erasure : bool;
-                               enable_fast_remove_params : bool }
+                               enable_fast_remove_params : bool; 
+                               inductives_mapping : inductives_mapping }
 
 type prim_def =
 | Global of string * string
@@ -11,19 +15,15 @@ type prim = Kernames.kername * prim_def
 
 type primitives = prim list
 
-type inductive_mapping = Kernames.inductive * (string * int list) (* Target inductive type and mapping of constructor names to constructor tags *)
-type inductives_mapping = inductive_mapping list
-
 type malfunction_pipeline_config = { 
   erasure_config : erasure_configuration;
-  prims : primitives;
-  ind_mapping : inductives_mapping }
+  prims : primitives }
 
-let default_erasure_config = 
-  { enable_cofix_to_fix = false; enable_typed_erasure = false; enable_fast_remove_params = false }
+let default_erasure_config inductives_mapping = 
+  { enable_cofix_to_fix = false; enable_typed_erasure = false; enable_fast_remove_params = false; inductives_mapping }
 
-let default_malfunction_config = 
-  { erasure_config = default_erasure_config; prims = []; ind_mapping = [] }
+let default_malfunction_config inductives_mapping prims = 
+  { erasure_config = default_erasure_config inductives_mapping; prims }
 
 type program_type =
   | Standalone of bool (* Link statically with Coq's libraries *)
@@ -146,6 +146,8 @@ let global_inductive_registers_input =
 let register_inductives (inds : inductives_mapping) : unit =
   Lib.add_leaf (global_inductive_registers_input inds)
 
+let get_global_inductives_mapping () = !global_inductive_registers
+
 let global_registers = 
   Summary.ref (([], []) : prim list * package list) ~name:"MetaCoq Malfunction Registration"
 
@@ -180,9 +182,10 @@ let bytes_of_list l =
   in fill 0 l
 
 let make_options loc l =
+  let inductives_mapping = get_global_inductives_mapping () in
   let prims = get_global_prims () in
   let default = {
-    malfunction_pipeline_config = { default_malfunction_config with prims };
+    malfunction_pipeline_config = default_malfunction_config inductives_mapping prims;
     bypass_qeds = false; time = false; program_type = None; run = false;
     verbose = false; loc; format = false; optimize = false }  
   in

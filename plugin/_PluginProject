@@ -28,6 +28,8 @@ extraction/eCSubst.ml
 extraction/eCSubst.mli
 extraction/eCoInductiveToInductive.ml
 extraction/eCoInductiveToInductive.mli
+extraction/eReorderCstrs.mli
+extraction/eReorderCstrs.ml
 extraction/eConstructorsAsBlocks.ml
 extraction/eConstructorsAsBlocks.mli
 extraction/eEnvMap.ml
@@ -160,3 +162,4 @@ Show.v
 Extract.v
 
 tests/test_extract.v
+tests/test_extract_inductive.v

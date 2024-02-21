@@ -44,8 +44,7 @@ From Malfunction Require Import Compile Serialize.
 
 Record malfunction_pipeline_config := 
   { erasure_config :> erasure_configuration; 
-    prims : Malfunction.primitives;
-    ind_mapping : Malfunction.inductive_mapping }.
+    prims : Malfunction.primitives }.
 
 Definition int_to_nat (i : Uint63.int) : nat :=
   Z.to_nat (Uint63.to_Z i).
@@ -1072,10 +1071,10 @@ Local Existing Instance CanonicalPointer.
 (* This also optionally runs typed erasure and/or the cofix to fix translation *)
 Program Definition switchable_erasure_pipeline econf :=
   if econf.(enable_typed_erasure) then verified_typed_erasure_pipeline econf
-  else verified_erasure_pipeline ▷ (optional_cofix_to_fix_transform econf).
+  else verified_erasure_pipeline ▷ (optional_unsafe_transforms econf).
 Next Obligation.
 Proof.
-  unfold optional_cofix_to_fix_transform.
+  unfold optional_unsafe_transforms, optional_self_transform. cbn.
   destruct enable_cofix_to_fix => //.
 Qed.
 

@@ -1,7 +1,11 @@
+type inductive_mapping = Kernames.inductive * (string * int list) (* Target inductive type and mapping of constructor names to constructor tags *)
+type inductives_mapping = inductive_mapping list
+
 type erasure_configuration = { enable_cofix_to_fix : bool;
                                enable_typed_erasure : bool;
-                               enable_fast_remove_params : bool }
-
+                               enable_fast_remove_params : bool; 
+                               inductives_mapping : inductives_mapping }
+                               
 type prim_def =
 | Global of string * string
 | Primitive of string * int
@@ -11,13 +15,9 @@ type prim = Kernames.kername * prim_def
 
 type primitives = prim list
 
-type inductive_mapping = Kernames.inductive * (string * int list) (* Target inductive type and mapping of constructor names to constructor tags *)
-type inductives_mapping = inductive_mapping list
-
 type malfunction_pipeline_config = { 
   erasure_config : erasure_configuration;
-  prims : primitives;
-  ind_mapping : inductives_mapping }
+  prims : primitives }
 
 type program_type =
   | Standalone of bool (* Link statically with Coq's libraries *)

@@ -71,6 +71,7 @@ OptimizePropDiscr
 EInlineProjections
 EConstructorsAsBlocks
 ECoInductiveToInductive
+EReorderCstrs
 EImplementBox
 ExAst
 Optimize
