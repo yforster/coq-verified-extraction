@@ -149,4 +149,3 @@ Arguments Primitive {id}.
 Arguments Erased {id}.
 
 Definition primitives := list (bytestring.string * prim_def bytestring.string).
-

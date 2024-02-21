@@ -11,15 +11,19 @@ type prim = Kernames.kername * prim_def
 
 type primitives = prim list
 
-type malfunction_pipeline_config = { erasure_config : erasure_configuration;
-                                     prims : primitives }
+type inductive_mapping = Kernames.inductive * (string * int list) (* Target inductive type and mapping of constructor names to constructor tags *)
+type inductives_mapping = inductive_mapping list
 
+type malfunction_pipeline_config = { 
+  erasure_config : erasure_configuration;
+  prims : primitives;
+  ind_mapping : inductives_mapping }
 
 let default_erasure_config = 
   { enable_cofix_to_fix = false; enable_typed_erasure = false; enable_fast_remove_params = false }
 
 let default_malfunction_config = 
-  { erasure_config = default_erasure_config; prims = [] }
+  { erasure_config = default_erasure_config; prims = []; ind_mapping = [] }
 
 type program_type =
   | Standalone of bool (* Link statically with Coq's libraries *)
@@ -92,18 +96,25 @@ let time opts =
 
 type package = string (* Findlib package names to link for external references *)
 
-let kername_of_qualid ~loc (gr : Libnames.qualid) : Kernames.kername =
+let globref_of_qualid ~loc (gr : Libnames.qualid) : Kernames.global_reference =
   match Constrintern.locate_reference gr with
   | None -> CErrors.user_err ~loc Pp.(Libnames.pr_qualid gr ++ str " not found.")
-  | Some g ->
-    match g with
-    | Names.GlobRef.ConstRef c -> 
-      let quoted_kn = Metacoq_template_plugin.Ast_quoter.quote_kn (Names.Constant.canonical c) in
-      quoted_kn
-    | Names.GlobRef.VarRef(v) -> CErrors.user_err ~loc Pp.(str "Expected a constant but found a variable. Only constants can be realized in Malfunction.")
-    | Names.GlobRef.IndRef(i) -> CErrors.user_err ~loc Pp.(str "Expected a constant but found an inductive type. Only constants can be realized in Malfunction.")
-    | Names.GlobRef.ConstructRef(c) -> CErrors.user_err ~loc Pp.(str "Expected a constant but found a constructor. Only constants can be realized in Malfunction. ")
+  | Some g ->  Metacoq_template_plugin.Ast_quoter.quote_global_reference g
     
+let constant_of_qualid ~loc (gr : Libnames.qualid) : Kernames.kername =
+  match globref_of_qualid ~loc gr with
+  | Kernames.ConstRef kn -> kn
+  | Kernames.VarRef(v) -> CErrors.user_err ~loc Pp.(str "Expected a constant but found a variable. Only constants can be realized in Malfunction.")
+  | Kernames.IndRef(i) -> CErrors.user_err ~loc Pp.(str "Expected a constant but found an inductive type. Only constants can be realized in Malfunction.")
+  | Kernames.ConstructRef(_, _) -> CErrors.user_err ~loc Pp.(str "Expected a constant but found a constructor. Only constants can be realized in Malfunction. ")
+    
+let inductive_of_qualid ~loc (gr : Libnames.qualid) : Kernames.inductive =
+  match globref_of_qualid ~loc gr with
+  | Kernames.ConstRef kn -> CErrors.user_err ~loc Pp.(str "Expected an inductive name but found a constant. Only inductives can be translated in Malfunction.")
+  | Kernames.VarRef(v) -> CErrors.user_err ~loc Pp.(str "Expected an inductive name but found a variable. Only constants can be translated in Malfunction.")
+  | Kernames.IndRef(i) -> i
+  | Kernames.ConstructRef(_, _) -> CErrors.user_err ~loc Pp.(str "Expected an inductive name but found a constructor. Only constants can be translated in Malfunction. ")
+  
 let extract_constant (gr : Kernames.kername) (s : string) : prim =
   let s = String.split_on_char '.' s in 
   let label, module_ = CList.sep_last s in
@@ -112,6 +123,28 @@ let extract_constant (gr : Kernames.kername) (s : string) : prim =
   
 let extract_primitive (gr : Kernames.kername) (symb : string) (arity : int) : prim =
   (gr, Primitive (symb, arity))
+
+let extract_inductive (gr : Kernames.inductive) (cstrs : string * int list) : inductive_mapping =
+  (gr, cstrs)
+
+let global_inductive_registers = 
+  Summary.ref ([] : inductives_mapping) ~name:"MetaCoq Malfunction Inductive Registration"
+  
+let global_inductive_registers_name = "metacoq-malfunction-inductive-registration"
+
+let cache_inductive_registers inds =
+  let inds' = !global_inductive_registers in
+  global_inductive_registers := inds @ inds'
+
+let global_inductive_registers_input = 
+  let open Libobject in 
+  declare_object 
+    (global_object_nodischarge global_inductive_registers_name
+    ~cache:(fun r -> cache_inductive_registers r)
+    ~subst:None)
+
+let register_inductives (inds : inductives_mapping) : unit =
+  Lib.add_leaf (global_inductive_registers_input inds)
 
 let global_registers = 
   Summary.ref (([], []) : prim list * package list) ~name:"MetaCoq Malfunction Registration"

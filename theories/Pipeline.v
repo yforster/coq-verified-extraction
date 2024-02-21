@@ -44,7 +44,8 @@ From Malfunction Require Import Compile Serialize.
 
 Record malfunction_pipeline_config := 
   { erasure_config :> erasure_configuration; 
-    prims : Malfunction.primitives }.
+    prims : Malfunction.primitives;
+    ind_mapping : Malfunction.inductive_mapping }.
 
 Definition int_to_nat (i : Uint63.int) : nat :=
   Z.to_nat (Uint63.to_Z i).

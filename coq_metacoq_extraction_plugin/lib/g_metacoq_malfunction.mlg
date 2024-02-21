@@ -21,10 +21,15 @@ open Metacoq_malfunction
 }
 
 VERNAC ARGUMENT EXTEND metaCoqRegister_extract_cnst 
-| [ reference(gr) "erased" ] -> { (kername_of_qualid ~loc gr, Erased) }
+| [ reference(gr) "erased" ] -> { (constant_of_qualid ~loc gr, Erased) }
 | [ reference(gr) "=>" string(str) natural(arity) ] ->
-  { extract_primitive (kername_of_qualid ~loc gr) str arity }
-| [ reference(gr) "=>" string(str) ] -> { extract_constant (kername_of_qualid ~loc gr) str }
+  { extract_primitive (constant_of_qualid ~loc gr) str arity }
+| [ reference(gr) "=>" string(str) ] -> { extract_constant (constant_of_qualid ~loc gr) str }
+END
+
+VERNAC ARGUMENT EXTEND metaCoqRegister_extract_inductive 
+| [ reference(gr) "=>" string(ty) "[" natural_list(cstrs) "]" ] ->
+  { extract_inductive (inductive_of_qualid ~loc gr) (ty, cstrs) }
 END
 
 VERNAC COMMAND EXTEND MetaCoqExtract_Register CLASSIFIED AS SIDEFF
@@ -34,6 +39,9 @@ VERNAC COMMAND EXTEND MetaCoqExtract_Register CLASSIFIED AS SIDEFF
 | [ "MetaCoq" "Extract" "Constants" "[" metaCoqRegister_extract_cnst_list_sep(prims, ",") "]" ] -> {
     register prims []
   }
+| [ "MetaCoq" "Extract" "Inductives" "[" metaCoqRegister_extract_inductive_list_sep(inds, ",") "]" ] -> {
+    register_inductives inds
+}
 END
 
 
