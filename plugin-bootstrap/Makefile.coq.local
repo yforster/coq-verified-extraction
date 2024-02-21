@@ -15,10 +15,10 @@ axioms.cmx: axioms.ml
 compile_malfunction.cmi: compile_malfunction.mli
 	ocamlfind opt ${CAMLFLAGS} ${FINDLIBPKGS} -for-pack Metacoq_extraction_malfunction compile_malfunction.mli
 	
-compile_malfunction.cmx: axioms.cmx extract_extraction.vo
+compile_malfunction.cmx: axioms.cmx extract_extraction.vo compile_malfunction.cmi
 	cp _build/compile_malfunction.mlf compile_malfunction.mlf
 	# ocamlfind opt ${CAMLFLAGS} ${FINDLIBPKGS} -for-pack Metacoq_extraction_malfunction axioms.mli
 	malfunction cmx -O2 -shared ${FINDLIBPKGS} -for-pack Metacoq_extraction_malfunction compile_malfunction.mlf
 
 clean::
-	rm -f compile_malfunction.cmx axioms.cmx
+	rm -f compile_malfunction.cmx compile_malfunction.cmi axioms.cmx
