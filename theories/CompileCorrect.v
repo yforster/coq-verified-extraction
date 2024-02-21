@@ -474,7 +474,7 @@ Proof.
         destruct lookup_constructor_args; cbn in *; congruence.
       * revert H0. destruct p. simp compile. unfold compile_unfold_clause_11.
         destruct lookup_record_projs; congruence.
-      * revert H0. destruct prim; cbn. unfold to_primitive. cbn. destruct p; cbn; congruence.
+      * revert H0. destruct prim as [? []]; simp compile; cbn; congruence.
     + rewrite Mapply_spec. 2: destruct arg; cbn; congruence.
       eapply Mapply_eval.
       * rewrite <- E. cbn in IHHeval1. eauto.
@@ -616,7 +616,7 @@ Proof.
         destruct lookup_constructor_args; cbn; try congruence. unfold Mcase. congruence.
       * revert H0. destruct p; simp compile. unfold compile_unfold_clause_11.
         destruct lookup_record_projs; cbn; congruence.
-      * revert H0. destruct prim; destruct p; cbn; try congruence. 
+      * revert H0. destruct prim; destruct p; simp compile; cbn; try congruence. 
     + rewrite Mapply_spec. 2: destruct arg; cbn; congruence.
       eapply Mapply_eval_rec. 2: rewrite <- E.
       2: cbn in IHHeval1.
@@ -767,7 +767,8 @@ Proof.
     rewrite firstn_length in H0.
     destruct nth_error eqn:E; try congruence.
     eapply nth_error_Some_length in E. lia.
-  - inversion ev; subst; econstructor. 
+  - destruct p as [? []]; inversion ev; subst; simp compile; econstructor.
+    cbn. todo "arrays". 
 Qed.
 Print Assumptions compile_correct.
 
@@ -800,13 +801,14 @@ Section fix_global.
     | Malfunction.Mconvert (from, to, x) => wellformed Γ x
     | Malfunction.Mblock (tag, xs) => Nat.ltb (int_to_nat tag) 200 && forallb (wellformed Γ) xs
     | Malfunction.Mfield (i, x) => wellformed Γ x
+    (* | Malfunction.Mlazy x => wellformed Γ x *)
+    (* | Malfunction.Mforce x => wellformed Γ x *)
     | _ => false
 (*    | Malfunction.Mvecnew (ty, x1, x2) => wellformed Γ x1 && wellformed Γ x2
     | Malfunction.Mvecget (ty, x1, x2) => wellformed Γ x1 && wellformed Γ x2
     | Malfunction.Mvecset (ty, x1, x2, x3) => wellformed Γ x1 && wellformed Γ x2 && wellformed Γ x3
     | Malfunction.Mveclen (ty, x) => false
-    | Malfunction.Mlazy x => wellformed Γ x
-    | Malfunction.Mforce x => wellformed Γ x *)
+     *)
     end
   with wellformed_binding Γ (b : Malfunction.binding) :=
          match b with
@@ -895,10 +897,39 @@ Proof.
       eapply IHl2. lia.
 Qed.
 
+(* We disable primitive arrays and fix/cofix for correctness. *)
+Definition extraction_env_flags_mlf := 
+  let nolazy_array_term_flags := {|
+    EWellformed.has_tBox := false;
+    EWellformed.has_tRel := true;
+    EWellformed.has_tVar := false;
+    EWellformed.has_tEvar := false;
+    EWellformed.has_tLambda := true;
+    EWellformed.has_tLetIn := true;
+    EWellformed.has_tApp := true;
+    EWellformed.has_tConst := true;
+    EWellformed.has_tConstruct := true;
+    EWellformed.has_tCase := true;
+    EWellformed.has_tProj := false;
+    EWellformed.has_tFix := true;
+    EWellformed.has_tCoFix := false;
+    EWellformed.has_tPrim := 
+      {| EWellformed.has_primint := true;
+         EWellformed.has_primfloat := true;
+         EWellformed.has_primarray := false |};
+    EWellformed.has_tLazy_Force := false
+  |}
+  in
+  {|
+  EWellformed.has_axioms := false;
+  EWellformed.has_cstr_params := false;
+  EWellformed.term_switches := nolazy_array_term_flags;
+  EWellformed.cstr_as_blocks := true |}.
+
 Lemma compile_wellformed Γ n s t (Σ : EAst.global_declarations) :
     (forall i args, lookup_constructor_args Σ i = Some args ->
             blocks_until (List.length args) args < 200) ->
-  EWellformed.wellformed (efl := extraction_env_flags) Σ n t ->
+  EWellformed.wellformed (efl := extraction_env_flags_mlf) Σ n t ->
   represents Γ [] s t ->
   wellformed (map fst (compile_env Σ)) Γ (compile Σ s).
 Proof.
@@ -1036,11 +1067,12 @@ Proof.
           reflexivity. }
       cbn. eapply nth_error_In in Eq.
       eapply in_map_iff; eexists; split; eauto.
-  - inversion X; subst; eauto.  
+  - depelim X; eauto. subst a0.
+    now simp compile; cbn in Hwf |- *.
 Qed.
 
 Lemma compile_extends Γ n s t (Σ Σ' : EAst.global_declarations) :
-  EWellformed.wellformed (efl := extraction_env_flags) Σ n t ->
+  EWellformed.wellformed (efl := extraction_env_flags_mlf) Σ n t ->
   represents Γ [] s t ->
   EGlobalEnv.extends Σ Σ' ->
   compile Σ s = compile Σ' s.
@@ -1097,6 +1129,13 @@ Proof.
       repeat eapply andb_and in H1 as [H1 ?]. destruct idx; cbn. 
       f_equal; eauto. f_equal; eauto. unshelve eapply (IHa0 _ _ (S n)); eauto.
       replace (#|l'| + S n) with (S (#|l'| + n)) by lia. eauto.
+  - destruct p as [? []]; simp compile; eauto.
+    depelim X. specialize (e eq_refl). now cbn in Hwf.
+    (*f_equal. f_equal. rewrite !map_InP_spec; cbn.
+    subst a' a1; cbn in *. apply andb_and in Hwf as []. cbn in *. f_equal; eauto.
+    f_equal. eapply e; tea.*)
+  - f_equal; rtoProp; intuition eauto.
+  - f_equal; rtoProp; intuition eauto.
 Qed.  
 
 Lemma Mapply_eval_fail `{Heap} globals locals 
@@ -1160,5 +1199,5 @@ Proof.
     + erewrite compile_equation_12 in Ht'. destruct lookup_constructor_args; inversion Ht'.
   - destruct p. erewrite compile_equation_13 in Ht'. unfold compile_unfold_clause_11 in Ht'.
     destruct lookup_record_projs; inversion Ht'.
-  - erewrite compile_equation_16 in Ht'. destruct prim as [[] []]; inversion Ht'.  
+  - destruct prim as [? []]; simp compile in Ht'; congruence.
 Qed.

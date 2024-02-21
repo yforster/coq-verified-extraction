@@ -1,8 +1,109 @@
-From Malfunction.Plugin Require Import Loader.
+From Malfunction.Plugin Require Import Extract OCamlFFI.
 From MetaCoq.Template Require Import All.
+From Coq Require ZArith Lists.StreamMemo.
 
 From Coq Require Import String.
 From Coq Require Vector.
+
+Set MetaCoq Extraction Build Directory "_build".
+
+From Coq Require Import PrimInt63 Sint63.
+Definition test_primint := 
+  let _ := print_int Sint63.min_int in
+  let _ := print_newline tt in
+  let _ := print_int Sint63.max_int in
+  tt.
+Eval compute in test_primint.
+MetaCoq Extraction -fmt -compile-with-coq -run test_primint "test_primint.mlf".
+
+From Coq Require Import PrimFloat.
+Definition test_floats := print_float (100.5)%float.
+Eval compute in test_floats.
+MetaCoq Extraction -fmt -compile-with-coq -run test_floats "test_floats.mlf".
+
+(* Lazy cofixpoint implentation *)
+
+Module NegativeCoind.
+Set Primitive Projections.
+CoInductive stream := Cons
+  { head : nat; tail : stream }.
+
+Fixpoint take (n : nat) (s : stream) : list nat :=
+  match n with
+  | 0 => []
+  | S n => s.(head) :: take n s.(tail)
+  end.
+  
+CoFixpoint ones : stream := {| head := 1; tail := ones |}.
+
+Definition test_ones := print_string (show (take 10 ones)).
+
+MetaCoq Extraction -fmt -unsafe -compile-with-coq -run test_ones "ones.mlf".
+
+CoFixpoint naturals (n : nat) : stream := 
+  {| head := n; tail := naturals (S n) |}.
+
+MetaCoq Extraction -fmt -unsafe naturals.
+
+Definition test_take := print_string (show (take 10 (naturals 0))).
+
+MetaCoq Extraction -fmt -unsafe -compile-with-coq -run test_take "naturals.mlf".
+
+Import ZArith Lists.StreamMemo.
+Local Open Scope Z_scope.
+Fixpoint tfact (n: nat) :=
+  match n with
+   | O => 1
+   | S n1 => Z.of_nat n * tfact n1
+  end.
+
+Definition lfact_list :=
+  dimemo_list _ tfact (fun n z => (Z.of_nat (S  n) * z)).
+
+Definition lfact n := dmemo_get _ tfact n lfact_list.
+
+Theorem lfact_correct n: lfact n = tfact n.
+Proof.
+unfold lfact, lfact_list.
+rewrite dimemo_get_correct; auto.
+Qed.
+
+Fixpoint nop p :=
+  match p with
+   | xH => 0
+   | xI p1 => nop p1
+   | xO p1 => nop p1
+  end.
+
+Definition test z :=
+  match z with
+   | Z0 => 0
+   | Zpos p1 => nop p1
+   | Zneg p1 => nop p1
+  end.
+
+(*  
+Time Eval vm_compute in test (lfact 2000). (* 4.7s *)
+Time Eval vm_compute in test (lfact 2000). (* Immediate due to sharing?? *)
+Time Eval vm_compute in test (lfact 1500).
+Time Eval vm_compute in (lfact 1500). (* 20s *) *)
+Arguments print_string s%bs.
+Definition arg := 1000%nat.
+Definition test_lfact := test (lfact arg).
+Definition show_lfact := print_string ("test_lfact: " ++ show (lfact arg)).
+Set Debug "metacoq-extraction".
+
+MetaCoq Extraction -time -fmt -typed -unsafe -compile-with-coq -run test_lfact "test_lfact_typed.mlf". (* 2.5s running time *)
+MetaCoq Extraction -time -fmt -unsafe -compile-with-coq -run test_lfact "test_lfact.mlf". (* 2.5s running time *)
+MetaCoq Extraction -optimize -time -fmt -typed -unsafe -compile-with-coq -run 
+  test_lfact "test_lfact_typed_opt.mlf". (* 2.5s running time *)
+
+MetaCoq Extraction -time -fmt -typed -unsafe -compile-with-coq -run 
+  show_lfact "show_lfact_typed.mlf". (* 3.4s running time *)
+MetaCoq Extraction -time -fmt -unsafe -compile-with-coq -run 
+  show_lfact "show_lfact.mlf". (* 3.4s running time *)
+
+End NegativeCoind.
 
 Inductive three := ZERO | ONE | TWO | THREE.
 
@@ -12,7 +113,7 @@ From MetaCoq.Utils Require Import bytestring.
 
 Definition test_bytestring (u : unit) := bytestring.String.compare "" "bug".
 
-MetaCoq Extraction test_bytestring "test_bytestring.mlf".
+MetaCoq Extraction -compile-with-coq test_bytestring "test_bytestring.mlf".
 
 MetaCoq Extraction two "two.mlf".
 
@@ -20,22 +121,17 @@ Axiom axiom : nat.
 
 MetaCoq Extraction axiom "axiom.mlf".
 
-From Malfunction Require Import Compile.
+From Malfunction Require Import Compile Pipeline.
 
-Set Warnings "-primitive-turned-into-axiom".
-MetaCoq Extraction compile "compile.mlf".
-
-From Malfunction Require Import Pipeline.
-MetaCoq Extraction compile_malfunction "compile_malfunction.mlf".
 From Coq Require Import List.
 Import ListNotations.
 
 Polymorphic Record myprod@{i j} (A : Type@{i}) (B : Type@{j}) := mypair { fst : A; snd : B }.
 
 Notation "( x , y , .. , z )" := (mypair _ _ .. (mypair _ _ x y) .. z) : core_scope.
-Definition many_list_functions : myprod _ _ := (@List.firstn, @List.filter, @List.skipn).
+Definition many_list_functions : myprod _ _ := (@List.firstn nat, @List.filter nat, @List.skipn nat).
 
-MetaCoq Extraction many_list_functions "list.mlf".
+MetaCoq Extraction -fmt -typed many_list_functions "list.mlf".
 
 Definition prf := match conj I I with conj x y => (x,0) end.
 
@@ -106,34 +202,3 @@ MetaCoq Extraction (forest_size arden).
 Definition sub : { x : nat | x = 0 } := @exist _ _ 0 eq_refl.
 MetaCoq Extraction sub.
 MetaCoq Extraction -typed sub.
-
-(** Primitives *)
-
-MetaCoq Register Extraction [
-  Coq.Numbers.Cyclic.Int63.PrimInt63.add => "PrimInt63.prim_int63_add",
-  Coq.Numbers.Cyclic.Int63.PrimInt63.eqb => "PrimInt63.prim_int63_eqb",
-  Coq.Numbers.Cyclic.Int63.PrimInt63.land => "PrimInt63.prim_int63_land", 
-  Coq.Numbers.Cyclic.Int63.PrimInt63.lsr => "PrimInt63.prim_int63_lsr", 
-  Coq.Numbers.Cyclic.Int63.PrimInt63.lsl => "PrimInt63.prim_int63_lsl", 
-  Coq.Numbers.Cyclic.Int63.PrimInt63.head0 => "PrimInt63.prim_int63_head0", 
-  Coq.Numbers.Cyclic.Int63.PrimInt63.tail0 => "PrimInt63.prim_int63_tail0", 
-  Coq.Numbers.Cyclic.Int63.PrimInt63.compare => "PrimInt63.prim_int63_compare", 
-  Coq.Numbers.Cyclic.Int63.PrimInt63.subc => "PrimInt63.prim_int63_subc",
-  Coq.Numbers.Cyclic.Int63.PrimInt63.sub => "PrimInt63.prim_int63_sub", 
-  Coq.Numbers.Cyclic.Int63.PrimInt63.addc => "PrimInt63.prim_int63_addc", 
-  Coq.Numbers.Cyclic.Int63.PrimInt63.addcarryc => "PrimInt63.prim_int63_addcarryc", 
-  Coq.Numbers.Cyclic.Int63.PrimInt63.subcarryc => "PrimInt63.prim_int63_subcarryc", 
-  Coq.Numbers.Cyclic.Int63.PrimInt63.mulc => "PrimInt63.prim_int63_mulc", 
-  Coq.Numbers.Cyclic.Int63.PrimInt63.mul => "PrimInt63.prim_int63_mul", 
-  Coq.Numbers.Cyclic.Int63.PrimInt63.diveucl_21 => "PrimInt63.prim_int63_diveucl_21", 
-  Coq.Numbers.Cyclic.Int63.PrimInt63.diveucl => "PrimInt63.prim_int63_diveucl", 
-  Coq.Numbers.Cyclic.Int63.PrimInt63.mod => "PrimInt63.prim_int63_mod", 
-  Coq.Numbers.Cyclic.Int63.PrimInt63.addmuldiv => "PrimInt63.prim_int63_addmuldiv", 
-  Coq.Numbers.Cyclic.Int63.PrimInt63.leb => "PrimInt63.prim_int63_leb", 
-  Coq.Numbers.Cyclic.Int63.PrimInt63.ltb => "PrimInt63.prim_int63_ltb", 
-  Coq.Numbers.Cyclic.Int63.PrimInt63.div => "PrimInt63.prim_int63_div", 
-  Coq.Numbers.Cyclic.Int63.PrimInt63.lor => "PrimInt63.prim_int63_lor", 
-  Coq.Numbers.Cyclic.Int63.PrimInt63.lxor => "PrimInt63.prim_int63_lxor"
-] Packages [].
-
-MetaCoq Extraction PrimInt63.add.

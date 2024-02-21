@@ -1,0 +1,61 @@
+(*i camlp4deps: "grammar/grammar.cma" i*)
+
+DECLARE PLUGIN "coq_metacoq_extraction.plugin"
+
+{
+
+open Names
+open Pp
+open Ltac_plugin
+open Stdarg
+open Pcoq.Prim
+open Tacexpr
+open Tacinterp
+open Stdarg
+open Tacarg
+open Genredexpr
+
+open Metacoq_malfunction
+
+
+}
+
+VERNAC ARGUMENT EXTEND metaCoqRegister_extract_cnst 
+| [ reference(gr) "erased" ] -> { (constant_of_qualid ~loc gr, Erased) }
+| [ reference(gr) "=>" string(str) natural(arity) ] ->
+  { extract_primitive (constant_of_qualid ~loc gr) str arity }
+| [ reference(gr) "=>" string(str) ] -> { extract_constant (constant_of_qualid ~loc gr) str }
+END
+
+VERNAC ARGUMENT EXTEND metaCoqRegister_extract_inductive 
+| [ reference(gr) "=>" string(ty) "[" natural_list(cstrs) "]" ] ->
+  { extract_inductive (inductive_of_qualid ~loc gr) (ty, cstrs) }
+END
+
+VERNAC COMMAND EXTEND MetaCoqExtract_Register CLASSIFIED AS SIDEFF
+| [ "MetaCoq" "Extract" "Constants" "[" metaCoqRegister_extract_cnst_list_sep(prims, ",") "]" "Packages" "[" string_list_sep(packages, ",") "]" ] -> {
+    register prims packages
+  }
+| [ "MetaCoq" "Extract" "Constants" "[" metaCoqRegister_extract_cnst_list_sep(prims, ",") "]" ] -> {
+    register prims []
+  }
+| [ "MetaCoq" "Extract" "Inductives" "[" metaCoqRegister_extract_inductive_list_sep(inds, ",") "]" ] -> {
+    register_inductives inds
+}
+END
+
+
+ARGUMENT EXTEND extract_args
+| [ "-unsafe" ] -> { Unsafe }
+| [ "-time" ] -> { Time }
+| [ "-typed" ] -> { Typed }
+| [ "-bypass-qeds" ] -> { BypassQeds }
+| [ "-fast" ] -> { Fast }
+| [ "-compile-plugin" ] -> { ProgramType Plugin }
+| [ "-compile-with-coq" ] -> { ProgramType (Standalone true) }
+| [ "-compile" ] -> { ProgramType (Standalone false) }
+| [ "-run" ] -> { Run }
+| [ "-verbose" ] -> { Verbose }
+| [ "-fmt" ] -> { Format }
+| [ "-optimize" ] -> { Optimize }
+END

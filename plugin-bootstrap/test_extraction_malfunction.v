@@ -1,8 +1,47 @@
 From MetaCoq.Template Require Import Loader.
 From MetaCoq.ErasurePlugin Require Import Loader.
-From VerifiedExtraction.Plugin Require Import Loader.
+From Malfunction.VerifiedPlugin Require Import Loader OCamlFFI.
 From MetaCoq.Template Require Import All.
 
+From Coq Require Import ZArith PrimInt63 Sint63.
+Eval compute in PrimInt63.ltb Sint63.min_int Sint63.min_int.
+
+Set MetaCoq Extraction Build Directory "_build".
+
+Set Warnings "-primitive-turned-into-axiom".
+
+Definition test := print_int ( Sint63.max_int).
+MetaCoq Verified Extraction -fmt -verbose -compile-with-coq -run test "test.mlf".
+MetaCoq Verified Extraction -verbose Sint63.min_int.
+MetaCoq Verified Extraction -verbose Uint63.max_int.
+
+Definition max_to_Z := print_string (string_of_Z (Uint63.to_Z Uint63.max_int)).
+MetaCoq Verified Extraction -verbose -compile-with-coq -run max_to_Z "max_to_Z.mlf".
+
+From Coq Require Import PrimFloat.
+Definition test_float := print_float (7500.50)%float.
+Eval compute in FloatOps.Prim2SF 75000.5%float.
+MetaCoq Verified Extraction -fmt -compile-with-coq -run test_float "test_float.mlf".
+
+From Coq Require Import PArray.
+From Malfunction Require Import utils_array.
+
+Definition val : array nat := PArray.make 3 2.
+
+Definition gettest : nat := PArray.get val 2. 
+Definition settest : array nat := PArray.set val 2 1. 
+Definition getsettest : nat := PArray.get settest 2.
+
+Set Warnings "-primitive-turned-into-axiom".
+
+Definition prim_array_get := (print_int (int_of_nat gettest)).
+Definition prim_array_get_set := (print_int (int_of_nat getsettest)).
+
+MetaCoq Extraction -fmt -typed -compile-with-coq val "val.mlf".
+MetaCoq Extraction -fmt -typed -compile-with-coq -run prim_array_get "prim_array_get.mlf".
+MetaCoq Extraction -fmt -typed -compile-with-coq -run prim_array_get_set "prim_array_get_set.mlf".
+
+(*
 Open Scope bs.
 
 From MetaCoq.Common Require Import Kernames.
@@ -16,7 +55,7 @@ Definition two := TWO.
 
 Open Scope bs.
 
-From Coq Require Import Uint63.
+From Coq Require Import Uint63.xfg+
 
 MetaCoq Verified Extraction max_int.
 
@@ -129,3 +168,4 @@ Definition arden: forest bool :=
                (leaf false)).
 
 MetaCoq Verified Extraction (forest_size arden).
+*)

@@ -1,5 +1,4 @@
 Require Import List Uint63.
-Require Extraction ExtrOcamlBasic ExtrOCamlInt63.
 Import ListNotations.
 
 Definition merge {T : Type} (leT : T -> T -> bool) :=
@@ -79,10 +78,15 @@ Definition append1_sorted_option (s : list int) (x : int) : option (list int) :=
   else None.
 
 Require Import Malfunction.Extraction.
-From VerifiedExtraction Require Import Loader.
+From Malfunction.VerifiedPlugin Require Import Loader OCamlFFI.
+Set MetaCoq Extraction Build Directory ".".
+
 From MetaCoq.Utils Require Import bytestring.
-MetaCoq Verified Extraction append1_and_sort "append.mlf".
-MetaCoq Run Print mli append1_and_sort.
 
-MetaCoq Verified Extraction max_int.
+Definition test := append1_and_sort [1%uint63] 1.
+Eval compute in test.
+From Malfunction.Plugin Require Import Show.
+Definition append1_and_sort_test := print_string (show test).
 
+MetaCoq Run Print mli append1_and_sort_test.
+MetaCoq Verified Extraction -compile-with-coq -run append1_and_sort_test "append1_and_sort.mlf".

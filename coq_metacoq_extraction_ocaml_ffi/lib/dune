@@ -1,0 +1,4 @@
+(library
+ (public_name coq_metacoq_extraction_ocaml_ffi)
+ (name coq_metacoq_extraction_ocaml_ffi)
+ (libraries coq-metacoq-template-ocaml.plugin stdlib-shims coq-core.kernel coq-core.lib))

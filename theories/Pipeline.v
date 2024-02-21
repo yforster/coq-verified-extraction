@@ -44,6 +44,10 @@ Import EWcbvEval.
 
 From Malfunction Require Import Compile Serialize.
 
+Record malfunction_pipeline_config := 
+  { erasure_config :> erasure_configuration; 
+    prims : Malfunction.primitives }.
+
 Definition int_to_nat (i : Uint63.int) : nat :=
   Z.to_nat (Uint63.to_Z i).
 
@@ -395,9 +399,10 @@ Program Definition compile_to_malfunction (efl := named_extraction_env_flags) `{
       obseq p _ p' v v' := forall (hh:heap), v' = CompileCorrect.compile_value p.1 v
   |}.
 Next Obligation. sq.
-  erewrite map_ext.
-  eapply compile_wellformed.
-  eapply H3. eapply H4. eapply H5.
+  erewrite (map_ext _ fst).
+  eapply (compile_wellformed _ 0 _ H2).
+  eapply H3.
+  apply ECoInductiveToInductive.trust_cofix. (* eapply H4. *) eapply H5.
   intros. now destruct x.
 Qed.
 Next Obligation.
@@ -990,9 +995,10 @@ Section malfunction_pipeline_wellformed.
     revert Happ. set (transform _ _ _). intro. 
     rewrite Happ.  
     destruct H2 as [? [[? [? ?]] ?]]. sq.   
-    eapply compile_extends in H. 2-3: eauto. 
+    eapply (compile_extends _ 0) in H. 2-3: eauto. 
     destruct H3 as [? [[? [? ?]] ?]]. sq.
-    eapply compile_extends in H0. 2-3: eauto.
+    eapply (compile_extends _ 0) in H0. 3: eauto. 
+    2-3:eapply ECoInductiveToInductive.trust_cofix.
     revert H H0. clear. unfold p. clear p.
     repeat set (transform _ _ _). clearbody p p0 p1.
     rewrite compile_equation_7; intros; f_equal; eauto. 
@@ -1012,8 +1018,9 @@ Section malfunction_pipeline_wellformed.
     destruct_compose; intro; cbn.
     unfold compile_to_malfunction, transform at 1. cbn.  
     epose proof (correctness verified_named_erasure_pipeline) as [? [? [? ?]]]. destruct H2. 
-    eapply compile_wellformed; eauto. 
+    eapply (compile_wellformed _ 0); eauto. 
     eapply few_enough_blocks; eauto.
+    eapply ECoInductiveToInductive.trust_cofix.
   Qed. 
 
   Lemma verified_named_erasure_pipeline_inductive_irrel t' expt'
@@ -1083,17 +1090,13 @@ Print Assumptions verified_malfunction_pipeline_theorem.
 Local Existing Instance CanonicalHeap.
 Local Existing Instance CanonicalPointer.
 
-Record malfunction_pipeline_config := 
-  { erasure_config :> erasure_configuration; 
-    prims : list (kername * (string * string)) }.
-
 (* This also optionally runs typed erasure and/or the cofix to fix translation *)
 Program Definition switchable_erasure_pipeline econf :=
   if econf.(enable_typed_erasure) then verified_typed_erasure_pipeline econf
-  else verified_erasure_pipeline ▷ (optional_cofix_to_fix_transform econf).
+  else verified_erasure_pipeline ▷ (optional_unsafe_transforms econf).
 Next Obligation.
 Proof.
-  unfold optional_cofix_to_fix_transform.
+  unfold optional_unsafe_transforms, optional_self_transform. cbn.
   destruct enable_cofix_to_fix => //.
 Qed.
 

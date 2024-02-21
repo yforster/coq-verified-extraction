@@ -1,6 +1,8 @@
 From Coq Require Import ssreflect.
 From Coq Require Import ZArith Floats.
 From MetaCoq.Utils Require Import bytestring ReflectEq.
+From MetaCoq.Common Require Import Kernames. 
+
 Module Int63 := Numbers.Cyclic.Int63.Uint63.
 Notation int := Int63.int.
 
@@ -137,3 +139,13 @@ Definition var := Ident.t.
 
 Definition module := list (Malfunction.Ident.t * t).
 Definition program : Type := list (Ident.t * option t) * t.
+
+Inductive prim_def (id : Type) := 
+ | Global (modname : id) (label : id)
+ | Primitive (symbol : string) (arity : nat)
+ | Erased.
+Arguments Global {id}.
+Arguments Primitive {id}.
+Arguments Erased {id}.
+
+Definition primitives := list (bytestring.string * prim_def bytestring.string).

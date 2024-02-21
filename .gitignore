@@ -63,7 +63,6 @@ doc/coqdoc.css
 doc/index.html
 plugin/extraction
 plugin/Makefile.conf
-plugin/Makefile
 plugin/g_metacoq_malfunction.ml
 plugin/*.mlf
 plugin/tests/*.mlf
@@ -71,5 +70,13 @@ plugin/META
 plugin-bootstrap/META
 plugin-bootstrap/Makefile.coq
 plugin-bootstrap/Makefile.coq.conf
-*.ml
-*.mli
+coq_metacoq_extraction_ocaml_ffi/coq_metacoq_extraction_ocaml_ffi.opam
+plugin/Makefile.theories.conf
+plugin/Makefile.theories
+plugin/Makefile.plugin.conf
+plugin/Makefile.plugin
+examples/prim-integers/append.mlf
+examples/prim-integers/append.mlf.fmt
+plugin/g_metacoq_extraction_ocaml.ml
+coq_metacoq_extraction_malfunction_ffi/coq_metacoq_extraction_malfunction_ffi.opam
+.vscode/settings.json

@@ -1,4 +1,5 @@
-From MetaCoq.Utils Require Import bytestring ReflectEq.
+From MetaCoq.Utils Require Import bytestring ReflectEq utils.
+From MetaCoq.Common Require Kernames.
 
 Require Import String Ascii Bool Arith.
 Require Import Malfunction.Malfunction.
@@ -40,35 +41,33 @@ Fixpoint _escape_ident (_end s : String.t) : String.t :=
 #[export] Instance Serialize_Ident : Serialize Ident.t :=
   fun a => Atom (append "$" (bytestring.String.to_string (_escape_ident ""%bs a))).
 
-Require PrimInt63.
+Require Sint63.
 
-Section primint.
-
-Import PrimInt63.
-Definition min_int := Eval vm_compute in (PrimInt63.lsl 1 62).
-Definition max_int := Eval vm_compute in (PrimInt63.sub min_int 1).
-
-Definition Z_opp := fun x : BinNums.Z =>
-match x with
-| BinNums.Z0 => BinNums.Z0
-| BinNums.Zpos x0 => BinNums.Zneg x0
-| BinNums.Zneg x0 => BinNums.Zpos x0
-end.
-
-Definition sint_to_Z (i : int) :=  match PrimInt63.ltb i min_int return BinNums.Z with
-                      | true => Uint63.to_Z i
-                      | false => Z_opp (Uint63.to_Z (Int63.opp i))
-                      end.
-End primint.
+Definition sint_to_Z := Sint63.to_Z.
 
 #[export] Instance Serialize_int : Serialize int :=
    fun i => to_sexp (sint_to_Z i).
+
+Import SpecFloat.
+From Coq Require Numbers.HexadecimalString. 
+Definition string_of_specfloat (f : SpecFloat.spec_float) : string :=
+  match f with
+  | S754_zero sign => if sign then "-0.0" else "0.0"
+  | S754_infinity sign => if sign then "neg_infinity" else "infinity"
+  | S754_nan => "nan"
+  | S754_finite sign p z => 
+    let abs := 
+    "0x" ++ HexadecimalString.NilZero.string_of_uint (Pos.to_hex_uint p) ++ "p" ++
+      DecimalString.NilZero.string_of_int (Z.to_int z)
+    in
+    if sign then "-" ++ abs else abs
+  end.
 
 #[export] Instance Serialize_numconst : Serialize numconst :=
   fun a => match a with
         | numconst_Int i => to_sexp (sint_to_Z i)
         | numconst_Bigint x => Atom (append (CeresString.string_of_Z x) ".ibig")
-        | numconst_Float64 x => Atom (append (CeresString.string_of_Z (Int63.to_Z (snd (PrimFloat.frshiftexp x)))) ".0")
+        | numconst_Float64 x => Atom (append (string_of_specfloat (FloatOps.Prim2SF x)) ".f64")
         end.
 
 Definition Cons x (l : sexp) :=
@@ -237,21 +236,38 @@ Definition encode_name (s : bytestring.string) : bytestring.string :=
 Definition exports (m : list (Ident.t * option t)) : list (Ident.t * option t) :=
   List.map (fun '(x, v) => (("def_" ++ encode_name x)%bs, Some (Mglobal x))) m.
 
-From MetaCoq.Common Require Import Kernames. 
-  
-Definition primitives := list (kername * (bytestring.string * bytestring.string)).
 
 Definition bytestring_atom s := 
   ("$" :: bytestring.String.to_string s).
 
-Fixpoint find_prim (id : Ident.t) (prims : primitives) : option (string * string) :=
+Fixpoint find_prim (id : Ident.t) (prims : primitives) : option (prim_def string) :=
   match prims with
   | nil%list => None
-  | ((kn, (modname, label)) :: prims)%list =>
-    if ReflectEq.eqb id (string_of_kername kn) then 
-      Some (bytestring_atom modname, bytestring_atom label)
+  | ((kn, primdef) :: prims)%list =>
+    if ReflectEq.eqb id kn then
+      match primdef with
+      | Global modname label => Some (Global (bytestring_atom modname) (bytestring_atom label))
+      | Primitive symbol arity => Some (Primitive symbol arity) 
+      | Erased => Some Erased
+      end
     else find_prim id prims
   end.
+
+Section binders.
+  Context (x : bytestring.string).
+  
+  Definition add_suffix n := (x ++ MCString.string_of_nat n)%bs.
+
+  Fixpoint binders n acc := 
+    match n with
+    | 0 => acc
+    | S n => binders n (add_suffix n :: acc)%list
+    end.
+End binders.
+
+Definition mk_eta_exp n s := 
+  let binders := binders "x"%bs n nil in
+  [ Atom "lambda" ; to_sexp binders ; List (Atom s :: List.map to_sexp binders) ].
 
 Definition global_serializer (prims : primitives) : Serialize (Ident.t * option t) :=
   fun '(i, b) => 
@@ -259,15 +275,31 @@ Definition global_serializer (prims : primitives) : Serialize (Ident.t * option 
   | Some x => to_sexp ("def_" ++ i, x)%bs
   | None => 
     match find_prim i prims with
-    | Some (modname, label) => 
+    | Some (Global modname label) => 
       let na := bytestring.String.to_string (uncapitalize ("def_" ++ encode_name i)%bs) in
       List ( Atom (Raw ("$" :: na)) :: [Atom "global" ; Atom (Raw modname) ; Atom (Raw label)] :: nil)
+    | Some (Primitive symbol arity) => 
+      let na := bytestring.String.to_string (uncapitalize ("def_" ++ encode_name i)%bs) in
+      List ( Atom (Raw ("$" :: na)) :: 
+      mk_eta_exp arity (Raw (bytestring.String.to_string symbol)) :: nil)
+    | Some Erased
     | None =>
     let na := bytestring.String.to_string (uncapitalize ("def_" ++ encode_name i)%bs) in
       List ( Atom (Raw ("$" :: na)) :: [Atom "global" ; Atom (Raw ("$Axioms")) ; Atom (Raw ("$" :: na)) ]
              :: nil)
     end
   end.
+
+Fixpoint filter_erased_prims prims (l : list (Ident.t * option t)) : list (Ident.t * option t) :=
+  match l with
+  | nil => nil
+  | cons ((id, Some _) as x) xs => x :: filter_erased_prims prims xs
+  | cons ((id, None) as x) xs => 
+    match find_prim id prims with 
+    | Some Erased => filter_erased_prims prims xs
+    | _ => x :: filter_erased_prims prims xs
+    end
+  end.  
 
 Fixpoint thename a (s : bytestring.String.t) :=
   match s with
@@ -278,11 +310,16 @@ Fixpoint thename a (s : bytestring.String.t) :=
   end.
 
 Program Definition Serialize_module prims (names : list bytestring.string): Serialize program :=
-  fun '(m, x) =>
+  fun '(m, x) =>    
+    let name : Ident.t  := match m with
+                           | (x :: l)%list => fst x
+                           | nil => ""%bs
+                           end in
     let shortnames : list Ident.t := List.map (fun name => uncapitalize (thename nil name)) names in
     let longnames : list sexp := List.map (fun name => (to_sexp ("def_" ++ name)%bs)) names in
     let allnames := List.combine shortnames longnames in
     let exports : list sexp := List.map (fun shortname => Atom ("$" ++ String.to_string shortname)%string) shortnames  in
+    let m := filter_erased_prims prims m in
     match
       Cons (Atom "module") (@Serialize_list _ (global_serializer prims) (List.rev m))
     with

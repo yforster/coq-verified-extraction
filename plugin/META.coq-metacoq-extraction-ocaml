@@ -1,0 +1,10 @@
+
+package "plugin" (
+  directory = "."
+  requires = "coq-core.plugins.ltac coq-metacoq-template-ocaml.plugin coq_metacoq_extraction.plugin stdlib-shims"
+  archive(byte) = "metacoq_extraction_ocaml.cma"
+  archive(native) = "metacoq_extraction_ocaml.cmxa"
+  plugin(byte) = "metacoq_extraction_ocaml.cma"
+  plugin(native) = "metacoq_extraction_ocaml.cmxs"
+)
+directory = "."
