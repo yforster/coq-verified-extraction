@@ -34,7 +34,7 @@ jobs:
             endGroup
             startGroup "opam pin"
               opam pin -n -y "https://github.com/mattam82/malfunction.git#packages-and-dontlink-for-compile"
-              opam pin -n -y "https://github.com/MetaCoq/metacoq.git#coq-8.17"
+              opam pin -n -y "https://github.com/MetaCoq/metacoq.git#f9c62c5"
             endGroup
           after_install: |
             startGroup "make"
