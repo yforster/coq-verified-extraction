@@ -282,23 +282,69 @@ let get_prefix () =
 
 let build_fname f = 
   Filename.concat (get_prefix ()) f
+let increment_subscript id =
+  let len = String.length id in
+  let rec add carrypos =
+    let c = id.[carrypos] in
+    if Util.is_digit c then
+      if Int.equal (Char.code c) (Char.code '9') then begin
+        assert (carrypos>0);
+        add (carrypos-1)
+      end
+      else begin
+        let newid = Bytes.of_string id in
+        Bytes.fill newid (carrypos+1) (len-1-carrypos) '0';
+        Bytes.set newid carrypos (Char.chr (Char.code c + 1));
+        newid
+      end
+    else begin
+      let newid = Bytes.of_string (id^"0") in
+      if carrypos < len-1 then begin
+        Bytes.fill newid (carrypos+1) (len-1-carrypos) '0';
+        Bytes.set newid (carrypos+1) '1'
+      end;
+      newid
+    end
+  in String.of_bytes (add (len-1))
 
+let next_string_away_from s bad =
+  let rec name_rec s = if bad s then name_rec (increment_subscript s) else s in
+  name_rec s
+
+let loaded_modules = ref CString.Set.empty
+  
 let compile opts fname = 
   match opts.program_type with
   | None -> None
   | Some t ->
     let malfunction = find_executable opts "which malfunction" in
+    let ocamlfind = find_executable opts "which ocamlfind" in
     let packages = get_global_packages () in
     let packages = String.concat "," packages in
     let optimize = if opts.optimize then "-O2" else "" in
     match t with
     | Plugin -> 
+      let fname = 
+        let basename = Filename.chop_extension fname in
+        let freshname = next_string_away_from basename (fun s -> CString.Set.mem s !loaded_modules) in
+        let freshfname = freshname ^ ".mlf" in
+        if freshname <> basename then 
+          ignore (execute opts (Printf.sprintf "mv %s %s" fname freshfname));
+        loaded_modules := CString.Set.add freshname !loaded_modules;
+        freshfname
+      in
       let compile_cmd = 
         Printf.sprintf "%s cmx %s -shared -package %s %s" malfunction optimize packages fname
       in
       let _out, _err = execute opts compile_cmd in (* we now have fname . cmx *)
-      let shared_lib = Filename.chop_extension fname ^ ".cmxs" in
-      Some (SharedLib shared_lib)
+      let cmxfile =  Filename.chop_extension fname ^ ".cmx" in
+      let cmxsfile = Filename.chop_extension fname ^ ".cmxs" in
+      (* Build the shared library *)
+      let link_cmd = 
+        Printf.sprintf "%s opt -shared -package %s -o %s %s" ocamlfind packages cmxsfile cmxfile
+      in
+      let _out, _err = execute opts link_cmd in
+      Some (SharedLib cmxsfile)
     | Standalone link_coq -> 
       let output = Filename.chop_extension fname in
       let flags, packages =
@@ -314,10 +360,10 @@ let compile opts fname =
       notice opts Pp.(fun () -> str "Compiled to " ++ str output);
       Some (StandaloneProgram output)
 
-
 let run opts result =
   match result with
-  | SharedLib shared_lib -> Dynlink.loadfile_private shared_lib
+  | SharedLib shared_lib -> Dynlink.loadfile_private shared_lib;
+    debug Pp.(fun () -> str"Loaded shared library: " ++ str shared_lib)
   | StandaloneProgram s -> 
     let out, err = time opts Pp.(str s) (execute opts) ("./" ^ s) in
     if err <> "" then Feedback.msg_warning (Pp.str err);
