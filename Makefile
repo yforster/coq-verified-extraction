@@ -1,6 +1,4 @@
-all: coq plugin extraction_plugin extraction_ocaml_ffi extraction_malfunction_ffi bootstrap
-
-.PHONY: extraction_plugin extraction_ocaml_ffi extraction_malfunction_ffi
+all: coq extraction_plugin extraction_ocaml_ffi extraction_malfunction_ffi plugin bootstrap
 
 extraction_malfunction_ffi:
 	cd coq_metacoq_extraction_malfunction_ffi && dune build && dune install
@@ -52,3 +50,5 @@ plugin-bootstrap/Makefile.coq: plugin/_CoqProject
 bootstrap: coq plugin extraction_plugin extraction_malfunction_ffi
 	+make -C plugin-bootstrap -j 1
 	cd plugin-bootstrap && make -f Makefile.coq install
+
+.PHONY: extraction_plugin extraction_ocaml_ffi extraction_malfunction_ffi
