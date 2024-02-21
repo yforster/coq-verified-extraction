@@ -7,4 +7,4 @@ Set MetaCoq Extraction Build Directory "_build".
 Definition test := coq_msg_info "Hello world!".
 
 (* Set Debug "metacoq-extraction". *)
-MetaCoq Extraction -fmt -compile-plugin -run test "test_plugin.mlf".
+MetaCoq Extraction -time -fmt -compile-plugin -run test "test_plugin.mlf".

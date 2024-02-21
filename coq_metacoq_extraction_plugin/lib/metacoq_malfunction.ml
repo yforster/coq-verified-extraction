@@ -362,7 +362,8 @@ let compile opts fname =
 
 let run opts result =
   match result with
-  | SharedLib shared_lib -> Dynlink.loadfile_private shared_lib;
+  | SharedLib shared_lib ->
+    time opts Pp.(str "Dynamically linking " ++ str shared_lib) Dynlink.loadfile_private shared_lib;
     debug Pp.(fun () -> str"Loaded shared library: " ++ str shared_lib)
   | StandaloneProgram s -> 
     let out, err = time opts Pp.(str s) (execute opts) ("./" ^ s) in
