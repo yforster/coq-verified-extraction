@@ -11,18 +11,18 @@ all: lib tests
 
 lib:
 	@echo "Building benchmark files in Coq"
-	@make -C lib > /dev/null 2>&1
+	make -C lib > /dev/null 2>&1
 
 cleanlib:
 	$(MAKE) clean -C lib
 
 tests: lib
-	@make -C ocaml all
-	@make -C ocaml-noopt all
-	@make -C malfunction all
-	@make -C malfunction-o2 all
-	@make -C malfunction-verified all
-	@make -C malfunction-verified-o2 all
+	make -C ocaml all
+	make -C ocaml-noopt all
+	make -C malfunction all
+	make -C malfunction-o2 all
+	make -C malfunction-verified all
+	make -C malfunction-verified-o2 all
 
 run:
 	$(MAKE) -C ocaml run
