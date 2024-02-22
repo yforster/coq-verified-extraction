@@ -309,7 +309,24 @@ Fixpoint thename a (s : bytestring.String.t) :=
                         else thename (b :: a)%list s
   end.
 
-Program Definition Serialize_module prims (names : list bytestring.string): Serialize program :=
+
+Variant program_type : Set :=
+  | Standalone
+  | Shared_lib (modname : bytestring.String.t) (register : bytestring.String.t). (* Reference to a plugin registration function*)
+
+(* Eval compute in to_sexp (Mapply (Mglobal "foo"%bs, [Mglobal "bar"%bs]%list)). *)
+
+Definition shared_lib_register modname label '(name, export) :=
+  let code := (List [Atom "apply"; List [Atom "global" ; 
+  Atom ("$" ++ String.to_string modname)%string ; Atom ("$" ++ String.to_string label)%string]%list;
+  Atom (Str (bytestring.String.to_string name));
+  Atom ("$" ++ bytestring.String.to_string export)]) in
+  Cons (Atom "_") (List (code :: nil)).
+
+(* Eval compute in
+  to_string (shared_lib_register "malfunction"%bs "register"%bs ("foo.test", "test")%bs). *)
+
+Definition Serialize_module prims (pt : program_type) (names : list bytestring.string): Serialize program :=
   fun '(m, x) =>    
     let name : Ident.t  := match m with
                            | (x :: l)%list => fst x
@@ -320,6 +337,13 @@ Program Definition Serialize_module prims (names : list bytestring.string): Seri
     let allnames := List.combine shortnames longnames in
     let exports : list sexp := List.map (fun shortname => Atom ("$" ++ String.to_string shortname)%string) shortnames  in
     let m := filter_erased_prims prims m in
+    let linkopt := 
+      match pt return list sexp with
+      | Standalone => nil
+      | Shared_lib modname label =>
+        List.map (shared_lib_register modname label) (List.combine names shortnames)
+      end
+    in
     match
       Cons (Atom "module") (@Serialize_list _ (global_serializer prims) (List.rev m))
     with
@@ -327,6 +351,7 @@ Program Definition Serialize_module prims (names : list bytestring.string): Seri
         List (l                 (* the extracted function *)
               ++ List.map (fun '(shortname,longname) => Cons (Atom ("$" ++ String.to_string shortname)%string)
                              (List (longname :: nil))) allnames
+              ++ linkopt
               ++ (Cons (Atom "export") (List exports) :: nil))%list (* export *)
     | x => x
     end.

@@ -49,8 +49,20 @@ type package = string
 val register_inductives : inductives_mapping -> unit
 val register : prim list -> package list -> unit
 
+type malfunction_program_type = 
+| Standalone_binary
+| Shared_library of string * string
+
+type plugin_function = Obj.t
+
+val register_plugin : string -> plugin_function -> unit
+
+type malfunction_compilation_function =
+  malfunction_pipeline_config -> malfunction_program_type -> TemplateProgram.template_program -> 
+  string list * string
+
 val extract : 
-  (malfunction_pipeline_config -> TemplateProgram.template_program -> string) ->
+  malfunction_compilation_function ->
   ?loc:Loc.t ->
   malfunction_command_args list ->
   Environ.env ->
@@ -58,3 +70,5 @@ val extract :
   EConstr.t ->
   string option ->
   unit
+
+val eval_plugin : ?loc:Loc.t -> malfunction_command_args list -> Libnames.qualid -> unit

@@ -264,10 +264,20 @@ let interp_pipeline_config c : Compile_malfunction.malfunction_pipeline_config =
   in
   Compile_malfunction.({ erasure_config; prims = interp_prims prims })
 
-let compile_malfunction conf p = 
+let interp_program_type = function
+  | Standalone_binary -> Compile_malfunction.Standalone
+  | Shared_library (modname, label) -> 
+  Compile_malfunction.Shared_lib (Caml_bytestring.bytestring_of_caml_string modname,
+    Caml_bytestring.bytestring_of_caml_string label)
+
+let compile_malfunction conf pt p = 
   let conf = interp_pipeline_config conf in
   let p = FixProgram.fix_quoted_program p in
-  Caml_bytestring.caml_string_of_bytestring (Compile_malfunction.compile_malfunction_gen conf p)
+  let pt = interp_program_type pt in
+  let names, code = Compile_malfunction.compile_malfunction_gen conf pt p in
+  (List.map Caml_bytestring.caml_string_of_bytestring names,
+  Caml_bytestring.caml_string_of_bytestring code)
+
 
 let extract = extract compile_malfunction
 

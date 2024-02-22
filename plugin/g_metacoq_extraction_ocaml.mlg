@@ -58,9 +58,17 @@ let interp_pipeline_config c =
     prims = interp_prims prims
   }
 
-let compile_malfunction conf p = 
+let interp_program_type = function
+  | Standalone_binary -> Serialize.Standalone
+  | Shared_library (modname, label) -> 
+  Serialize.Shared_lib (Caml_bytestring.bytestring_of_caml_string modname, Caml_bytestring.bytestring_of_caml_string label)
+
+let compile_malfunction conf pt p = 
   let conf = interp_pipeline_config conf in
-  Caml_bytestring.caml_string_of_bytestring (Pipeline.compile_malfunction_gen conf p)
+  let pt = interp_program_type pt in
+  let names, code = Pipeline.compile_malfunction_gen conf pt p in
+  (List.map Caml_bytestring.caml_string_of_bytestring names,
+  Caml_bytestring.caml_string_of_bytestring code)
 
 let extract = extract compile_malfunction
 
@@ -78,4 +86,5 @@ VERNAC COMMAND EXTEND MetaCoq_Extraction CLASSIFIED AS QUERY
     let (c, _) = Constrintern.interp_constr env evm c in
     extract ?loc l env evm c dest
   }
+| [ "MetaCoq" "Eval" extract_args_list(l) reference(c) ] -> { eval_plugin l c }
 END

@@ -10,8 +10,8 @@ MetaCoq Extract Inductives [
 
 Definition coq_true := true.
 Definition coq_false := false.
-
-MetaCoq Extraction coq_true.
+Set Debug "metacoq-extraction".
+MetaCoq Extraction -time -verbose coq_true.
 MetaCoq Extraction -unsafe coq_true.
 MetaCoq Extraction coq_false.
 MetaCoq Extraction -unsafe coq_false.

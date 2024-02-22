@@ -1123,16 +1123,22 @@ Fixpoint extract_names (t : Ast.term) : list ident :=
   | _ => []
   end.
 
-Definition compile_malfunction_gen (cf := config.extraction_checker_flags) config (p : Ast.Env.program) 
-  : string :=
+Axiom trust_coq_kernel : forall conf p, pre (malfunction_pipeline conf) p.
+
+Definition compile_malfunction_gen (cf := config.extraction_checker_flags) config 
+  (pt : program_type)
+  (p : Ast.Env.program) 
+  : list string * string := (* Exported names, code *)
   let nms := extract_names p.2 in
-  let p' := run (malfunction_pipeline config) p (todo "assume we run compilation on a welltyped term"%bs) in
-  time "Pretty printing"%bs (fun p_c =>(@to_string _ (Serialize_module config.(prims) (rev nms)) p_c)) p'.
+  let p' := run (malfunction_pipeline config) p (trust_coq_kernel config p) in
+  let serialize p_c := @to_string _ (Serialize_module config.(prims) pt (rev nms)) p_c in
+  let code := time "Pretty printing"%bs serialize p' in
+  (nms, code).
 
 Definition default_malfunction_config : malfunction_pipeline_config :=
   {| erasure_config := safe_erasure_config; prims := [] |}.
 
-Definition compile_malfunction (cf := config.extraction_checker_flags) := 
-  compile_malfunction_gen default_malfunction_config.
+Definition compile_malfunction (cf := config.extraction_checker_flags) p := 
+  (compile_malfunction_gen default_malfunction_config Standalone p).2.
 
 About compile_malfunction.

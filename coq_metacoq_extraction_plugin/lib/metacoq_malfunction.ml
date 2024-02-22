@@ -96,20 +96,23 @@ let time opts =
 
 type package = string (* Findlib package names to link for external references *)
 
-let globref_of_qualid ~loc (gr : Libnames.qualid) : Kernames.global_reference =
+let globref_of_qualid ?loc (gr : Libnames.qualid) : Names.GlobRef.t  =
   match Constrintern.locate_reference gr with
-  | None -> CErrors.user_err ~loc Pp.(Libnames.pr_qualid gr ++ str " not found.")
-  | Some g ->  Metacoq_template_plugin.Ast_quoter.quote_global_reference g
+  | None -> CErrors.user_err ?loc Pp.(Libnames.pr_qualid gr ++ str " not found.")
+  | Some g -> g
     
+let quoted_globref_of_qualid ~loc (gr : Libnames.qualid) : Kernames.global_reference =
+  Metacoq_template_plugin.Ast_quoter.quote_global_reference (globref_of_qualid ~loc gr)
+
 let constant_of_qualid ~loc (gr : Libnames.qualid) : Kernames.kername =
-  match globref_of_qualid ~loc gr with
+  match quoted_globref_of_qualid ~loc gr with
   | Kernames.ConstRef kn -> kn
   | Kernames.VarRef(v) -> CErrors.user_err ~loc Pp.(str "Expected a constant but found a variable. Only constants can be realized in Malfunction.")
   | Kernames.IndRef(i) -> CErrors.user_err ~loc Pp.(str "Expected a constant but found an inductive type. Only constants can be realized in Malfunction.")
   | Kernames.ConstructRef(_, _) -> CErrors.user_err ~loc Pp.(str "Expected a constant but found a constructor. Only constants can be realized in Malfunction. ")
     
 let inductive_of_qualid ~loc (gr : Libnames.qualid) : Kernames.inductive =
-  match globref_of_qualid ~loc gr with
+  match quoted_globref_of_qualid ~loc gr with
   | Kernames.ConstRef kn -> CErrors.user_err ~loc Pp.(str "Expected an inductive name but found a constant. Only inductives can be translated in Malfunction.")
   | Kernames.VarRef(v) -> CErrors.user_err ~loc Pp.(str "Expected an inductive name but found a variable. Only constants can be translated in Malfunction.")
   | Kernames.IndRef(i) -> i
@@ -272,7 +275,7 @@ let execute opts cmd =
 
 
 type compilation_result = 
-  | SharedLib of string
+  | SharedLib of string list * string
   | StandaloneProgram of string
 
 let get_prefix () = 
@@ -313,7 +316,7 @@ let next_string_away_from s bad =
 
 let loaded_modules = ref CString.Set.empty
   
-let compile opts fname = 
+let compile opts names fname = 
   match opts.program_type with
   | None -> None
   | Some t ->
@@ -344,7 +347,7 @@ let compile opts fname =
         Printf.sprintf "%s opt -shared -package %s -o %s %s" ocamlfind packages cmxsfile cmxfile
       in
       let _out, _err = execute opts link_cmd in
-      Some (SharedLib cmxsfile)
+      Some (SharedLib (names, cmxsfile))
     | Standalone link_coq -> 
       let output = Filename.chop_extension fname in
       let flags, packages =
@@ -360,22 +363,233 @@ let compile opts fname =
       notice opts Pp.(fun () -> str "Compiled to " ++ str output);
       Some (StandaloneProgram output)
 
-let run opts result =
+type malfunction_program_type = 
+  | Standalone_binary
+  | Shared_library of string * string
+
+type plugin_function = Obj.t
+
+let register_plugins = Summary.ref ~name:"metacoq-extraction-plugins" (CString.Map.empty : plugin_function CString.Map.t)
+
+let cache_plugin (name, fn) = 
+  register_plugins := CString.Map.add name fn !register_plugins
+  
+let plugin_input =
+  let open Libobject in 
+  declare_object 
+    (global_object_nodischarge "metacoq-extraction-plugins"
+    ~cache:(fun r -> cache_plugin r)
+    ~subst:None)
+  
+let register_plugin name fn : unit =
+  Lib.add_leaf (plugin_input (name, fn))
+  
+module Reify =
+struct
+
+  type reifyable_value_type =
+  | IsInductive of Names.inductive * Univ.Instance.t * Constr.t list
+  | IsPrimitive of Names.Constant.t * Univ.Instance.t * Constr.t list
+  
+  type reifyable_type = 
+  | IsThunk of reifyable_value_type
+  | IsValue of reifyable_value_type
+
+  let type_of_reifyable_type = function
+    | IsInductive (hd, u, args) -> Term.applistc (Constr.mkIndU ((hd, u))) args
+    | IsPrimitive (c, u, args) -> Term.applistc (Constr.mkConstU ((c, u))) args
+
+  let pr_reifyable_type env sigma ty =
+    Printer.pr_constr_env env sigma (type_of_reifyable_type ty)
+
+  let find_nth_constant n ar =
+    let open Inductiveops in
+    let rec aux i const = 
+      if Array.length ar <= i then raise Not_found
+      else if CList.is_empty ar.(i).cs_args then  (* FIXME lets in constructors *)
+        if const = n then i 
+        else aux (i + 1) (const + 1)
+      else aux (i + 1) const
+    in aux 0 0
+
+  let find_nth_non_constant n ar =
+    let open Inductiveops in
+    let rec aux i nconst = 
+      if Array.length ar <= i then raise Not_found
+      else if not (CList.is_empty ar.(i).cs_args) then 
+        if nconst = n then i
+        else aux (i + 1) (nconst + 1)
+      else aux (i + 1) nconst
+    in aux 0 0
+    
+  let invalid_type ?loc env sigma ty = 
+    CErrors.user_err ?loc
+      Pp.(str"Cannot reify values of non-inductive or non-primitive type: " ++ 
+          Printer.pr_econstr_env env sigma ty)
+    
+  let check_reifyable_value_type ?loc env sigma ty =
+    (* We might have bound universes though. It's fine! *)
+    try let (hd, u), args = Inductiveops.find_inductive env sigma ty in
+      IsInductive (hd, EConstr.EInstance.kind sigma u, args)
+    with Not_found -> 
+      let hnf = Reductionops.whd_all env sigma ty in
+      let hd, args = EConstr.decompose_app sigma hnf in
+      match EConstr.kind sigma hd with
+      | Const (c, u) when Environ.is_primitive_type env c -> 
+        IsPrimitive (c, EConstr.EInstance.kind sigma u, List.map EConstr.Unsafe.to_constr args)
+      | _ -> invalid_type ?loc env sigma hnf
+
+  let check_reifyable_value ?loc env sigma c =
+    check_reifyable_value_type ?loc env sigma (Retyping.get_type_of env sigma c)
+  
+  let check_reifyable_thunk_or_value_type ?loc env sigma ty =
+    debug Pp.(fun () -> str "Checking reifyability of " ++ Printer.pr_econstr_env env sigma ty);
+    match EConstr.kind sigma ty with
+    | Constr.Prod (na, dom, codom) -> 
+      (match Inductiveops.find_inductive env sigma dom with
+      | exception Not_found -> invalid_type ?loc env sigma dom
+      | (hd, u), args -> 
+        if Names.GlobRef.equal (Coqlib.lib_ref "core.unit.type") (IndRef hd) then
+          let tt = Coqlib.lib_ref "core.unit.tt" in
+          let sigma, ttc = Evd.fresh_global env sigma tt in
+          IsThunk (check_reifyable_value_type ?loc env sigma (EConstr.Vars.subst1 ttc codom))
+        else invalid_type ?loc env sigma dom)
+    | _ -> IsValue (check_reifyable_value_type ?loc env sigma ty)
+  
+  let check_reifyable_thunk_or_value ?loc env sigma v =
+    check_reifyable_thunk_or_value_type ?loc env sigma (Retyping.get_type_of env sigma v)
+  
+  let ill_formed env sigma ty =
+    match ty with
+    | IsInductive _ -> 
+      CErrors.anomaly ~label:"metacoq-extraction-reify-ill-formed"
+      Pp.(str "Ill-formed inductive value representation in MetaCoq's Extraction reification for type " ++
+        pr_reifyable_type env sigma ty)
+    | IsPrimitive _ ->
+      CErrors.anomaly ~label:"metacoq-extraction-reify-ill-formed"
+      Pp.(str "Ill-formed primitive value representation in MetaCoq's Extraction reification for type " ++
+        pr_reifyable_type env sigma ty)
+
+  (* let ocaml_get_boxed_ordinal v = 
+    (* tag is the header of the object *)
+    let tag = Array.unsafe_get (Obj.magic v : Obj.t array) (-1) in
+    (* We turn it into an ocaml int usable for arithmetic operations *)
+    let tag_int = (Stdlib.Int.shift_left (Obj.magic (Obj.repr tag)) 1) + 1 in
+    Feedback.msg_debug (Pp.str (Printf.sprintf "Ocaml tag: %i" (Obj.tag tag)));
+    Feedback.msg_debug (Pp.str (Printf.sprintf "Ocaml get_boxed_ordinal int: %u" tag_int));
+    Feedback.msg_debug (Pp.str (Printf.sprintf "Ocaml get_boxed_ordinal ordinal: %u" (tag_int land 255)));
+    tag_int land 255 *)
+
+  let reify env sigma ty v : Constr.t = 
+    let open Declarations in
+    let debug s = debug Pp.(fun () -> str ("reify: ") ++ s ()) in
+    let rec aux ty v =
+    Control.check_for_interrupt ();
+    let () = debug Pp.(fun () -> str "Reifying value of type " ++ pr_reifyable_type env sigma ty) in
+    match ty with
+    | IsInductive (hd, u, args) -> 
+      let open Inductive in
+      let open Inductiveops in
+      let spec = lookup_mind_specif env hd in
+      let npars = inductive_params spec in
+      let params, _indices = CList.chop npars args in
+      let indfam = make_ind_family ((hd, u), params) in
+      let cstrs = get_constructors env indfam in
+      if Obj.is_block v then
+        let ord = Obj.tag v in
+        let () = debug Pp.(fun () -> str (Printf.sprintf "Reifying constructor block of tag %i" ord)) in
+        let coqidx = 
+          try find_nth_non_constant ord cstrs 
+          with Not_found -> ill_formed env sigma ty
+        in
+        let cstr = cstrs.(coqidx) in
+        let ctx = Vars.smash_rel_context cstr.cs_args in
+        let vargs = List.init (List.length ctx) (Obj.field v) in
+        let args' = List.map2 (fun decl v -> 
+          let argty = check_reifyable_value env sigma 
+          (EConstr.of_constr (Context.Rel.Declaration.get_type decl)) in
+          aux argty v) (List.rev ctx) vargs in
+        Term.applistc (Constr.mkConstructU ((hd, coqidx + 1), u)) (params @ args')
+      else (* Constant constructor *)
+        let ord = (Obj.magic v : int) in
+        let () = debug Pp.(fun () -> str @@ Printf.sprintf "Reifying constant constructor: %i" ord) in
+        let coqidx = 
+          try find_nth_constant ord cstrs 
+          with Not_found -> ill_formed env sigma ty 
+        in
+        let () = debug Pp.(fun () -> str @@ Printf.sprintf "Reifying constant constructor: %i is %i in Coq" ord coqidx) in
+        Term.applistc (Constr.mkConstructU ((hd, coqidx + 1), u)) params
+    | IsPrimitive (c, u, _args) -> 
+      if Environ.is_array_type env c then 
+        CErrors.user_err Pp.(str "Primitive arrays are not supported yet in MetaCoq r Extractioneification")
+      else if Environ.is_float64_type env c then
+        Constr.mkFloat (Obj.magic v)
+      else if Environ.is_int63_type env c then
+        Constr.mkInt (Obj.magic v)
+      else CErrors.user_err Pp.(str "Unsupported primitive type in MetaCoq r Extractioneification")
+    in aux ty v
+
+  let reify opts env sigma tyinfo result =
+    if opts.time then time opts (Pp.str "Reification") (reify env sigma tyinfo) result
+    else reify env sigma tyinfo result
+
+end
+
+let run_code opts env sigma tyinfo code : Constr.t =
+  let open Reify in
+  let value, tyinfo =
+    match tyinfo with
+    | IsThunk vty -> ((Obj.magic code : unit -> Obj.t) (), vty)
+    | IsValue vty -> code, vty
+  in
+  Reify.reify opts env sigma tyinfo value
+
+let run opts env sigma tyinfos result : Constr.t list =
   match result with
-  | SharedLib shared_lib ->
+  | SharedLib (fns, shared_lib) ->
     time opts Pp.(str "Dynamically linking " ++ str shared_lib) Dynlink.loadfile_private shared_lib;
-    debug Pp.(fun () -> str"Loaded shared library: " ++ str shared_lib)
+    debug Pp.(fun () -> str"Loaded shared library: " ++ str shared_lib);
+    let run fn tyinfo = 
+      match CString.Map.find_opt fn !register_plugins with
+      | None -> CErrors.anomaly Pp.(str"Couldn't find funtion " ++ str fn ++ str" which should have been registered by " ++ str shared_lib)
+      | Some code -> time opts Pp.(str fn) (run_code opts env sigma tyinfo) code
+    in
+    List.map2 run fns tyinfos
+
   | StandaloneProgram s -> 
     let out, err = time opts Pp.(str s) (execute opts) ("./" ^ s) in
     if err <> "" then Feedback.msg_warning (Pp.str err);
-    if out <> "" then Feedback.msg_notice (Pp.str out)
+    if out <> "" then Feedback.msg_notice (Pp.str out);
+    []
 
-let extract (compile_malfunction : malfunction_pipeline_config -> TemplateProgram.template_program -> string)
-  ?loc opts env evm c dest =
+type malfunction_compilation_function =
+  malfunction_pipeline_config -> malfunction_program_type -> TemplateProgram.template_program -> 
+  string list * string
+
+let decompose_argument env sigma c =
+  let rec aux c =
+    let fn, args = EConstr.decompose_app sigma c in
+    match EConstr.kind sigma fn, args with
+    | Construct (cstr, u), [ _; _; fst; snd ] when Names.GlobRef.equal (ConstructRef cstr) (Coqlib.lib_ref "core.prod.intro") ->
+    aux fst @ [Reify.check_reifyable_thunk_or_value env sigma snd]
+    | _ -> [Reify.check_reifyable_thunk_or_value env sigma c]
+  in aux c
+
+let extract_and_run
+  (compile_malfunction : malfunction_compilation_function)
+  ?loc opts env sigma c dest : (Constr.t list) option =
   let opts = make_options loc opts in
-  let prog = time opts Pp.(str"Quoting") (Ast_quoter.quote_term_rec ~bypass:opts.bypass_qeds env) evm (EConstr.to_constr evm c) in
-  let run_pipeline opts prog = compile_malfunction opts.malfunction_pipeline_config prog in
-  let eprog = time opts Pp.(str"Extraction") (run_pipeline opts) prog in
+  let prog = time opts Pp.(str"Quoting") (Ast_quoter.quote_term_rec ~bypass:opts.bypass_qeds env) sigma (EConstr.to_constr sigma c) in
+  let pt = match opts.program_type with 
+    | Some (Standalone _) | None -> Standalone_binary 
+    | Some Plugin -> Shared_library ("Coq_metacoq_extraction_plugin__Metacoq_malfunction", "register_plugin")
+  in
+  let tyinfos =
+    try decompose_argument env sigma c
+    with e -> if not opts.run then [] else raise e
+  in
+  let run_pipeline opts prog = compile_malfunction opts.malfunction_pipeline_config pt prog in
+  let names, eprog = time opts Pp.(str"Extraction") (run_pipeline opts) prog in
   let dest = match dest with
   | None -> Feedback.msg_notice Pp.(str eprog); None
   | Some fname ->
@@ -388,15 +602,57 @@ let extract (compile_malfunction : malfunction_pipeline_config -> TemplateProgra
     Some fname
   in
   match dest with
-  | None -> ()
+  | None -> None
   | Some fname -> 
     if opts.format then 
       let malfunction = find_executable opts "which malfunction" in
       let temp = fname ^ ".tmp" in
       ignore (execute opts (Printf.sprintf "%s fmt < %s > %s && mv %s %s" malfunction fname temp temp fname))
     else ();
-    match compile opts fname with
-    | None -> ()
+    match compile opts names fname with
+    | None -> None
     | Some result -> 
-      if opts.run then run opts result
-      else ()
+      if opts.run then Some (run opts env sigma tyinfos result)
+      else None
+
+let print_results env sigma = function
+  | None -> ()
+  | Some [res] ->
+    Feedback.msg_notice Pp.(str"  = " ++ Printer.pr_constr_env env sigma res)
+  | Some res ->
+    Feedback.msg_notice Pp.(str"  = (" ++ Pp.(prlist_with_sep (fun () -> str", ") (Printer.pr_constr_env env sigma) res) ++ str ")")
+
+let eval_name (fn : string) =
+  match CString.Map.find_opt fn !register_plugins with
+  | None -> CErrors.anomaly Pp.(str"Couldn't find funtion " ++ str fn ++ str" in registered plugins")
+  | Some code -> code
+
+let eval_term ?loc opts env sigma c =
+  let tyinfo = Reify.check_reifyable_thunk_or_value ?loc env sigma c in
+  let name = 
+    let fn, args = EConstr.decompose_app sigma c in
+    match EConstr.kind sigma fn with
+    | Constr.Const (kn, u) -> Names.Constant.to_string kn
+    | _ -> "term"
+  in
+  let code = eval_name name in
+  let c = run_code opts env sigma tyinfo code in
+  print_results env sigma (Some [c])
+
+let eval_plugin ?loc opts (gr : Libnames.qualid) =
+  let opts = make_options loc opts in
+  let env = Global.env () in
+  let sigma = Evd.from_env env in
+  let gr = globref_of_qualid gr in
+  let c = match gr with Names.GlobRef.ConstRef c -> c | _ -> 
+    CErrors.user_err Pp.(Printer.pr_global gr ++ str " does not bind to a reference") in
+  let fn = Names.Constant.to_string c in
+  let sigma, grc = Evd.fresh_global env sigma gr in
+  let tyinfo = Reify.check_reifyable_thunk_or_value env sigma grc in
+  let code = eval_name fn in
+  let c = run_code opts env sigma tyinfo code in
+  print_results env sigma (Some [c])
+
+let extract compile_malfunction ?loc opts env sigma c dest = 
+  let res = extract_and_run compile_malfunction ?loc opts env sigma c dest in
+  print_results env sigma res
