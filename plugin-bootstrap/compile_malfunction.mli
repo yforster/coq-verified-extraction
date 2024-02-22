@@ -7,5 +7,7 @@ type dearging_config = { overridden_masks : (modpath * t) -> (bool  list)  optio
 type erasure_configuration = { enable_cofix_to_fix : bool ; enable_typed_erasure : bool ; enable_fast_remove_params : bool ; dearging_config : dearging_config ;  }
 type 'id prim_def = Global of 'id * 'id | Primitive of t * nat | Erased 
 type malfunction_pipeline_config = { erasure_config : erasure_configuration ; prims : (t * t  prim_def)  list ;  }
+type program_type = Standalone | Shared_lib of t * t
 
-val compile_malfunction_gen : malfunction_pipeline_config -> TemplateProgram.template_program -> t
+val compile_malfunction_gen : malfunction_pipeline_config -> program_type -> 
+    TemplateProgram.template_program -> t list * t
