@@ -44,7 +44,7 @@ test:
 Makefile.coq: _CoqProject
 	coq_makefile -f _CoqProject -o Makefile.coq
 
-plugin-bootstrap/Makefile.coq: plugin/_CoqProject
+plugin-bootstrap/Makefile.coq: plugin-bootstrap/_CoqProject
 	cd plugin && make Makefile.coq
 
 bootstrap: coq plugin extraction_plugin extraction_malfunction_ffi
