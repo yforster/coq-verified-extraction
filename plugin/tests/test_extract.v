@@ -91,7 +91,7 @@ Arguments print_string s%bs.
 Definition arg := 1000%nat.
 Definition test_lfact := test (lfact arg).
 Definition show_lfact := print_string ("test_lfact: " ++ show (lfact arg)).
-Set Debug "metacoq-extraction".
+(* Set Debug "metacoq-extraction". *)
 
 MetaCoq Extraction -time -fmt -typed -unsafe -compile-with-coq -run test_lfact "test_lfact_typed.mlf". (* 2.5s running time *)
 MetaCoq Extraction -time -fmt -unsafe -compile-with-coq -run test_lfact "test_lfact.mlf". (* 2.5s running time *)
