@@ -37,6 +37,7 @@ type malfunction_command_args =
   | BypassQeds
   | Fast
   | ProgramType of program_type
+  | Load
   | Run
   | Format
   | Optimize
@@ -47,6 +48,7 @@ type malfunction_plugin_config =
     time : bool;
     verbose : bool;
     program_type : program_type option;
+    load : bool;
     run : bool;
     loc : Loc.t option;
     format : bool;
@@ -189,7 +191,7 @@ let make_options loc l =
   let prims = get_global_prims () in
   let default = {
     malfunction_pipeline_config = default_malfunction_config inductives_mapping prims;
-    bypass_qeds = false; time = false; program_type = None; run = false;
+    bypass_qeds = false; time = false; program_type = None; load = false; run = false;
     verbose = false; loc; format = false; optimize = false }  
   in
   let rec parse_options opts l = 
@@ -208,10 +210,18 @@ let make_options loc l =
     | Time :: l -> parse_options { opts with time = true } l
     | Verbose :: l -> parse_options { opts with verbose = true } l
     | ProgramType t :: l -> parse_options { opts with program_type = Some t } l
+    | Load :: l -> parse_options { opts with load = true } l
     | Run :: l -> parse_options { opts with run = true } l
     | Format :: l -> parse_options { opts with format = true } l
     | Optimize :: l -> parse_options { opts with optimize = true } l
-  in parse_options default l
+  in 
+  let check_options opts =
+    match opts.program_type with
+    | Some Plugin -> if opts.run then { opts with load = true } else opts
+    | _ -> opts
+  in
+  let opts = parse_options default l in
+  check_options opts
 
 let find_executable opts cmd = 
   let whichcmd = Unix.open_process_in cmd in
@@ -273,11 +283,6 @@ let execute opts cmd =
     str"was signaled with code " ++ int n ++ str"." ++ fnl () ++
     str"stdout: " ++ spc () ++ str out ++ fnl () ++ str "stderr: " ++ str err)
 
-
-type compilation_result = 
-  | SharedLib of string list * string
-  | StandaloneProgram of string
-
 let get_prefix () = 
   match get_build_dir_opt () with
   | None -> "."
@@ -285,6 +290,7 @@ let get_prefix () =
 
 let build_fname f = 
   Filename.concat (get_prefix ()) f
+
 let increment_subscript id =
   let len = String.length id in
   let rec add carrypos =
@@ -313,55 +319,6 @@ let increment_subscript id =
 let next_string_away_from s bad =
   let rec name_rec s = if bad s then name_rec (increment_subscript s) else s in
   name_rec s
-
-let loaded_modules = ref CString.Set.empty
-  
-let compile opts names fname = 
-  match opts.program_type with
-  | None -> None
-  | Some t ->
-    let malfunction = find_executable opts "which malfunction" in
-    let ocamlfind = find_executable opts "which ocamlfind" in
-    let packages = get_global_packages () in
-    let packages = String.concat "," packages in
-    let optimize = if opts.optimize then "-O2" else "" in
-    match t with
-    | Plugin -> 
-      let fname = 
-        let basename = Filename.chop_extension fname in
-        let freshname = next_string_away_from basename (fun s -> CString.Set.mem s !loaded_modules) in
-        let freshfname = freshname ^ ".mlf" in
-        if freshname <> basename then 
-          ignore (execute opts (Printf.sprintf "mv %s %s" fname freshfname));
-        loaded_modules := CString.Set.add freshname !loaded_modules;
-        freshfname
-      in
-      let compile_cmd = 
-        Printf.sprintf "%s cmx %s -shared -package %s %s" malfunction optimize packages fname
-      in
-      let _out, _err = execute opts compile_cmd in (* we now have fname . cmx *)
-      let cmxfile =  Filename.chop_extension fname ^ ".cmx" in
-      let cmxsfile = Filename.chop_extension fname ^ ".cmxs" in
-      (* Build the shared library *)
-      let link_cmd = 
-        Printf.sprintf "%s opt -shared -package %s -o %s %s" ocamlfind packages cmxsfile cmxfile
-      in
-      let _out, _err = execute opts link_cmd in
-      Some (SharedLib (names, cmxsfile))
-    | Standalone link_coq -> 
-      let output = Filename.chop_extension fname in
-      let flags, packages =
-        if link_coq then 
-          "-thread -linkpkg", statically_linked_pkgs ^ "," ^ packages
-        else "-thread -linkpkg", packages
-      in
-      let compile_cmd = 
-        Printf.sprintf "%s compile %s %s -package %s -o %s %s" 
-          malfunction optimize flags packages output fname
-      in
-      let _out, _err = time opts Pp.(str "Compilation") (execute opts) compile_cmd in (* we now have fname . cmx *)
-      notice opts Pp.(fun () -> str "Compiled to " ++ str output);
-      Some (StandaloneProgram output)
 
 type malfunction_program_type = 
   | Standalone_binary
@@ -399,8 +356,12 @@ struct
     | IsInductive (hd, u, args) -> Term.applistc (Constr.mkIndU ((hd, u))) args
     | IsPrimitive (c, u, args) -> Term.applistc (Constr.mkConstU ((c, u))) args
 
-  let pr_reifyable_type env sigma ty =
+  let pr_reifyable_value_type env sigma ty =
     Printer.pr_constr_env env sigma (type_of_reifyable_type ty)
+
+  let pr_reifyable_type env sigma = function
+    | IsThunk ty -> Pp.(str"unit -> " ++ pr_reifyable_value_type env sigma ty)
+    | IsValue ty -> pr_reifyable_value_type env sigma ty
 
   let find_nth_constant n ar =
     let open Inductiveops in
@@ -464,11 +425,11 @@ struct
     | IsInductive _ -> 
       CErrors.anomaly ~label:"metacoq-extraction-reify-ill-formed"
       Pp.(str "Ill-formed inductive value representation in MetaCoq's Extraction reification for type " ++
-        pr_reifyable_type env sigma ty)
+        pr_reifyable_value_type env sigma ty)
     | IsPrimitive _ ->
       CErrors.anomaly ~label:"metacoq-extraction-reify-ill-formed"
       Pp.(str "Ill-formed primitive value representation in MetaCoq's Extraction reification for type " ++
-        pr_reifyable_type env sigma ty)
+        pr_reifyable_value_type env sigma ty)
 
   (* let ocaml_get_boxed_ordinal v = 
     (* tag is the header of the object *)
@@ -485,7 +446,7 @@ struct
     let debug s = debug Pp.(fun () -> str ("reify: ") ++ s ()) in
     let rec aux ty v =
     Control.check_for_interrupt ();
-    let () = debug Pp.(fun () -> str "Reifying value of type " ++ pr_reifyable_type env sigma ty) in
+    let () = debug Pp.(fun () -> str "Reifying value of type " ++ pr_reifyable_value_type env sigma ty) in
     match ty with
     | IsInductive (hd, u, args) -> 
       let open Inductive in
@@ -535,6 +496,60 @@ struct
 
 end
 
+
+let loaded_modules = ref CString.Set.empty
+
+type compilation_result = 
+| SharedLib of string list * Reify.reifyable_type list * string
+| StandaloneProgram of string
+
+let compile opts names tyinfos fname = 
+  match opts.program_type with
+  | None -> None
+  | Some t ->
+    let malfunction = find_executable opts "which malfunction" in
+    let ocamlfind = find_executable opts "which ocamlfind" in
+    let packages = get_global_packages () in
+    let packages = String.concat "," packages in
+    let optimize = if opts.optimize then "-O2" else "" in
+    match t with
+    | Plugin -> 
+      let fname = 
+        let basename = Filename.chop_extension fname in
+        let freshname = next_string_away_from basename (fun s -> CString.Set.mem s !loaded_modules) in
+        let freshfname = freshname ^ ".mlf" in
+        if freshname <> basename then 
+          ignore (execute opts (Printf.sprintf "mv %s %s" fname freshfname));
+        loaded_modules := CString.Set.add freshname !loaded_modules;
+        freshfname
+      in
+      let compile_cmd = 
+        Printf.sprintf "%s cmx %s -shared -package %s %s" malfunction optimize packages fname
+      in
+      let _out, _err = execute opts compile_cmd in (* we now have fname . cmx *)
+      let cmxfile =  Filename.chop_extension fname ^ ".cmx" in
+      let cmxsfile = Filename.chop_extension fname ^ ".cmxs" in
+      (* Build the shared library *)
+      let link_cmd = 
+        Printf.sprintf "%s opt -shared -package %s -o %s %s" ocamlfind packages cmxsfile cmxfile
+      in
+      let _out, _err = execute opts link_cmd in
+      Some (SharedLib (names, tyinfos, cmxsfile))
+    | Standalone link_coq -> 
+      let output = Filename.chop_extension fname in
+      let flags, packages =
+        if link_coq then 
+          "-thread -linkpkg", statically_linked_pkgs ^ "," ^ packages
+        else "-thread -linkpkg", packages
+      in
+      let compile_cmd = 
+        Printf.sprintf "%s compile %s %s -package %s -o %s %s" 
+          malfunction optimize flags packages output fname
+      in
+      let _out, _err = time opts Pp.(str "Compilation") (execute opts) compile_cmd in (* we now have fname . cmx *)
+      notice opts Pp.(fun () -> str "Compiled to " ++ str output);
+      Some (StandaloneProgram output)
+
 let run_code opts env sigma tyinfo code : Constr.t =
   let open Reify in
   let value, tyinfo =
@@ -544,23 +559,29 @@ let run_code opts env sigma tyinfo code : Constr.t =
   in
   Reify.reify opts env sigma tyinfo value
 
-let run opts env sigma tyinfos result : Constr.t list =
+let run opts env sigma result : Constr.t list option =
   match result with
-  | SharedLib (fns, shared_lib) ->
-    time opts Pp.(str "Dynamically linking " ++ str shared_lib) Dynlink.loadfile_private shared_lib;
-    debug Pp.(fun () -> str"Loaded shared library: " ++ str shared_lib);
-    let run fn tyinfo = 
-      match CString.Map.find_opt fn !register_plugins with
-      | None -> CErrors.anomaly Pp.(str"Couldn't find funtion " ++ str fn ++ str" which should have been registered by " ++ str shared_lib)
-      | Some code -> time opts Pp.(str fn) (run_code opts env sigma tyinfo) code
-    in
-    List.map2 run fns tyinfos
+  | SharedLib (fns, tyinfos, shared_lib) ->
+    if opts.load then begin
+      time opts Pp.(str "Dynamically linking " ++ str shared_lib) Dynlink.loadfile_private shared_lib;
+      if opts.run then begin
+        debug Pp.(fun () -> str"Loaded shared library: " ++ str shared_lib);
+        let run fn tyinfo = 
+          match CString.Map.find_opt fn !register_plugins with
+          | None -> CErrors.anomaly Pp.(str"Couldn't find funtion " ++ str fn ++ str" which should have been registered by " ++ str shared_lib)
+          | Some code -> time opts Pp.(str fn) (run_code opts env sigma tyinfo) code
+        in
+        Some (List.map2 run fns tyinfos)
+      end else None
+    end else None
 
   | StandaloneProgram s -> 
-    let out, err = time opts Pp.(str s) (execute opts) ("./" ^ s) in
-    if err <> "" then Feedback.msg_warning (Pp.str err);
-    if out <> "" then Feedback.msg_notice (Pp.str out);
-    []
+    if opts.run then
+      let out, err = time opts Pp.(str s) (execute opts) s in
+      if err <> "" then Feedback.msg_warning (Pp.str err);
+      if out <> "" then Feedback.msg_notice (Pp.str out);
+      Some []
+    else None
 
 type malfunction_compilation_function =
   malfunction_pipeline_config -> malfunction_program_type -> TemplateProgram.template_program -> 
@@ -586,10 +607,25 @@ let extract_and_run
   in
   let tyinfos =
     try decompose_argument env sigma c
-    with e -> if not opts.run then [] else raise e
+    with e -> if not (opts.load || opts.run) then [] else raise e
   in
   let run_pipeline opts prog = compile_malfunction opts.malfunction_pipeline_config pt prog in
   let names, eprog = time opts Pp.(str"Extraction") (run_pipeline opts) prog in
+  let names = if opts.load then 
+      match tyinfos, names with
+      | [_], [] -> ["main"]
+      | _ ->
+      if not (List.length names = List.length (tyinfos)) then
+        CErrors.user_err ?loc Pp.(str "Extracted names " ++ prlist_with_sep spc str names ++ str " do not match argument types " ++ 
+          prlist_with_sep spc (Reify.pr_reifyable_type env sigma) tyinfos)
+      else names
+    else names
+  in
+  let dest = 
+    match dest with
+    | Some _ -> dest
+    | None -> if not (Option.is_empty opts.program_type) then Some "metacoq_extraction_term.mlf" else None
+  in
   let dest = match dest with
   | None -> Feedback.msg_notice Pp.(str eprog); None
   | Some fname ->
@@ -603,18 +639,16 @@ let extract_and_run
   in
   match dest with
   | None -> None
-  | Some fname -> 
+  | Some fname ->
     if opts.format then 
       let malfunction = find_executable opts "which malfunction" in
       let temp = fname ^ ".tmp" in
       ignore (execute opts (Printf.sprintf "%s fmt < %s > %s && mv %s %s" malfunction fname temp temp fname))
     else ();
-    match compile opts names fname with
+    match compile opts names tyinfos fname with
     | None -> None
-    | Some result -> 
-      if opts.run then Some (run opts env sigma tyinfos result)
-      else None
-
+    | Some result -> run opts env sigma result
+    
 let print_results env sigma = function
   | None -> ()
   | Some [res] ->
@@ -626,18 +660,6 @@ let eval_name (fn : string) =
   match CString.Map.find_opt fn !register_plugins with
   | None -> CErrors.anomaly Pp.(str"Couldn't find funtion " ++ str fn ++ str" in registered plugins")
   | Some code -> code
-
-let eval_term ?loc opts env sigma c =
-  let tyinfo = Reify.check_reifyable_thunk_or_value ?loc env sigma c in
-  let name = 
-    let fn, args = EConstr.decompose_app sigma c in
-    match EConstr.kind sigma fn with
-    | Constr.Const (kn, u) -> Names.Constant.to_string kn
-    | _ -> "term"
-  in
-  let code = eval_name name in
-  let c = run_code opts env sigma tyinfo code in
-  print_results env sigma (Some [c])
 
 let eval_plugin ?loc opts (gr : Libnames.qualid) =
   let opts = make_options loc opts in

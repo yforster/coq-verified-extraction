@@ -54,6 +54,7 @@ ARGUMENT EXTEND extract_args
 | [ "-compile-plugin" ] -> { ProgramType Plugin }
 | [ "-compile-with-coq" ] -> { ProgramType (Standalone true) }
 | [ "-compile" ] -> { ProgramType (Standalone false) }
+| [ "-load" ] -> { Load }
 | [ "-run" ] -> { Run }
 | [ "-verbose" ] -> { Verbose }
 | [ "-fmt" ] -> { Format }

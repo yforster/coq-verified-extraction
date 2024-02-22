@@ -31,6 +31,7 @@ type malfunction_command_args =
   | BypassQeds
   | Fast
   | ProgramType of program_type
+  | Load
   | Run
   | Format
   | Optimize

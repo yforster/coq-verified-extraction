@@ -332,10 +332,13 @@ Definition Serialize_module prims (pt : program_type) (names : list bytestring.s
                            | (x :: l)%list => fst x
                            | nil => ""%bs
                            end in
+    let main := "main"%bs in 
+    let names := (main :: names)%list in
     let shortnames : list Ident.t := List.map (fun name => uncapitalize (thename nil name)) names in
     let longnames : list sexp := List.map (fun name => (to_sexp ("def_" ++ name)%bs)) names in
     let allnames := List.combine shortnames longnames in
-    let exports : list sexp := List.map (fun shortname => Atom ("$" ++ String.to_string shortname)%string) shortnames  in
+    let exports : list sexp := List.map (fun shortname => Atom ("$" ++ String.to_string shortname)%string) 
+      shortnames in
     let m := filter_erased_prims prims m in
     let linkopt := 
       match pt return list sexp with
@@ -345,7 +348,8 @@ Definition Serialize_module prims (pt : program_type) (names : list bytestring.s
       end
     in
     match
-      Cons (Atom "module") (@Serialize_list _ (global_serializer prims) (List.rev m))
+      Cons (Atom "module") (@Serialize_list _ (global_serializer prims) 
+        (List.rev ((main, Some x) :: m)%list))
     with
       List l =>
         List (l                 (* the extracted function *)

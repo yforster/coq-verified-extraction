@@ -1127,7 +1127,7 @@ Axiom trust_coq_kernel : forall conf p, pre (malfunction_pipeline conf) p.
 
 Definition compile_malfunction_gen (cf := config.extraction_checker_flags) config 
   (pt : program_type)
-  (p : Ast.Env.program) 
+  (p : Ast.Env.program)
   : list string * string := (* Exported names, code *)
   let nms := extract_names p.2 in
   let p' := run (malfunction_pipeline config) p (trust_coq_kernel config p) in
