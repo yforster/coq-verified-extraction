@@ -46,8 +46,6 @@ PCUICUnivSubst
 PCUICSafeReduce
 PCUICSafeRetyping
 
-CarryType
-
 ResultMonad
 EPrimitive
 EAst
@@ -66,12 +64,15 @@ EEtaExpanded
 ERemoveParams
 ErasureFunction
 ErasureFunctionProperties
+EInlining
+EBeta
 EOptimizePropDiscr
 OptimizePropDiscr
 EInlineProjections
 EConstructorsAsBlocks
 ECoInductiveToInductive
 EReorderCstrs
+EUnboxing
 EImplementBox
 ExAst
 Optimize

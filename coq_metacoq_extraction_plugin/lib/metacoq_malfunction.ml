@@ -1,10 +1,12 @@
 type inductive_mapping = Kernames.inductive * (string * int list) (* Target inductive type and mapping of constructor names to constructor tags *)
 type inductives_mapping = inductive_mapping list
 
-type erasure_configuration = { enable_cofix_to_fix : bool;
-                               enable_typed_erasure : bool;
-                               enable_fast_remove_params : bool; 
-                               inductives_mapping : inductives_mapping }
+type erasure_configuration = { 
+  enable_unsafe : bool;
+  enable_typed_erasure : bool;
+  enable_fast_remove_params : bool; 
+  inductives_mapping : inductives_mapping;
+  inlining : Kernames.KernameSet.t }
 
 type prim_def =
 | Global of string * string
@@ -19,11 +21,12 @@ type malfunction_pipeline_config = {
   erasure_config : erasure_configuration;
   prims : primitives }
 
-let default_erasure_config inductives_mapping = 
-  { enable_cofix_to_fix = false; enable_typed_erasure = false; enable_fast_remove_params = false; inductives_mapping }
+let default_erasure_config inductives_mapping inlining = 
+  { enable_unsafe = false; enable_typed_erasure = false; enable_fast_remove_params = false; 
+    inductives_mapping; inlining }
 
-let default_malfunction_config inductives_mapping prims = 
-  { erasure_config = default_erasure_config inductives_mapping; prims }
+let default_malfunction_config inductives_mapping inlining prims = 
+  { erasure_config = default_erasure_config inductives_mapping inlining; prims }
 
 type program_type =
   | Standalone of bool (* Link statically with Coq's libraries *)
@@ -132,9 +135,13 @@ let extract_primitive (gr : Kernames.kername) (symb : string) (arity : int) : pr
 let extract_inductive (gr : Kernames.inductive) (cstrs : string * int list) : inductive_mapping =
   (gr, cstrs)
 
+let extract_inline (gr : Kernames.kername) : Kernames.KernameSet.t =
+  Kernames.KernameSet.singleton gr
+  
+(* Extract Inductive *)
 let global_inductive_registers = 
   Summary.ref ([] : inductives_mapping) ~name:"MetaCoq Malfunction Inductive Registration"
-  
+
 let global_inductive_registers_name = "metacoq-malfunction-inductive-registration"
 
 let cache_inductive_registers inds =
@@ -153,6 +160,31 @@ let register_inductives (inds : inductives_mapping) : unit =
 
 let get_global_inductives_mapping () = !global_inductive_registers
 
+(* Extract Inline *)
+
+let global_inlining_registers = 
+  Summary.ref ~name:"MetaCoq Malfunction inlining Registration" Kernames.KernameSet.empty
+  
+let global_inlining_registers_name = "metacoq-malfunction-inlining-registration"
+
+let cache_inlining_registers csts =
+  let csts' = !global_inlining_registers in
+  global_inlining_registers := Kernames.KernameSet.union csts csts'
+
+let global_inlining_registers_input = 
+  let open Libobject in 
+  declare_object 
+    (global_object_nodischarge global_inlining_registers_name
+    ~cache:(fun r -> cache_inlining_registers r)
+    ~subst:None)
+
+let register_inlines (csts : Kernames.kername list) : unit =
+  Lib.add_leaf (global_inlining_registers_input (Kernames.KernameSetProp.of_list csts))
+
+let get_global_inlinings_mapping () = !global_inlining_registers
+
+
+(* Primitives / Extract Constant *)
 let global_registers = 
   Summary.ref (([], []) : prim list * package list) ~name:"MetaCoq Malfunction Registration"
 
@@ -188,9 +220,10 @@ let bytes_of_list l =
 
 let make_options loc l =
   let inductives_mapping = get_global_inductives_mapping () in
+  let inlining = get_global_inlinings_mapping () in
   let prims = get_global_prims () in
   let default = {
-    malfunction_pipeline_config = default_malfunction_config inductives_mapping prims;
+    malfunction_pipeline_config = default_malfunction_config inductives_mapping inlining prims;
     bypass_qeds = false; time = false; program_type = None; load = false; run = false;
     verbose = false; loc; format = false; optimize = false }  
   in
@@ -199,7 +232,7 @@ let make_options loc l =
     | [] -> opts
     | Unsafe :: l -> parse_options { opts with 
       malfunction_pipeline_config = { opts.malfunction_pipeline_config with erasure_config = 
-      { opts.malfunction_pipeline_config.erasure_config with enable_cofix_to_fix = true } } } l
+      { opts.malfunction_pipeline_config.erasure_config with enable_unsafe = true } } } l
     | Typed :: l -> parse_options { opts with 
       malfunction_pipeline_config = { opts.malfunction_pipeline_config with erasure_config = 
       { opts.malfunction_pipeline_config.erasure_config with enable_typed_erasure = true } } } l

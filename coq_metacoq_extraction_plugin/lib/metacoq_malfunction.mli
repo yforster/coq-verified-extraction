@@ -1,10 +1,12 @@
 type inductive_mapping = Kernames.inductive * (string * int list) (* Target inductive type and mapping of constructor names to constructor tags *)
 type inductives_mapping = inductive_mapping list
 
-type erasure_configuration = { enable_cofix_to_fix : bool;
-                               enable_typed_erasure : bool;
-                               enable_fast_remove_params : bool; 
-                               inductives_mapping : inductives_mapping }
+type erasure_configuration = { 
+  enable_unsafe : bool;
+  enable_typed_erasure : bool;
+  enable_fast_remove_params : bool; 
+  inductives_mapping : inductives_mapping;
+  inlining : Kernames.KernameSet.t }
                                
 type prim_def =
 | Global of string * string
@@ -48,6 +50,7 @@ val extract_inductive : Kernames.inductive -> string * int list -> inductive_map
 type package = string
 
 val register_inductives : inductives_mapping -> unit
+val register_inlines : Kernames.kername list -> unit
 val register : prim list -> package list -> unit
 
 type malfunction_program_type = 

@@ -244,7 +244,7 @@ let interp_prims prims =
 
 let interp_pipeline_config c : Compile_malfunction.malfunction_pipeline_config = 
   let { erasure_config = erasure_config; prims = prims } = c in
-  let { enable_cofix_to_fix = enable_cofix_to_fix; 
+  let { enable_unsafe = enable_unsafe; 
         enable_typed_erasure = enable_typed_erasure; 
         enable_fast_remove_params = enable_fast_remove_params } = erasure_config in
  
@@ -254,7 +254,7 @@ let interp_pipeline_config c : Compile_malfunction.malfunction_pipeline_config =
         overridden_masks = overridden_masks } = dearging_config in *)
   let erasure_config = 
     Compile_malfunction.({ 
-      enable_cofix_to_fix = Caml_bool.to_coq enable_cofix_to_fix; 
+      enable_unsafe = Caml_bool.to_coq enable_unsafe; 
       enable_typed_erasure = Caml_bool.to_coq enable_typed_erasure; 
       enable_fast_remove_params = Caml_bool.to_coq enable_fast_remove_params;
       dearging_config = 

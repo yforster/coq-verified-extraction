@@ -1096,8 +1096,8 @@ Program Definition switchable_erasure_pipeline econf :=
   else verified_erasure_pipeline ▷ (optional_unsafe_transforms econf).
 Next Obligation.
 Proof.
-  unfold optional_unsafe_transforms, optional_self_transform. cbn.
-  destruct enable_cofix_to_fix => //.
+  unfold optional_unsafe_transforms, optional_self_transform.
+  destruct enable_unsafe => //.
 Qed.
 
 Program Definition malfunction_pipeline (efl := EWellformed.all_env_flags) 

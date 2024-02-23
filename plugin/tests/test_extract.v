@@ -1,3 +1,4 @@
+From Equations Require Import Equations.
 From Malfunction.Plugin Require Import Extract OCamlFFI.
 From MetaCoq.Template Require Import All.
 From Coq Require ZArith Lists.StreamMemo.
@@ -105,6 +106,15 @@ MetaCoq Extraction -time -fmt -unsafe -compile-with-coq -run
 
 End NegativeCoind.
 
+Module Unboxed.
+
+  Definition t := { x : nat | x < 3 }.
+  Program Definition ex : t := 1.
+  Program Definition test_ex := coq_msg_info (string_of_nat ex).
+
+  MetaCoq Extraction -typed -unsafe -fmt -compile-plugin -run test_ex "test_ex.mlf".
+End Unboxed.
+
 Inductive three := ZERO | ONE | TWO | THREE.
 
 Definition two := TWO.
@@ -202,3 +212,13 @@ MetaCoq Extraction (forest_size arden).
 Definition sub : { x : nat | x = 0 } := @exist _ _ 0 eq_refl.
 MetaCoq Extraction sub.
 MetaCoq Extraction -typed sub.
+
+Equations idnat (n : nat) : nat by wf n lt :=
+ | 0 => 0
+ | S n => S (idnat n).
+
+Extraction idnat.
+
+MetaCoq Extract Inline [ Equations.Prop.Subterm.FixWf, Coq.Init.Wf.Fix, Coq.Init.Wf.Fix_F, idnat_functional ].
+
+MetaCoq Extraction -fmt -unsafe -typed idnat "idnat.mlf".

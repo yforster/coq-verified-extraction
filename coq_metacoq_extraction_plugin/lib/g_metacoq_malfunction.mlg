@@ -27,6 +27,10 @@ VERNAC ARGUMENT EXTEND metaCoqRegister_extract_cnst
 | [ reference(gr) "=>" string(str) ] -> { extract_constant (constant_of_qualid ~loc gr) str }
 END
 
+VERNAC ARGUMENT EXTEND metaCoqRegister_extract_inline
+| [ reference(gr) ] -> { (constant_of_qualid ~loc gr) }
+END
+
 VERNAC ARGUMENT EXTEND metaCoqRegister_extract_inductive 
 | [ reference(gr) "=>" string(ty) "[" natural_list(cstrs) "]" ] ->
   { extract_inductive (inductive_of_qualid ~loc gr) (ty, cstrs) }
@@ -41,6 +45,9 @@ VERNAC COMMAND EXTEND MetaCoqExtract_Register CLASSIFIED AS SIDEFF
   }
 | [ "MetaCoq" "Extract" "Inductives" "[" metaCoqRegister_extract_inductive_list_sep(inds, ",") "]" ] -> {
     register_inductives inds
+}
+| [ "MetaCoq" "Extract" "Inline" "[" metaCoqRegister_extract_inline_list_sep(csts, ",") "]" ] -> {
+    register_inlines csts
 }
 END
 

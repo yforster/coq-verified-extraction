@@ -28,6 +28,12 @@ extraction/eCSubst.ml
 extraction/eCSubst.mli
 extraction/eCoInductiveToInductive.ml
 extraction/eCoInductiveToInductive.mli
+extraction/eUnboxing.mli
+extraction/eUnboxing.ml
+extraction/eInlining.mli
+extraction/eInlining.ml
+extraction/eBeta.mli
+extraction/eBeta.ml
 extraction/eReorderCstrs.mli
 extraction/eReorderCstrs.ml
 extraction/eConstructorsAsBlocks.ml
