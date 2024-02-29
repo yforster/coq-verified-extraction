@@ -1,13 +1,20 @@
 type inductive_mapping = Kernames.inductive * (string * int list) (* Target inductive type and mapping of constructor names to constructor tags *)
 type inductives_mapping = inductive_mapping list
 
+type unsafe_passes = 
+  { cofix_to_lazy : bool;
+    reorder_constructors : bool;
+    inlining : bool;
+    unboxing : bool;
+    betared : bool }
+
 type erasure_configuration = { 
-  enable_unsafe : bool;
+  enable_unsafe : unsafe_passes;
   enable_typed_erasure : bool;
   enable_fast_remove_params : bool; 
   inductives_mapping : inductives_mapping;
   inlining : Kernames.KernameSet.t }
-                               
+
 type prim_def =
 | Global of string * string
 | Primitive of string * int
@@ -25,8 +32,15 @@ type program_type =
   | Standalone of bool (* Link statically with Coq's libraries *)
   | Plugin
   
+type unsafe_pass = 
+  | CoFixToLazy
+  | ReorderConstructors
+  | Inlining
+  | Unboxing
+  | BetaRed
+
 type malfunction_command_args =
-  | Unsafe
+  | Unsafe of unsafe_pass list
   | Verbose
   | Time
   | Typed

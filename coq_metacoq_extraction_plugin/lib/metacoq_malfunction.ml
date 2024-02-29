@@ -1,8 +1,15 @@
 type inductive_mapping = Kernames.inductive * (string * int list) (* Target inductive type and mapping of constructor names to constructor tags *)
 type inductives_mapping = inductive_mapping list
 
+type unsafe_passes = 
+  { cofix_to_lazy : bool;
+    reorder_constructors : bool;
+    inlining : bool;
+    unboxing : bool;
+    betared : bool }
+
 type erasure_configuration = { 
-  enable_unsafe : bool;
+  enable_unsafe : unsafe_passes;
   enable_typed_erasure : bool;
   enable_fast_remove_params : bool; 
   inductives_mapping : inductives_mapping;
@@ -32,8 +39,15 @@ type program_type =
   | Standalone of bool (* Link statically with Coq's libraries *)
   | Plugin
 
+type unsafe_pass = 
+  | CoFixToLazy
+  | ReorderConstructors
+  | Inlining
+  | Unboxing
+  | BetaRed
+
 type malfunction_command_args =
-  | Unsafe
+  | Unsafe of unsafe_pass list
   | Verbose
   | Time
   | Typed
@@ -77,6 +91,9 @@ let get_stringopt_option key =
 let get_build_dir_opt =
   get_stringopt_option ["MetaCoq"; "Extraction"; "Build"; "Directory"]
 
+let get_opam_path_opt =
+  get_stringopt_option ["MetaCoq"; "Opam"; "Path"]
+  
 (* When building standalone programs still relying on Coq's/MetaCoq's FFIs, use these packages for linking *)
 let statically_linked_pkgs =
   "coq-core.boot,coq-core.clib,coq-core.config,coq-core,coq-core.engine,coq-core.gramlib,coq-core.interp,coq-core.kernel,coq-core.lib,coq-core.library,coq-core.parsing,coq-core.pretyping,coq-core.printing,coq-core.proofs,coq-core.stm,coq-core.sysinit,coq-core.tactics,coq-core.toplevel,coq-core.vernac,coq-core.vm,coq-metacoq-template-ocaml,coq-metacoq-template-ocaml.plugin,coq_metacoq_extraction_ocaml_ffi,dynlink,findlib,findlib.dynload,findlib.internal,stdlib-shims,str,threads,threads.posix,unix,zarith"
@@ -218,6 +235,23 @@ let bytes_of_list l =
       fill (1 + acc) cs
   in fill 0 l
 
+let make_unsafe_flags b = 
+  { cofix_to_lazy = b; 
+    reorder_constructors = b; 
+    inlining = b;
+    unboxing = b;
+    betared = b }
+
+let default_unsafe_flags = make_unsafe_flags false
+let all_unsafe_flags = make_unsafe_flags true
+
+let set_unsafe_flag fl = function
+| CoFixToLazy -> { fl with cofix_to_lazy = true }
+| ReorderConstructors -> { fl with reorder_constructors = true }
+| Inlining -> { fl with inlining = true }
+| Unboxing -> { fl with unboxing = true }
+| BetaRed -> { fl with betared = true }
+
 let make_options loc l =
   let inductives_mapping = get_global_inductives_mapping () in
   let inlining = get_global_inlinings_mapping () in
@@ -227,12 +261,19 @@ let make_options loc l =
     bypass_qeds = false; time = false; program_type = None; load = false; run = false;
     verbose = false; loc; format = false; optimize = false }  
   in
+  let parse_unsafe_flags unsafe l = 
+    match l with
+    | [] -> all_unsafe_flags
+    | flags -> List.fold_left set_unsafe_flag unsafe flags
+  in
   let rec parse_options opts l = 
     match l with
     | [] -> opts
-    | Unsafe :: l -> parse_options { opts with 
+    | Unsafe flags :: l ->
+      let erasure_config = opts.malfunction_pipeline_config.erasure_config in
+      parse_options { opts with 
       malfunction_pipeline_config = { opts.malfunction_pipeline_config with erasure_config = 
-      { opts.malfunction_pipeline_config.erasure_config with enable_unsafe = true } } } l
+      { erasure_config with enable_unsafe = parse_unsafe_flags erasure_config.enable_unsafe flags } } } l
     | Typed :: l -> parse_options { opts with 
       malfunction_pipeline_config = { opts.malfunction_pipeline_config with erasure_config = 
       { opts.malfunction_pipeline_config.erasure_config with enable_typed_erasure = true } } } l
@@ -256,20 +297,6 @@ let make_options loc l =
   let opts = parse_options default l in
   check_options opts
 
-let find_executable opts cmd = 
-  let whichcmd = Unix.open_process_in cmd in
-  let result = 
-    try Stdlib.input_line whichcmd 
-    with End_of_file -> ""
-  in
-  let status = Unix.close_process_in whichcmd in
-  match status with
-  | Unix.WEXITED 0 -> debug Pp.(fun () -> str "Compiler is" ++ spc () ++ str result);
-    result
-  | _ -> 
-    CErrors.user_err ?loc:opts.loc Pp.(str "Executable" ++ spc () ++ str cmd ++ spc () ++ str "not found." ++ fnl () ++
-      str result)
-      
 type line = 
 | EOF
 | Info of string
@@ -288,7 +315,8 @@ let push_line buf line =
 let string_of_buffer buf = Bytes.to_string (Buffer.to_bytes buf)
 
 let execute cmd =
-  debug Pp.(fun () -> str "Executing: " ++ str cmd);
+  debug Pp.(fun () -> str "Executing: " ++ str cmd ++ str " in environemt: " ++ 
+    prlist_with_sep spc str (Array.to_list (Unix.environment ())));
   let (stdout, stdin, stderr) = Unix.open_process_full cmd (Unix.environment ()) in
   let continue = ref true in
   let outbuf, errbuf = Buffer.create 100, Buffer.create 100 in
@@ -303,6 +331,20 @@ let execute cmd =
   let status = Unix.close_process_full (stdout, stdin, stderr) in
   status, string_of_buffer outbuf, string_of_buffer errbuf
 
+let run_command opts cmd = 
+  let status, out, err = execute cmd in
+  match status with
+  | Unix.WEXITED 0 -> debug Pp.(fun () -> str "Execution result is" ++ spc () ++ str out);
+    String.trim out
+  | _ -> 
+    CErrors.user_err ?loc:opts.loc Pp.(str "Execution of" ++ spc () ++ str cmd ++ spc () ++ str "failed:" ++ fnl () ++
+      str out ++ str err)
+
+let opam_command cmd = 
+  match get_opam_path_opt () with
+  | Some s -> s ^ " exec -- " ^ cmd
+  | None -> "opam exec -- " ^ cmd
+      
 let execute opts cmd =
   let status, out, err = execute cmd in
   match status with
@@ -540,8 +582,8 @@ let compile opts names tyinfos fname =
   match opts.program_type with
   | None -> None
   | Some t ->
-    let malfunction = find_executable opts "which malfunction" in
-    let ocamlfind = find_executable opts "which ocamlfind" in
+    let malfunction = run_command opts (opam_command "which malfunction") in
+    let ocamlfind = run_command opts (opam_command "which ocamlfind") in
     let packages = get_global_packages () in
     let packages = String.concat "," packages in
     let optimize = if opts.optimize then "-O2" else "" in
@@ -629,10 +671,21 @@ let decompose_argument env sigma c =
     | _ -> [Reify.check_reifyable_thunk_or_value env sigma c]
   in aux c
 
+let set_opam_env opts =
+  let path = Unix.getenv "PATH" in
+  let opam_path = 
+    match get_opam_path_opt () with
+    | Some s -> s
+    | None -> run_command opts "which opam"
+  in
+  let opam_binpath = run_command opts (opam_path ^ " var bin") in
+  Unix.putenv "PATH" (opam_binpath ^ ":" ^ path)
+
 let extract_and_run
   (compile_malfunction : malfunction_compilation_function)
   ?loc opts env sigma c dest : (Constr.t list) option =
   let opts = make_options loc opts in
+  let () = set_opam_env opts in 
   let prog = time opts Pp.(str"Quoting") (Ast_quoter.quote_term_rec ~bypass:opts.bypass_qeds env) sigma (EConstr.to_constr sigma c) in
   let pt = match opts.program_type with 
     | Some (Standalone _) | None -> Standalone_binary 
@@ -674,7 +727,7 @@ let extract_and_run
   | None -> None
   | Some fname ->
     if opts.format then 
-      let malfunction = find_executable opts "which malfunction" in
+      let malfunction = run_command opts (opam_command "which malfunction") in
       let temp = fname ^ ".tmp" in
       ignore (execute opts (Printf.sprintf "%s fmt < %s > %s && mv %s %s" malfunction fname temp temp fname))
     else ();

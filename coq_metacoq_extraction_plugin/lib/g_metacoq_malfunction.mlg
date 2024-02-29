@@ -51,9 +51,16 @@ VERNAC COMMAND EXTEND MetaCoqExtract_Register CLASSIFIED AS SIDEFF
 }
 END
 
+ARGUMENT EXTEND unsafe_flag
+| [ "cofix-to-lazy" ] -> { CoFixToLazy }
+| [ "reorder-constructors" ] -> { ReorderConstructors }
+| [ "inlining" ] -> { Inlining }
+| [ "unboxing" ] -> { Unboxing }
+| [ "betared" ] -> { BetaRed }
+END
 
 ARGUMENT EXTEND extract_args
-| [ "-unsafe" ] -> { Unsafe }
+| [ "-unsafe" unsafe_flag_list(fl )] -> { Unsafe fl }
 | [ "-time" ] -> { Time }
 | [ "-typed" ] -> { Typed }
 | [ "-bypass-qeds" ] -> { BypassQeds }
