@@ -1100,7 +1100,7 @@ Proof.
   destruct enable_unsafe => //.
 Qed.
 
-Program Definition malfunction_pipeline (efl := EWellformed.all_env_flags) 
+Program Definition malfunction_pipeline 
   (config : malfunction_pipeline_config) :
   Transform.t _ _ _ _ _ _ TemplateProgram.eval_template_program
              (fun _ _ => True) :=
@@ -1125,10 +1125,7 @@ Fixpoint extract_names (t : Ast.term) : list ident :=
 
 Axiom trust_coq_kernel : forall conf p, pre (malfunction_pipeline conf) p.
 
-Definition compile_malfunction_gen (cf := config.extraction_checker_flags) config 
-  (pt : program_type)
-  (p : Ast.Env.program)
-  : list string * string := (* Exported names, code *)
+Definition compile_malfunction_gen config (pt : program_type) (p : Ast.Env.program) : list string * string := (* Exported names, code *)
   let nms := extract_names p.2 in
   let p' := run (malfunction_pipeline config) p (trust_coq_kernel config p) in
   let serialize p_c := @to_string _ (Serialize_module config.(prims) pt (rev nms)) p_c in
@@ -1138,7 +1135,7 @@ Definition compile_malfunction_gen (cf := config.extraction_checker_flags) confi
 Definition default_malfunction_config : malfunction_pipeline_config :=
   {| erasure_config := safe_erasure_config; prims := [] |}.
 
-Definition compile_malfunction (cf := config.extraction_checker_flags) p := 
+Definition compile_malfunction p := 
   (compile_malfunction_gen default_malfunction_config Standalone p).2.
 
 About compile_malfunction.
