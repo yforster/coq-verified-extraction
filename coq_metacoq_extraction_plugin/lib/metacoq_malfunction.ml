@@ -28,13 +28,6 @@ type malfunction_pipeline_config = {
   erasure_config : erasure_configuration;
   prims : primitives }
 
-let default_erasure_config inductives_mapping inlining = 
-  { enable_unsafe = false; enable_typed_erasure = false; enable_fast_remove_params = false; 
-    inductives_mapping; inlining }
-
-let default_malfunction_config inductives_mapping inlining prims = 
-  { erasure_config = default_erasure_config inductives_mapping inlining; prims }
-
 type program_type =
   | Standalone of bool (* Link statically with Coq's libraries *)
   | Plugin
@@ -244,6 +237,13 @@ let make_unsafe_flags b =
 
 let default_unsafe_flags = make_unsafe_flags false
 let all_unsafe_flags = make_unsafe_flags true
+
+let default_erasure_config inductives_mapping inlining = 
+  { enable_unsafe = default_unsafe_flags; enable_typed_erasure = false; enable_fast_remove_params = false; 
+    inductives_mapping; inlining }
+
+let default_malfunction_config inductives_mapping inlining prims = 
+  { erasure_config = default_erasure_config inductives_mapping inlining; prims }
 
 let set_unsafe_flag fl = function
 | CoFixToLazy -> { fl with cofix_to_lazy = true }

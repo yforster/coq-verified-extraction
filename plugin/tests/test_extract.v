@@ -7,14 +7,15 @@ From Coq Require Import String.
 From Coq Require Vector.
 
 Set MetaCoq Extraction Build Directory "_build".
+Set MetaCoq Opam Path "/usr/local/bin/opam".
 
 From Coq Require Import PrimInt63 Sint63.
 Definition test_primint := 
   let _ := print_int Sint63.min_int in
   let _ := print_newline tt in
-  let _ := print_int Sint63.max_int in
-  tt.
+  let _ := print_int Sint63.max_int in tt.
 Eval compute in test_primint.
+
 MetaCoq Extraction -fmt -compile-with-coq -run test_primint "test_primint.mlf".
 
 From Coq Require Import PrimFloat.
@@ -115,6 +116,23 @@ Module Unboxed.
   MetaCoq Extraction -typed -unsafe -fmt -compile-plugin -run test_ex "test_ex.mlf".
 End Unboxed.
 
+
+(** Typed extraction *)
+
+Definition sub : { x : nat | x = 0 } := @exist _ _ 0 eq_refl.
+MetaCoq Extraction sub.
+MetaCoq Extraction -typed sub.
+
+Equations idnat (n : nat) : nat by wf n lt :=
+ | 0 => 0
+ | S n => S (idnat n).
+
+Extraction idnat.
+
+MetaCoq Extract Inline [ Equations.Prop.Subterm.FixWf, Coq.Init.Wf.Fix, Coq.Init.Wf.Fix_F, idnat_functional ].
+
+MetaCoq Extraction -fmt -unsafe -typed idnat "idnat.mlf".
+
 Inductive three := ZERO | ONE | TWO | THREE.
 
 Definition two := TWO.
@@ -206,19 +224,3 @@ Definition arden: forest bool :=
                (leaf false)).
 
 MetaCoq Extraction (forest_size arden).
-
-(** Typed extraction *)
-
-Definition sub : { x : nat | x = 0 } := @exist _ _ 0 eq_refl.
-MetaCoq Extraction sub.
-MetaCoq Extraction -typed sub.
-
-Equations idnat (n : nat) : nat by wf n lt :=
- | 0 => 0
- | S n => S (idnat n).
-
-Extraction idnat.
-
-MetaCoq Extract Inline [ Equations.Prop.Subterm.FixWf, Coq.Init.Wf.Fix, Coq.Init.Wf.Fix_F, idnat_functional ].
-
-MetaCoq Extraction -fmt -unsafe -typed idnat "idnat.mlf".
