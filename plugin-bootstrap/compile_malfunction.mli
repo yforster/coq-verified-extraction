@@ -8,8 +8,13 @@ type z = Z0  | Zpos of positive | Zneg of positive
 type tree = Leaf  | Node of z * tree * (modpath * t) * tree
 type t_ = { this : tree ; is_ok : Obj.t (* not supported *) ;  }
 type dearging_config = { overridden_masks : (modpath * t) -> (bool  list)  option ; do_trim_const_masks : bool ; do_trim_ctor_masks : bool ;  }
-type erasure_configuration = { enable_unsafe : bool ; enable_typed_erasure : bool ; enable_fast_remove_params : bool ; dearging_config : dearging_config ; 
-    inlining : t_ }
+type unsafe_passes = { fix_to_lazy : bool;
+    reorder_constructors : bool;
+    inlining : bool;
+    unboxing : bool;
+    betared : bool }
+type erasure_configuration = { enable_unsafe : unsafe_passes ; enable_typed_erasure : bool ; enable_fast_remove_params : bool ; dearging_config : dearging_config ; 
+    inlined_constants : t_ }
 type 'id prim_def = Global of 'id * 'id | Primitive of t * nat | Erased 
 type malfunction_pipeline_config = { erasure_config : erasure_configuration ; prims : (t * t  prim_def)  list ;  }
 type program_type = Standalone | Shared_lib of t * t
