@@ -245,12 +245,20 @@ let interp_prims prims =
 let interp_inlining knset = 
   Obj.magic (FixProgram.fix_set knset)
 
+let interp_unsafe uns =
+  Compile_malfunction.({ 
+    fix_to_lazy = Caml_bool.to_coq uns.cofix_to_lazy;
+    reorder_constructors = Caml_bool.to_coq uns.reorder_constructors;
+    inlining = Caml_bool.to_coq uns.inlining;
+    unboxing = Caml_bool.to_coq uns.unboxing;
+    betared = Caml_bool.to_coq uns.betared })
+
 let interp_pipeline_config c : Compile_malfunction.malfunction_pipeline_config = 
   let { erasure_config = erasure_config; prims = prims } = c in
   let { enable_unsafe = enable_unsafe; 
         enable_typed_erasure = enable_typed_erasure; 
         enable_fast_remove_params = enable_fast_remove_params;
-        inlining = inlining } = erasure_config in
+        inlined_constants = inlined_constants } = erasure_config in
  
  (*       dearging_config = dearging_config  = erasure_config in
   let { do_trim_ind_masks = do_trim_ind_masks; 
@@ -258,14 +266,14 @@ let interp_pipeline_config c : Compile_malfunction.malfunction_pipeline_config =
         overridden_masks = overridden_masks } = dearging_config in *)
   let erasure_config = 
     Compile_malfunction.({ 
-      enable_unsafe = Caml_bool.to_coq enable_unsafe; 
+      enable_unsafe = interp_unsafe enable_unsafe; 
       enable_typed_erasure = Caml_bool.to_coq enable_typed_erasure; 
       enable_fast_remove_params = Caml_bool.to_coq enable_fast_remove_params;
       dearging_config = 
         { do_trim_ctor_masks = Compile_malfunction.False;
           do_trim_const_masks = Compile_malfunction.False  (*Caml_bool.to_coq do_trim_const_masks*);
           overridden_masks = (fun _ -> None) };
-      inlining = interp_inlining inlining } )
+      inlined_constants = interp_inlining inlined_constants } )
   in
   Compile_malfunction.({ erasure_config; prims = interp_prims prims })
 
