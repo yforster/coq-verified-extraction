@@ -37,7 +37,6 @@ let list_sum_main =
   let t' = Unix.gettimeofday () -. t in
   Printf.printf "list_sum execution time: %f milliseconds\n" (t'*.1000.0)
 
-
 let vs_easy_main =
   let n = int_of_string Sys.argv.(1) in
   let t = Unix.gettimeofday () in
@@ -73,7 +72,7 @@ let color_main =
     Color.color ()
   done;
   let t' = Unix.gettimeofday () -. t in
-  Printf.printf "color xecution time: %f milliseconds\n" (t'*.1000.0)
+  Printf.printf "color execution time: %f milliseconds\n" (t'*.1000.0)
 
 (* let sha_main =  
  *   let n = int_of_string Sys.argv.(1) in

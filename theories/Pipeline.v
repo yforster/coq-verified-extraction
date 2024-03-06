@@ -198,7 +198,10 @@ Program Definition enforce_extraction_conditions `{Pointer} `{Heap} :
     (EProgram.eval_eprogram block_wcbv_flags) (EProgram.eval_eprogram block_wcbv_flags) :=
   {|
     name := "Enforce the term is extractable" ;
-    transform p _ := let _ := check_good_for_extraction extraction_env_flags_mlf p in p
+    transform p _ := match check_good_for_extraction extraction_env_flags_mlf p
+                     with Good =>  p
+                     | Error err => p
+                     end
                      ;
     pre p := True ;
     post p := good_for_extraction extraction_env_flags_mlf p ;
@@ -208,7 +211,7 @@ Next Obligation.
   program_simpl. apply assume_can_be_extracted.
 Qed.
 Next Obligation.
-  program_simpl. red. program_simpl.  exists v. auto.
+  program_simpl. red. program_simpl.  exists v. destruct check_good_for_extraction; auto.
 Qed.
 
 From MetaCoq.Erasure Require Import EImplementBox EWellformed EProgram.
@@ -709,11 +712,12 @@ Section compile_value_mf.
     intro Hlookup. set (EGlobalEnv.lookup_env _ _) in Hlookup. case_eq o.
     2:{ intro Heq; rewrite Heq in Hlookup; inversion Hlookup. }
     intros decl' Heq.
+    destruct check_good_for_extraction;
     unshelve epose proof (verified_erasure_pipeline_lookup_env_in _ _ _ _ _ _ _ _ _ _ Heq) as [? [? ?]]; eauto.
-    eexists; split; eauto. rewrite Heq in Hlookup.
-    inversion Hlookup; subst; clear Hlookup. 
-    destruct decl', x; cbn in *; eauto.
-    destruct EAst.cst_body; eauto.
+    all: eexists; split; eauto; rewrite Heq in Hlookup.
+    all: inversion Hlookup; subst; clear Hlookup. 
+    all: destruct decl', x; cbn in *; eauto.
+    all: destruct EAst.cst_body; eauto.
   Qed.
 
   Definition compile_named_value p := eval_fo (compile_value_box (PCUICExpandLets.trans_global_env Σ) p []).
@@ -807,9 +811,10 @@ Section malfunction_pipeline_theorem.
     rewrite lookup_env_implement_box. rewrite lookup_env_implement_box in Hlookup.
     case_eq (EGlobalEnv.lookup_env (transform verified_erasure_pipeline (Σ, v)
                (precond2 Σ t ( mkApps (tInd i u) args) HΣ expΣ expt typing Normalisation v Heval)).1 kn).
-    2: { intros He. rewrite He in Hlookup; inversion Hlookup. }
-    intros ? Heq. rewrite Heq in Hlookup. cbn in Hlookup. 
-    eapply extends_lookup in Heq. rewrite Heq. eauto.
+    2: { intros He. destruct check_good_for_extraction; rewrite He in Hlookup; inversion Hlookup. }
+    intros ? Heq. rewrite Heq in Hlookup.
+    cbn in Hlookup. 
+    eapply extends_lookup in Heq; rewrite Heq. eauto.
     2: { eapply verified_erasure_pipeline_extends; eauto. }
     epose proof (correctness _ _ H4). cbn in H5. now destruct H4.
   Qed.

@@ -6,7 +6,7 @@ From Coq Require ZArith Lists.StreamMemo.
 From Coq Require Import String.
 From Coq Require Vector.
 
-Set MetaCoq Extraction Build Directory "_build".
+(* Set MetaCoq Extraction Build Directory "_build". *)
 (* Set MetaCoq Opam Path "/usr/local/bin/opam". *)
 
 From Coq Require Import PrimInt63 Sint63.
