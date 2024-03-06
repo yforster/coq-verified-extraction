@@ -3,8 +3,13 @@ type byte = X00  | X01  | X02  | X03  | X04  | X05  | X06  | X07  | X08  | X09  
 type t = EmptyString  | String of byte * t
 type nat = O  | S of nat
 type modpath = MPfile of t  list | MPbound of t  list * t * nat | MPdot of modpath * t
+type positive = XI of positive | XO of positive | XH 
+type z = Z0  | Zpos of positive | Zneg of positive
+type tree = Leaf  | Node of z * tree * (modpath * t) * tree
+type t_ = { this : tree ; is_ok : Obj.t (* not supported *) ;  }
 type dearging_config = { overridden_masks : (modpath * t) -> (bool  list)  option ; do_trim_const_masks : bool ; do_trim_ctor_masks : bool ;  }
-type erasure_configuration = { enable_cofix_to_fix : bool ; enable_typed_erasure : bool ; enable_fast_remove_params : bool ; dearging_config : dearging_config ;  }
+type erasure_configuration = { enable_unsafe : bool ; enable_typed_erasure : bool ; enable_fast_remove_params : bool ; dearging_config : dearging_config ; 
+    inlining : t_ }
 type 'id prim_def = Global of 'id * 'id | Primitive of t * nat | Erased 
 type malfunction_pipeline_config = { erasure_config : erasure_configuration ; prims : (t * t  prim_def)  list ;  }
 type program_type = Standalone | Shared_lib of t * t

@@ -46,9 +46,8 @@ PCUICUnivSubst
 PCUICSafeReduce
 PCUICSafeRetyping
 
-CarryType
-
 ResultMonad
+Show
 EPrimitive
 EAst
 EAstUtils
@@ -66,12 +65,15 @@ EEtaExpanded
 ERemoveParams
 ErasureFunction
 ErasureFunctionProperties
+EInlining
+EBeta
 EOptimizePropDiscr
 OptimizePropDiscr
 EInlineProjections
 EConstructorsAsBlocks
 ECoInductiveToInductive
 EReorderCstrs
+EUnboxing
 EImplementBox
 ExAst
 Optimize
@@ -82,6 +84,7 @@ ExtractionCorrectness
 ETransform
 Erasure0
 EWcbvEvalNamed
+HexadecimalString
 DecimalString
 CeresString
 CeresS

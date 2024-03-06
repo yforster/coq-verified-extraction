@@ -27,6 +27,10 @@ VERNAC ARGUMENT EXTEND metaCoqRegister_extract_cnst
 | [ reference(gr) "=>" string(str) ] -> { extract_constant (constant_of_qualid ~loc gr) str }
 END
 
+VERNAC ARGUMENT EXTEND metaCoqRegister_extract_inline
+| [ reference(gr) ] -> { (constant_of_qualid ~loc gr) }
+END
+
 VERNAC ARGUMENT EXTEND metaCoqRegister_extract_inductive 
 | [ reference(gr) "=>" string(ty) "[" natural_list(cstrs) "]" ] ->
   { extract_inductive (inductive_of_qualid ~loc gr) (ty, cstrs) }
@@ -42,11 +46,21 @@ VERNAC COMMAND EXTEND MetaCoqExtract_Register CLASSIFIED AS SIDEFF
 | [ "MetaCoq" "Extract" "Inductives" "[" metaCoqRegister_extract_inductive_list_sep(inds, ",") "]" ] -> {
     register_inductives inds
 }
+| [ "MetaCoq" "Extract" "Inline" "[" metaCoqRegister_extract_inline_list_sep(csts, ",") "]" ] -> {
+    register_inlines csts
+}
 END
 
+ARGUMENT EXTEND unsafe_flag
+| [ "cofix-to-lazy" ] -> { CoFixToLazy }
+| [ "reorder-constructors" ] -> { ReorderConstructors }
+| [ "inlining" ] -> { Inlining }
+| [ "unboxing" ] -> { Unboxing }
+| [ "betared" ] -> { BetaRed }
+END
 
 ARGUMENT EXTEND extract_args
-| [ "-unsafe" ] -> { Unsafe }
+| [ "-unsafe" unsafe_flag_list(fl )] -> { Unsafe fl }
 | [ "-time" ] -> { Time }
 | [ "-typed" ] -> { Typed }
 | [ "-bypass-qeds" ] -> { BypassQeds }
@@ -54,6 +68,7 @@ ARGUMENT EXTEND extract_args
 | [ "-compile-plugin" ] -> { ProgramType Plugin }
 | [ "-compile-with-coq" ] -> { ProgramType (Standalone true) }
 | [ "-compile" ] -> { ProgramType (Standalone false) }
+| [ "-load" ] -> { Load }
 | [ "-run" ] -> { Run }
 | [ "-verbose" ] -> { Verbose }
 | [ "-fmt" ] -> { Format }

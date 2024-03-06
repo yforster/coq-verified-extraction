@@ -1,11 +1,20 @@
 type inductive_mapping = Kernames.inductive * (string * int list) (* Target inductive type and mapping of constructor names to constructor tags *)
 type inductives_mapping = inductive_mapping list
 
-type erasure_configuration = { enable_cofix_to_fix : bool;
-                               enable_typed_erasure : bool;
-                               enable_fast_remove_params : bool; 
-                               inductives_mapping : inductives_mapping }
-                               
+type unsafe_passes = 
+  { cofix_to_lazy : bool;
+    reorder_constructors : bool;
+    inlining : bool;
+    unboxing : bool;
+    betared : bool }
+
+type erasure_configuration = { 
+  enable_unsafe : unsafe_passes;
+  enable_typed_erasure : bool;
+  enable_fast_remove_params : bool; 
+  inductives_mapping : inductives_mapping;
+  inlined_constants : Kernames.KernameSet.t }
+
 type prim_def =
 | Global of string * string
 | Primitive of string * int
@@ -23,14 +32,22 @@ type program_type =
   | Standalone of bool (* Link statically with Coq's libraries *)
   | Plugin
   
+type unsafe_pass = 
+  | CoFixToLazy
+  | ReorderConstructors
+  | Inlining
+  | Unboxing
+  | BetaRed
+
 type malfunction_command_args =
-  | Unsafe
+  | Unsafe of unsafe_pass list
   | Verbose
   | Time
   | Typed
   | BypassQeds
   | Fast
   | ProgramType of program_type
+  | Load
   | Run
   | Format
   | Optimize
@@ -47,6 +64,7 @@ val extract_inductive : Kernames.inductive -> string * int list -> inductive_map
 type package = string
 
 val register_inductives : inductives_mapping -> unit
+val register_inlines : Kernames.kername list -> unit
 val register : prim list -> package list -> unit
 
 type malfunction_program_type = 
