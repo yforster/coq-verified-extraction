@@ -47,6 +47,7 @@ PCUICSafeReduce
 PCUICSafeRetyping
 
 ResultMonad
+Show
 EPrimitive
 EAst
 EAstUtils
@@ -83,6 +84,7 @@ ExtractionCorrectness
 ETransform
 Erasure0
 EWcbvEvalNamed
+HexadecimalString
 DecimalString
 CeresString
 CeresS

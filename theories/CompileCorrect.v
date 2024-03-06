@@ -423,6 +423,39 @@ Qed.
 
 Opaque Malfunction.Int63.wB PArray.max_length.
 
+Axiom unsupported_arrays : forall `{Heap} Σ Σ' Γ Γ_ h a p', 
+  EWcbvEval.eval_primitive (EWcbvEvalNamed.eval Σ Γ) (Primitive.primArray; EPrimitive.primArrayModel a) p' ->
+  eval Σ' Γ_ h (compile Σ (EAst.tPrim (Primitive.primArray; EPrimitive.primArrayModel a))) h (to_primitive p').
+
+(* We disable primitive arrays and fix/cofix for correctness. *)
+Definition extraction_env_flags_mlf := 
+  let nolazy_array_term_flags := {|
+    EWellformed.has_tBox := false;
+    EWellformed.has_tRel := true;
+    EWellformed.has_tVar := false;
+    EWellformed.has_tEvar := false;
+    EWellformed.has_tLambda := true;
+    EWellformed.has_tLetIn := true;
+    EWellformed.has_tApp := true;
+    EWellformed.has_tConst := true;
+    EWellformed.has_tConstruct := true;
+    EWellformed.has_tCase := true;
+    EWellformed.has_tProj := false;
+    EWellformed.has_tFix := true;
+    EWellformed.has_tCoFix := false;
+    EWellformed.has_tPrim := 
+      {| EWellformed.has_primint := true;
+         EWellformed.has_primfloat := true;
+         EWellformed.has_primarray := false |};
+    EWellformed.has_tLazy_Force := false
+  |}
+  in
+  {|
+  EWellformed.has_axioms := false;
+  EWellformed.has_cstr_params := false;
+  EWellformed.term_switches := nolazy_array_term_flags;
+  EWellformed.cstr_as_blocks := true |}.
+
 Definition malfunction_env_prop `{Heap} Σ Σ' :=  
   forall c decl body v, EGlobalEnv.declared_constant Σ c decl -> EAst.cst_body decl = Some body -> EWcbvEvalNamed.eval Σ [] body v -> In ((Kernames.string_of_kername c), compile_value Σ v) Σ'.
   
@@ -477,7 +510,7 @@ Proof.
       * revert H0. destruct prim as [? []]; simp compile; cbn; congruence.
     + rewrite Mapply_spec. 2: destruct arg; cbn; congruence.
       eapply Mapply_eval.
-      * rewrite <- E. cbn in IHHeval1. eauto.
+      * rewrite <- E. eauto.
       * eauto.
       * erewrite (functional_extensionality ((Malfunction.Ident.Map.add (na)
              (compile_value Σ a')
@@ -767,8 +800,8 @@ Proof.
     rewrite firstn_length in H0.
     destruct nth_error eqn:E; try congruence.
     eapply nth_error_Some_length in E. lia.
-  - destruct p as [? []]; inversion ev; subst; simp compile; econstructor.
-    cbn. todo "arrays". 
+  - destruct p as [? []]. 1-2:inversion ev; subst; simp compile; econstructor.
+    cbn. now eapply unsupported_arrays.
 Qed.
 Print Assumptions compile_correct.
 
@@ -896,35 +929,6 @@ Proof.
       eapply le_n_S. eapply  IHl2. lia.
       eapply IHl2. lia.
 Qed.
-
-(* We disable primitive arrays and fix/cofix for correctness. *)
-Definition extraction_env_flags_mlf := 
-  let nolazy_array_term_flags := {|
-    EWellformed.has_tBox := false;
-    EWellformed.has_tRel := true;
-    EWellformed.has_tVar := false;
-    EWellformed.has_tEvar := false;
-    EWellformed.has_tLambda := true;
-    EWellformed.has_tLetIn := true;
-    EWellformed.has_tApp := true;
-    EWellformed.has_tConst := true;
-    EWellformed.has_tConstruct := true;
-    EWellformed.has_tCase := true;
-    EWellformed.has_tProj := false;
-    EWellformed.has_tFix := true;
-    EWellformed.has_tCoFix := false;
-    EWellformed.has_tPrim := 
-      {| EWellformed.has_primint := true;
-         EWellformed.has_primfloat := true;
-         EWellformed.has_primarray := false |};
-    EWellformed.has_tLazy_Force := false
-  |}
-  in
-  {|
-  EWellformed.has_axioms := false;
-  EWellformed.has_cstr_params := false;
-  EWellformed.term_switches := nolazy_array_term_flags;
-  EWellformed.cstr_as_blocks := true |}.
 
 Lemma compile_wellformed Γ n s t (Σ : EAst.global_declarations) :
     (forall i args, lookup_constructor_args Σ i = Some args ->

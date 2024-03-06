@@ -13,7 +13,7 @@ type erasure_configuration = {
   enable_typed_erasure : bool;
   enable_fast_remove_params : bool; 
   inductives_mapping : inductives_mapping;
-  inlining : Kernames.KernameSet.t }
+  inlined_constants : Kernames.KernameSet.t }
 
 type prim_def =
 | Global of string * string

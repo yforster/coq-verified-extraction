@@ -13,7 +13,7 @@ type erasure_configuration = {
   enable_typed_erasure : bool;
   enable_fast_remove_params : bool; 
   inductives_mapping : inductives_mapping;
-  inlining : Kernames.KernameSet.t }
+  inlined_constants : Kernames.KernameSet.t }
 
 type prim_def =
 | Global of string * string
@@ -238,12 +238,12 @@ let make_unsafe_flags b =
 let default_unsafe_flags = make_unsafe_flags false
 let all_unsafe_flags = make_unsafe_flags true
 
-let default_erasure_config inductives_mapping inlining = 
+let default_erasure_config inductives_mapping inlined_constants = 
   { enable_unsafe = default_unsafe_flags; enable_typed_erasure = false; enable_fast_remove_params = false; 
-    inductives_mapping; inlining }
+    inductives_mapping; inlined_constants }
 
-let default_malfunction_config inductives_mapping inlining prims = 
-  { erasure_config = default_erasure_config inductives_mapping inlining; prims }
+let default_malfunction_config inductives_mapping inlined_constants prims = 
+  { erasure_config = default_erasure_config inductives_mapping inlined_constants; prims }
 
 let set_unsafe_flag fl = function
 | CoFixToLazy -> { fl with cofix_to_lazy = true }

@@ -201,7 +201,3 @@ extraction/typing0.mli
 extraction/typing0.ml
 extraction/templateProgram.mli
 extraction/templateProgram.ml
-extraction/decimalString.mli
-extraction/decimalString.ml
-extraction/hexadecimalString.mli
-extraction/hexadecimalString.ml

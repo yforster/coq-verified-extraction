@@ -56,6 +56,12 @@ extraction/eOptimizePropDiscr.ml
 extraction/eOptimizePropDiscr.mli
 extraction/ePretty.ml
 extraction/ePretty.mli
+extraction/decimalString.mli
+extraction/decimalString.ml
+extraction/hexadecimalString.mli
+extraction/hexadecimalString.ml
+extraction/show.mli
+extraction/show.ml
 extraction/ePrimitive.ml
 extraction/ePrimitive.mli
 extraction/eProgram.ml
