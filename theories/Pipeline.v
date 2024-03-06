@@ -21,14 +21,14 @@ Import PCUICTransform (template_to_pcuic_transform, pcuic_expand_lets_transform)
   shrinking of the global environment dependencies +
   the optimization that removes all pattern-matches on propositions. *)
 
-  Lemma All_sq {A} (P : A -> Type) l :
-    Forall (fun x => squash (P x)) l ->
-    squash (All P l).
-  Proof using Type.
-    induction 1.
-    - repeat econstructor.
-    - sq. now constructor.
-  Qed.
+Lemma All_sq {A} (P : A -> Type) l :
+  Forall (fun x => squash (P x)) l ->
+  squash (All P l).
+Proof using Type.
+  induction 1.
+  - repeat econstructor.
+  - sq. now constructor.
+Qed.
   
 Import Transform.Transform.
 
@@ -93,30 +93,67 @@ Definition bool_good_error a s :=
 
 Notation "a >>> s" := (bool_good_error a s) (at level 65).
 
+Definition array_length_Z := Uint63.to_Z array_length.
+
+Section params.
+
+  From MetaCoq Require Import EWellformed.
+
+  Variables (efl : EWellformed.EEnvFlags) (Σ : EAst.global_declarations).
+
+  Fixpoint wellformed_fast (t : EAst.term) {struct t} : bool :=
+    match t with
+    | EAst.tBox => EWellformed.has_tBox
+    | EAst.tRel i => EWellformed.has_tRel 
+    | EAst.tVar _ => EWellformed.has_tVar
+    | EAst.tEvar _ args => EWellformed.has_tEvar && forallb (wellformed_fast) args
+    | EAst.tLambda _ M => EWellformed.has_tLambda && wellformed_fast M
+    | EAst.tLetIn _ b b' => EWellformed.has_tLetIn && wellformed_fast b && wellformed_fast b'
+    | EAst.tApp u v => EWellformed.has_tApp && wellformed_fast u && wellformed_fast v
+    | EAst.tConst kn =>
+        EWellformed.has_tConst
+    | EAst.tConstruct ind c block_args =>
+        EWellformed.has_tConstruct && 
+          (if EWellformed.cstr_as_blocks
+           then
+             match EGlobalEnv.lookup_constructor_pars_args Σ ind c with
+             | Some (p, a) => p + a == #|block_args|
+             | None => true
+             end && forallb (wellformed_fast) block_args
+           else EWellformed.is_nil block_args)
+    | EAst.tCase ind c brs =>
+        EWellformed.has_tCase &&
+          (let brs' := forallb (fun br : list BasicAst.name × EAst.term => wellformed_fast  br.2) brs in
+           isSome (EGlobalEnv.lookup_inductive Σ ind.1) && wellformed_fast c && brs')
+    | EAst.tProj p c => EWellformed.has_tProj && isSome (EGlobalEnv.lookup_projection Σ p) && wellformed_fast c
+    | EAst.tFix mfix idx => EWellformed.has_tFix && forallb (EAst.isLambda ∘ EAst.dbody) mfix && EWellformed.wf_fix_gen (fun _ => wellformed_fast) 0 mfix idx
+    | EAst.tCoFix mfix idx => EWellformed.has_tCoFix && EWellformed.wf_fix_gen (fun _ => wellformed_fast) 0 mfix idx
+    | EAst.tPrim p => EWellformed.has_prim p && EPrimitive.test_prim (wellformed_fast) p
+    | EAst.tLazy t0 | EAst.tForce t0 => EWellformed.has_tLazy_Force && wellformed_fast t0
+    end.
+
+End params.
+
 Fixpoint check_good_for_extraction_rec (fl : EWellformed.EEnvFlags) (Σ : (list (kername × EAst.global_decl))) :=
   match Σ with
   | nil => Good
   | (kn, EAst.ConstantDecl d) :: Σ =>
-      forallb (fun x : kername × EAst.global_decl => negb (x.1 == kn)) Σ >>> "environment re-declares names"
-      &|&
-      option_default (fun b : EAst.term => @EWellformed.wellformed fl Σ 0 b) (EAst.cst_body d) false >>> "environment contains non-extractable constant"
+      option_default (fun b : EAst.term => wellformed_fast fl Σ b) (EAst.cst_body d) false >>> "environment contains non-extractable constant"
       &|&
       check_good_for_extraction_rec fl Σ
   | (kn, EAst.InductiveDecl mind) :: Σ =>
       forallb (fun ob => let args := map EAst.cstr_nargs (EAst.ind_ctors ob) in
                  blocks_until #|args| args <? 200)  mind.(EAst.ind_bodies) >>> "inductive with too many blocks"
       &|&
-      forallb (fun ob => #|EAst.ind_ctors ob| <? Z.to_nat Malfunction.Int63.wB) mind.(EAst.ind_bodies) >>> "inductive with too many constructors"
+      forallb (fun ob => Z.of_nat #|EAst.ind_ctors ob| <? Malfunction.Int63.wB)%Z mind.(EAst.ind_bodies) >>> "inductive with too many constructors"
       &|&
-      forallb (fun ob => forallb (fun b => EAst.cstr_nargs b <? int_to_nat array_length ) (EAst.ind_ctors ob)) mind.(EAst.ind_bodies) >>> "inductive with too many constructor arguments"
-      &|&
-      forallb (fun x : kername × EAst.global_decl => negb (x.1 == kn)) Σ >>> "environment re-declares names"
+      forallb (fun ob => forallb (fun b => Z.of_nat (EAst.cstr_nargs b) <? array_length_Z)%Z (EAst.ind_ctors ob)) mind.(EAst.ind_bodies) >>> "inductive with too many constructor arguments"
       &|& @EWellformed.wf_minductive fl mind >>> "environment contains non-extractable inductive"
       &|& check_good_for_extraction_rec fl Σ
   end.
 
 Definition check_good_for_extraction fl (p : program (list (kername × EAst.global_decl)) EAst.term) :=
-  @EWellformed.wellformed fl p.1 0 p.2 >>> "term contains non-extractable constructors"
+  wellformed_fast fl p.1 p.2 >>> "term contains non-extractable constructors"
     &|& check_good_for_extraction_rec fl p.1.
 
 #[local] Obligation Tactic := try now program_simpl.
@@ -161,7 +198,8 @@ Program Definition enforce_extraction_conditions `{Pointer} `{Heap} :
     (EProgram.eval_eprogram block_wcbv_flags) (EProgram.eval_eprogram block_wcbv_flags) :=
   {|
     name := "Enforce the term is extractable" ;
-    transform p _ := p ;
+    transform p _ := let _ := check_good_for_extraction extraction_env_flags_mlf p in p
+                     ;
     pre p := True ;
     post p := good_for_extraction extraction_env_flags_mlf p ;
     obseq p1 _ p2 v1 v2 := p1 = p2 /\ v1 = v2
