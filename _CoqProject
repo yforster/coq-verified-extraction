@@ -6,6 +6,8 @@
 theories/Ceres/CeresFormat.v
 theories/Ceres/CeresSerialize.v
 
+theories/FFI.v
+
 theories/Malfunction.v
 theories/utils_array.v
 theories/SemanticsSpec.v

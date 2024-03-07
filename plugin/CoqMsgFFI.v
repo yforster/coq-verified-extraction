@@ -1,10 +1,6 @@
 Require Import MetaCoq.Utils.bytestring.
 From Malfunction.Plugin Require Import Loader.
-
-Axiom (coq_msg_info : string -> unit).
-Axiom (coq_msg_notice : string -> unit).
-Axiom (coq_msg_debug : string -> unit).
-Axiom (coq_user_error : string -> unit).
+From Malfunction Require Import FFI.
 
 MetaCoq Extract Constants [ 
   coq_msg_info => "Coq_metacoq_extraction_plugin__Coq_ffi.msg_info",
