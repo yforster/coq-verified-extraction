@@ -8,7 +8,7 @@ type z = Z0  | Zpos of positive | Zneg of positive
 type tree = Leaf  | Node of z * tree * (modpath * t) * tree
 type t_ = { this : tree ; is_ok : Obj.t (* not supported *) ;  }
 type dearging_config = { overridden_masks : (modpath * t) -> (bool  list)  option ; do_trim_const_masks : bool ; do_trim_ctor_masks : bool ;  }
-type unsafe_passes = { fix_to_lazy : bool;
+type unsafe_passes = { cofix_to_lazy : bool;
     reorder_constructors : bool;
     inlining : bool;
     unboxing : bool;
