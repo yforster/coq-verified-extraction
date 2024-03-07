@@ -246,12 +246,11 @@ let interp_inlining knset =
   Obj.magic (FixProgram.fix_set knset)
 
 let interp_unsafe uns =
-  Compile_malfunction.({ 
-    fix_to_lazy = Caml_bool.to_coq uns.cofix_to_lazy;
+  { Compile_malfunction.cofix_to_lazy = Caml_bool.to_coq uns.cofix_to_lazy;
     reorder_constructors = Caml_bool.to_coq uns.reorder_constructors;
     inlining = Caml_bool.to_coq uns.inlining;
     unboxing = Caml_bool.to_coq uns.unboxing;
-    betared = Caml_bool.to_coq uns.betared })
+    betared = Caml_bool.to_coq uns.betared }
 
 let interp_pipeline_config c : Compile_malfunction.malfunction_pipeline_config = 
   let { erasure_config = erasure_config; prims = prims } = c in

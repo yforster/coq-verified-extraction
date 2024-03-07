@@ -39,7 +39,7 @@ let interp_inductive_mapping (ind, (tyna, tags)) =
     List.map Caml_nat.nat_of_caml_int tags))
 
 let interp_unsafe uns =
-  { Erasure0.fix_to_lazy = uns.cofix_to_lazy;
+  { Erasure0.cofix_to_lazy = uns.cofix_to_lazy;
     Erasure0.reorder_constructors = uns.reorder_constructors;
     Erasure0.inlining = uns.inlining;
     Erasure0.unboxing = uns.unboxing;
