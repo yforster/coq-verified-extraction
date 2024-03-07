@@ -38,8 +38,8 @@ axioms.cmx: axioms.ml
 	@ocamlopt -c axioms.ml
 
 mainopt: $(MLFFILES) $(CMXFILES)
-	@ocamlopt -c -w -a-1  main.ml 
-	@ocamlopt -o mainopt unix.cmxa axioms.cmx $(CMXFILES) main.cmx
+	@ocamlfind ocamlopt -c -thread -package core,core_bench,core_unix.command_unix main.ml
+	@ocamlfind ocamlopt -linkpkg -thread -package core,core_bench,core_unix.command_unix $(CMXFILES) main.cmx -o main.native
 
 tests: tests.v
 	@coqc $(COQOPTS) tests.v > /dev/null
@@ -47,8 +47,7 @@ tests: tests.v
 build: $(TESTS) mainopt 
 
 run: build
-#	./main 10
-	@echo "Malfunction with -O2 optimisations"
-	./mainopt 10
+	@echo "Malfunction with optimisations -O2"
+	@./main.native +time
 
 .NOTPARALLEL: tests run

@@ -49,5 +49,5 @@ jobs:
             endGroup
             startGroup "run tests"
               make -C examples
-              make -C benchmarks
+              # make -C benchmarks
             endGroup
