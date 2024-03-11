@@ -1,20 +1,50 @@
-COQOPTS =  -R ../lib MetaCoq.VerifiedExtraction.Benchmarks.lib -w -extraction-opaque-accessed,-notation-overridden,-opaque-let
+COQOPTS = -R ../lib MetaCoq.VerifiedExtraction.Benchmarks.lib -w -extraction-opaque-accessed,-notation-overridden,-opaque-let
 CCOMPILER=gcc
 
 # Names of the benchmarks
 TESTS=$(shell cat TESTS)
+# Names of the generated cfiles
+MLFFILES=$(patsubst %,%.ml, $(TESTS))
+MLIFILES=$(patsubst %,%.mli, $(TESTS))
+CMXFILES=$(patsubst %,%.cmx, $(TESTS))
 
 default: tests run
-all: tests run
+all: tests mainopt run
 
 .PHONY: run clean cleanml
 
-mainopt:
-	@ocamlbuild -use-ocamlfind -pkg core,core_bench,core_unix.command_unix -tag thread main.native
+$(MLFILES): tests
+$(CMXFILES): $(TESTS)
+exec: $(TESTS)
+
+clean:
+	rm -f ./*.cmi
+	rm -f ./*.cmo
+	rm -f ./*.cmx
+	rm -f ./*.cma
+	rm -f ./*.o
+	rm -f $(TESTS)
+	rm -f main mainopt
+	rm -f ./*.vo ./*.vos ./*.vok
+
+cleanml :
+	rm -f $(MLFFILES) $(MLIFILES)
+
+$(TESTS): $(MLFFILES)
+	@ocamlopt -c $@.mli
+	@ocamlopt -O2 -c $@.ml
+
+mainopt: $(MLFFILES) $(CMXFILES)
+	@ocamlfind ocamlopt -c -thread -package core,core_bench,core_unix.command_unix main.ml
+	@ocamlfind ocamlopt -linkpkg -thread -package core,core_bench,core_unix.command_unix $(CMXFILES) main.cmx -O2 -o main.native
 
 tests: tests.v
-	@coqc $(COQOPTS) tests.v
+	@coqc $(COQOPTS) tests.v > /dev/null
+
+build: $(TESTS) mainopt 
 
 run: mainopt
-	@echo "OCaml with extraction optimisations off. Native:"
+	@echo "OCaml -O2 with extraction optimisations off. Native:"
 	@./main.native +time
+
+.NOTPARALLEL: tests run
