@@ -182,6 +182,7 @@ Program Definition enforce_extraction_conditions `{Pointer} `{Heap} :
   {|
     name := "Enforce the term is extractable" ;
     transform p _ := p ;
+    (* if check_good_for_extraction extraction_env_flags_mlf p then p else p ; *)
     pre p := True ;
     post p := good_for_extraction extraction_env_flags_mlf p ;
     obseq p1 _ p2 v1 v2 := p1 = p2 /\ v1 = v2
