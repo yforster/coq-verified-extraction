@@ -73,22 +73,12 @@ Record good_for_extraction (fl : EWellformed.EEnvFlags) (p : program (list (kern
     right_flags_in_term : @EWellformed.wellformed fl p.1 0 p.2
   }.
 
-Inductive check_good :=
-| Good
-| Error of string.
-
-Definition bind_good a b :=
-  match a with
-  | Good => b
-  | Error s => Error s
-  end.
-
-Notation "a &|& b" := (bind_good a b) (at level 70).
+Notation "a &|& b" := (a && b) (at level 70).
 
 Definition bool_good_error a s :=
   match a with
-  | true => Good
-  | false => Error s
+  | true => true
+  | false => let _ := coq_msg_info s in false
   end.
 
 Notation "a >>> s" := (bool_good_error a s) (at level 65).
@@ -113,14 +103,7 @@ Section params.
     | EAst.tConst kn =>
         EWellformed.has_tConst
     | EAst.tConstruct ind c block_args =>
-        EWellformed.has_tConstruct && 
-          (if EWellformed.cstr_as_blocks
-           then
-             match EGlobalEnv.lookup_constructor_pars_args Σ ind c with
-             | Some (p, a) => p + a == #|block_args|
-             | None => true
-             end && forallb (wellformed_fast) block_args
-           else EWellformed.is_nil block_args)
+        EWellformed.has_tConstruct 
     | EAst.tCase ind c brs =>
         EWellformed.has_tCase &&
           (let brs' := forallb (fun br : list BasicAst.name × EAst.term => wellformed_fast  br.2) brs in
@@ -136,7 +119,7 @@ End params.
 
 Fixpoint check_good_for_extraction_rec (fl : EWellformed.EEnvFlags) (Σ : (list (kername × EAst.global_decl))) :=
   match Σ with
-  | nil => Good
+  | nil => true
   | (kn, EAst.ConstantDecl d) :: Σ =>
       option_default (fun b : EAst.term => wellformed_fast fl Σ b) (EAst.cst_body d) false >>> "environment contains non-extractable constant"
       &|&
