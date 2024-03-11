@@ -80,3 +80,13 @@ examples/prim-integers/append.mlf.fmt
 plugin/g_metacoq_extraction_ocaml.ml
 coq_metacoq_extraction_malfunction_ffi/coq_metacoq_extraction_malfunction_ffi.opam
 .vscode/settings.json
+plugin/naturals
+plugin/ones
+plugin/show_lfact
+plugin/show_lfact_typed
+plugin/test_bytestring
+plugin/test_floats
+plugin/test_lfact
+plugin/test_lfact_typed
+plugin/test_lfact_typed_opt
+plugin/test_primint
