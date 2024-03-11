@@ -2,7 +2,7 @@ open Core
 open Core_bench
 
 let () =
-  Command.run (Bench.make_command [
+  Command_unix.run (Bench.make_command [
     Bench.Test.create ~name:"demo0"
       (fun () -> ignore(Demo0.demo0 ()));
     Bench.Test.create ~name:"demo1"

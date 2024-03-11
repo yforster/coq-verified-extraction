@@ -1,4 +1,5 @@
 From Equations Require Import Equations.
+From Malfunction Require Import FFI.
 From Malfunction.Plugin Require Import Extract OCamlFFI.
 From MetaCoq.Template Require Import All.
 From Coq Require ZArith Lists.StreamMemo.
