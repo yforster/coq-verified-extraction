@@ -14,16 +14,17 @@ Verification is work in progress.
 opam switch create coq-malfunction --packages="ocaml-variants.4.13.1+options,ocaml-option-flambda"
 eval $(opam env --switch=coq-malfunction)
 opam repo add coq-released https://coq.inria.fr/opam/released
-opam pin -n -y "https://github.com/MetaCoq/metacoq.git#b33a9bd"
-opam pin -n -y "https://github.com/yforster/malfunction.git#for-pack"
+opam pin -n -y "https://github.com/MetaCoq/metacoq.git#v1.3-8.17"
+opam pin -n -y "https://github.com/mattam82/malfunction.git#packages-and-dontlink-for-compile"
 opam install . --deps-only
 make -j 4
 ```
 
 ## Usage
 
-After `From VerifiedExtraction Require Import Loader.`
-the commands `MetaCoq Verified Extraction <definition>` and `MetaCoq Verified Extraction <definition> "<file>.mlf"` can be used to run the new extraction process.
+After `From Malfunction.VerifiedPlugin Require Import Loader.`
+the commands `MetaCoq Extraction <definition>` and `MetaCoq Extraction <definition> "<file>.mlf"` can be used to run the new extraction process.
+Multiple functions can be extracted at the same time with `MetaCoq Extraction (<d1>,<d2>,...)`.
 To add an `mli` file one can add the output of the (unverified) generator `MetaCoq Run Print mli <definition>.` to a `.mli` file.
 
 ## Structure
@@ -35,11 +36,12 @@ To add an `mli` file one can add the output of the (unverified) generator `MetaC
 - [`Interpreter.v`](theories/Interpreter.v) contains an interpretation function, which is close to [`malfunction_interpreter.ml`](https://github.com/stedolan/malfunction/blob/master/src/malfunction_interpreter.ml), and a proof that values according to the evaluation predicate are also found by the interpreter. Note that since the interpreter is not necessarily terminating we switch of Coq's termination checker, meaning this proof can only be seen as a sanity check.
 - [`Serialize.v`](theories/Serialize.v) contains seralization functions into s-expressions. There is also a parser in [`Deserialize.v`](theories/Deserialize.v), used for testing.
 - [`Pipeline.v`](theories/Pipeline.v) composes the full extraction pipeline from Coq to Malfunction
+- [`Firstorder.v`](theories/Firstorder.v) derives interoperability results for first-order functions
 
 ## Team & Credits
 
 The project is developed by Yannick Forster, Matthieu Sozeau, Pierre-Marie Pédrot, and Nicolas Tabareau.
 
 ```
-Copyright (c) 2022--2023 Yannick Forster, Matthieu Sozeau, Nicolas Tabareau
+Copyright (c) 2022--2024 Yannick Forster, Matthieu Sozeau, Nicolas Tabareau
 ```

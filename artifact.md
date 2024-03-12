@@ -10,11 +10,11 @@ We recommend checking three central parts:
 
 ## Theorem from section 2.3
 
-The central theorem on extraction for first-order values is `verified_malfunction_pipeline_theorem` in line 982 of file `theories/Pipeline.v`.
+The central theorem on extraction for first-order values is `verified_malfunction_pipeline_theorem` in line 982 of file `coq-malfunction/theories/Pipeline.v`.
 
 ## Theorem from section 2.4
 
-The central theorem on extraction for first-order functions is `interoperability_firstorder_function` in line 2579 of file `theories/Firstorder.v`.
+The central theorem on extraction for first-order functions is `interoperability_firstorder_function` in line 2579 of file `coq-malfunction/theories/Firstorder.v`.
 
 Issuing `make -f Makefile.coq theories/Firstorder.vo` in the directory `coq-malfunction` of the home directory of the `coq` user re-checks this proof, and prints the results of the `Print Assumptions` command at the end of the file.
 
@@ -23,3 +23,7 @@ Issuing `make -f Makefile.coq theories/Firstorder.vo` in the directory `coq-malf
 The `coq-malfunction/benchmarks` directory contains the benchmarks discussed in section 6. They can be run with the command `make`. The `README.md` file in this directory contains more instructions how to ensure that processor speed stays constant during the execution.
 
 Note that the exact implementation of timing for benchmarks was slightly changed since the submitted version by request of the reviewers.
+
+## Re-compilation of proofs and plugin
+
+Issuing `make -j 2` in `coq-malfunction` re-checks all proofs and re-compiles the extraction plugin.
