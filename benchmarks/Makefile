@@ -17,6 +17,7 @@ cleanlib:
 	$(MAKE) clean -C lib
 
 tests: lib
+ 	make -C ocaml-o0 all
 	make -C ocaml all
 	make -C ocaml-noopt all
 	make -C malfunction all
@@ -25,6 +26,7 @@ tests: lib
 	make -C malfunction-verified-o2 all
 
 run:
+	$(MAKE) -C ocaml-o0 run
 	$(MAKE) -C ocaml run
 	$(MAKE) -C ocaml-noopt run
 	$(MAKE) -C malfunction run
