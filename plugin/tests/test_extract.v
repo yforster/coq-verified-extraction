@@ -17,6 +17,8 @@ Definition test_primint :=
   let _ := print_int Sint63.max_int in tt.
 Eval compute in test_primint.
 
+MetaCoq Extraction (plus, mult).
+
 MetaCoq Extraction -fmt -compile-with-coq -run test_primint "test_primint.mlf".
 
 From Coq Require Import PrimFloat.

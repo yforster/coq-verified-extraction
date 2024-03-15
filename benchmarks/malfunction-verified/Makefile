@@ -48,6 +48,6 @@ build: $(TESTS) mainopt
 
 run: build
 	@echo "Bootstrapped Malfunction with no optimisations"
-	@./main.native +time
+	@./main.native +time -quota 100s -ci-absolute -clear-columns -sexp  | sexp query each | sexp to-csv | awk -F "\"*,\"*" '{print $$17","$$18","$$19}' | tail -n +2
 
 .NOTPARALLEL: tests run
