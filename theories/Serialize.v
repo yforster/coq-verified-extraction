@@ -328,10 +328,6 @@ Definition shared_lib_register modname label '(name, export) :=
 
 Definition Serialize_module prims (pt : program_type) (names : list bytestring.string): Serialize program :=
   fun '(m, x) =>    
-    let name : Ident.t  := match m with
-                           | (x :: l)%list => fst x
-                           | nil => ""%bs
-                           end in
     let main := "main"%bs in 
     let names := (main :: names)%list in
     let shortnames : list Ident.t := List.map (fun name => uncapitalize (thename nil name)) names in
@@ -349,7 +345,7 @@ Definition Serialize_module prims (pt : program_type) (names : list bytestring.s
     in
     match
       Cons (Atom "module") (@Serialize_list _ (global_serializer prims) 
-        (List.rev ((main, Some x) :: m)%list))
+        (List.rev (match exports with nil => (main, Some x) :: m | _ => m end)%list))
     with
       List l =>
         List (l                 (* the extracted function *)
