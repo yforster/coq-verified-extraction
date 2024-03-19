@@ -1,4 +1,4 @@
-From Malfunction Require Import Loader PrintMli.
+From Malfunction Require Import Plugin.Loader PrintMli.
 
 Verified Extraction (plus, mult).
 
