@@ -1,4 +1,4 @@
-From Malfunction Require Import Loader.
+From Malfunction Require Import Plugin.Loader.
 
 From compcert Require Import Compiler.
 

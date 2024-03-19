@@ -196,7 +196,7 @@ Definition PrintMLI {A} (a : A) :=
   t <- tmQuote a ;;
   match rev (extract_names t) with
   | [] =>
-      tmEval cbv (print_mli ["<no name given>"] p) >>= tmMsg
+      tmEval cbv (print_mli ["main"] p) >>= tmMsg
   | names =>
       tmEval cbv (print_mli names p) >>= tmMsg
   end.
