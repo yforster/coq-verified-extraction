@@ -333,7 +333,7 @@ Definition Serialize_module prims (pt : program_type) (names : list bytestring.s
                            | nil => ""%bs
                            end in
     let main := "main"%bs in 
-    let names := (main :: names)%list in
+    let names := (names ++ ["main"%bs])%list in
     let shortnames : list Ident.t := List.map (fun name => uncapitalize (thename nil name)) names in
     let longnames : list sexp := List.map (fun name => (to_sexp ("def_" ++ name)%bs)) names in
     let allnames := List.combine shortnames longnames in
