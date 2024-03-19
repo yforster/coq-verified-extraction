@@ -1,0 +1,2 @@
+(test
+ (name coq_verified_extraction_plugin))

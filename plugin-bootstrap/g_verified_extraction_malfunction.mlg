@@ -1,6 +1,6 @@
 (*i camlp4deps: "grammar/grammar.cma" i*)
 
-DECLARE PLUGIN "coq-metacoq-extraction-malfunction.plugin"
+DECLARE PLUGIN "coq-verified-extraction-malfunction.plugin"
 
 {
 
@@ -11,8 +11,8 @@ open Datatypes
 open Vernacextend
 open Tm_util
 
-open Coq_metacoq_extraction_plugin.Metacoq_malfunction
-open Coq_metacoq_extraction_plugin.G_metacoq_malfunction
+open Coq_verified_extraction_plugin.Verified_extraction
+open Coq_verified_extraction_plugin.G_verified_extraction
 
 let pr_char c = str (Char.escaped c)
 
@@ -295,12 +295,12 @@ let extract = extract compile_malfunction
 
 }
 
-VERNAC COMMAND EXTEND MetaCoq_Verified_Extraction CLASSIFIED AS QUERY
-| [ "MetaCoq" "Verified" "Extraction" "-help" ] -> {
+VERNAC COMMAND EXTEND Malfunction_Verified_Extraction CLASSIFIED AS QUERY
+| [ "Verified" "Extraction" "-help" ] -> {
   let usage = "MetaCoq (Bypass)? Extraction [term] [output_file]?" in
   Feedback.msg_notice (str usage)
   }
-| [ "MetaCoq" "Verified" "Extraction" extract_args_list(l) constr(c) string_opt(dest) ] -> {
+| [ "Verified" "Extraction" extract_args_list(l) constr(c) string_opt(dest) ] -> {
     let env = Global.env () in
     let evm = Evd.from_env env in
     let loc = Constrexpr_ops.constr_loc c in

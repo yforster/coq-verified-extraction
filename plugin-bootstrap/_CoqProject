@@ -1,10 +1,10 @@
 -I .
 -Q . Malfunction.VerifiedPlugin
 
-META.coq-metacoq-extraction-malfunction
+META.coq-verified-extraction-malfunction
 
-g_metacoq_extraction_malfunction.mlg
-metacoq_extraction_malfunction.mlpack
+g_verified_extraction_malfunction.mlg
+verified_extraction_malfunction.mlpack
 
 PrimInt63.v
 PrimFloat.v

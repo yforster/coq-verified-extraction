@@ -1,2 +1,0 @@
-(test
- (name coq_metacoq_extraction_plugin))

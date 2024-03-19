@@ -79,7 +79,7 @@ Definition append1_sorted_option (s : list int) (x : int) : option (list int) :=
 
 Require Import Malfunction.Extraction.
 From Malfunction.VerifiedPlugin Require Import Loader OCamlFFI.
-Set MetaCoq Extraction Build Directory ".".
+Set Verified Extraction Build Directory ".".
 
 From MetaCoq.Utils Require Import bytestring.
 
@@ -89,4 +89,4 @@ From Malfunction.Plugin Require Import Show.
 Definition append1_and_sort_test := print_string (show test).
 
 MetaCoq Run Print mli append1_and_sort_test.
-MetaCoq Verified Extraction -compile-with-coq -run append1_and_sort_test "append1_and_sort.mlf".
+Verified Extraction -compile-with-coq -run append1_and_sort_test "append1_and_sort.mlf".

@@ -64,7 +64,7 @@ type malfunction_plugin_config =
     format : bool;
     optimize : bool }
 
-let debug_extract = CDebug.create ~name:"metacoq-extraction" ()
+let debug_extract = CDebug.create ~name:"verified-extraction" ()
 let debug = debug_extract
 
 let get_stringopt_option key =
@@ -82,14 +82,14 @@ let get_stringopt_option key =
     declare_stringopt_option_and_ref ~depr:false ~key
 
 let get_build_dir_opt =
-  get_stringopt_option ["MetaCoq"; "Extraction"; "Build"; "Directory"]
+  get_stringopt_option ["Verified"; "Extraction"; "Build"; "Directory"]
 
 let get_opam_path_opt =
-  get_stringopt_option ["MetaCoq"; "Opam"; "Path"]
+  get_stringopt_option ["Verified"; "Extraction"; "Opam"; "Path"]
   
 (* When building standalone programs still relying on Coq's/MetaCoq's FFIs, use these packages for linking *)
 let statically_linked_pkgs =
-  "coq-core.boot,coq-core.clib,coq-core.config,coq-core,coq-core.engine,coq-core.gramlib,coq-core.interp,coq-core.kernel,coq-core.lib,coq-core.library,coq-core.parsing,coq-core.pretyping,coq-core.printing,coq-core.proofs,coq-core.stm,coq-core.sysinit,coq-core.tactics,coq-core.toplevel,coq-core.vernac,coq-core.vm,coq-metacoq-template-ocaml,coq-metacoq-template-ocaml.plugin,coq_metacoq_extraction_ocaml_ffi,dynlink,findlib,findlib.dynload,findlib.internal,stdlib-shims,str,threads,threads.posix,unix,zarith"
+  "coq-core.boot,coq-core.clib,coq-core.config,coq-core,coq-core.engine,coq-core.gramlib,coq-core.interp,coq-core.kernel,coq-core.lib,coq-core.library,coq-core.parsing,coq-core.pretyping,coq-core.printing,coq-core.proofs,coq-core.stm,coq-core.sysinit,coq-core.tactics,coq-core.toplevel,coq-core.vernac,coq-core.vm,coq-metacoq-template-ocaml,coq-metacoq-template-ocaml.plugin,coq_verified_extraction_ocaml_ffi,dynlink,findlib,findlib.dynload,findlib.internal,stdlib-shims,str,threads,threads.posix,unix,zarith"
 
 let notice opts pp = 
   if opts.verbose then
@@ -150,9 +150,9 @@ let extract_inline (gr : Kernames.kername) : Kernames.KernameSet.t =
   
 (* Extract Inductive *)
 let global_inductive_registers = 
-  Summary.ref ([] : inductives_mapping) ~name:"MetaCoq Malfunction Inductive Registration"
+  Summary.ref ([] : inductives_mapping) ~name:"Verified Extraction Inductive Registration"
 
-let global_inductive_registers_name = "metacoq-malfunction-inductive-registration"
+let global_inductive_registers_name = "verified-extraction-inductive-registration"
 
 let cache_inductive_registers inds =
   let inds' = !global_inductive_registers in
@@ -173,9 +173,9 @@ let get_global_inductives_mapping () = !global_inductive_registers
 (* Extract Inline *)
 
 let global_inlining_registers = 
-  Summary.ref ~name:"MetaCoq Malfunction inlining Registration" Kernames.KernameSet.empty
+  Summary.ref ~name:"Verified Extraction Inlining Registration" Kernames.KernameSet.empty
   
-let global_inlining_registers_name = "metacoq-malfunction-inlining-registration"
+let global_inlining_registers_name = "verified-extraction-inlining-registration"
 
 let cache_inlining_registers csts =
   let csts' = !global_inlining_registers in
@@ -196,9 +196,9 @@ let get_global_inlinings_mapping () = !global_inlining_registers
 
 (* Primitives / Extract Constant *)
 let global_registers = 
-  Summary.ref (([], []) : prim list * package list) ~name:"MetaCoq Malfunction Registration"
+  Summary.ref (([], []) : prim list * package list) ~name:"Verified Extraction Registration"
 
-let global_registers_name = "metacoq-malfunction-registration"
+let global_registers_name = "verified-extraction-registration"
 
 let cache_registers (prims, packages) =
   let (prims', packages') = !global_registers in
@@ -401,7 +401,7 @@ type malfunction_program_type =
 
 type plugin_function = Obj.t
 
-let register_plugins = Summary.ref ~name:"metacoq-extraction-plugins" (CString.Map.empty : plugin_function CString.Map.t)
+let register_plugins = Summary.ref ~name:"verified-extraction-plugins" (CString.Map.empty : plugin_function CString.Map.t)
 
 let cache_plugin (name, fn) = 
   register_plugins := CString.Map.add name fn !register_plugins
@@ -409,7 +409,7 @@ let cache_plugin (name, fn) =
 let plugin_input =
   let open Libobject in 
   declare_object 
-    (global_object_nodischarge "metacoq-extraction-plugins"
+    (global_object_nodischarge "verified-extraction-plugins"
     ~cache:(fun r -> cache_plugin r)
     ~subst:None)
   
@@ -498,11 +498,11 @@ struct
   let ill_formed env sigma ty =
     match ty with
     | IsInductive _ -> 
-      CErrors.anomaly ~label:"metacoq-extraction-reify-ill-formed"
+      CErrors.anomaly ~label:"verified-extraction-reify-ill-formed"
       Pp.(str "Ill-formed inductive value representation in MetaCoq's Extraction reification for type " ++
         pr_reifyable_value_type env sigma ty)
     | IsPrimitive _ ->
-      CErrors.anomaly ~label:"metacoq-extraction-reify-ill-formed"
+      CErrors.anomaly ~label:"verified-extraction-reify-ill-formed"
       Pp.(str "Ill-formed primitive value representation in MetaCoq's Extraction reification for type " ++
         pr_reifyable_value_type env sigma ty)
 
@@ -689,7 +689,7 @@ let extract_and_run
   let prog = time opts Pp.(str"Quoting") (Ast_quoter.quote_term_rec ~bypass:opts.bypass_qeds env) sigma (EConstr.to_constr sigma c) in
   let pt = match opts.program_type with 
     | Some (Standalone _) | None -> Standalone_binary 
-    | Some Plugin -> Shared_library ("Coq_metacoq_extraction_plugin__Metacoq_malfunction", "register_plugin")
+    | Some Plugin -> Shared_library ("Coq_verified_extraction_plugin__Verified_extraction", "register_plugin")
   in
   let tyinfos =
     try decompose_argument env sigma c
@@ -710,7 +710,7 @@ let extract_and_run
   let dest = 
     match dest with
     | Some _ -> dest
-    | None -> if not (Option.is_empty opts.program_type) then Some "metacoq_extraction_term.mlf" else None
+    | None -> if not (Option.is_empty opts.program_type) then Some "verified_extraction_term.mlf" else None
   in
   let dest = match dest with
   | None -> Feedback.msg_notice Pp.(str eprog); None

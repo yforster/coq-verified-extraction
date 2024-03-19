@@ -5,7 +5,7 @@ From Coq Require Import PArray.
 (* However the polymorphic functions HAVE TO be masked to remove type argument 
   applications, hence typed erasure is mandatory. *)
 
-MetaCoq Extract Constants [ 
+Verified Extract Constants [ 
   Coq.Array.PArray.array erased,
   Coq.Array.PArray.make => "Parray.make",
   Coq.Array.PArray.get => "Parray.get",

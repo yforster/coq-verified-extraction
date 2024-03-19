@@ -1,4 +1,4 @@
-META.coq-metacoq-extraction-ocaml
+META.coq-verified-extraction-ocaml
 -I extraction
 -R . Malfunction.Plugin
 -I .
@@ -161,8 +161,8 @@ extraction/vectorDef.mli
 extraction/wGraph.ml
 extraction/wGraph.mli
 
-g_metacoq_extraction_ocaml.mlg
-metacoq_extraction_ocaml.mlpack
+g_verified_extraction_ocaml.mlg
+verified_extraction_ocaml.mlpack
 
 Loader.v
 PrimInt63.v

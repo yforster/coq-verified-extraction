@@ -2,7 +2,7 @@ From Malfunction.Plugin Require Loader.
 From Coq.Floats Require Import PrimFloat.
 
 (* FIXNE: compare is wrong todo *)
-MetaCoq Extract Constants [ 
+Verified Extract Constants [ 
   Coq.Floats.PrimFloat.float erased,
   Coq.Floats.PrimFloat.compare => "Float64.compare",
   Coq.Floats.PrimFloat.eqb => "Float64.equal",

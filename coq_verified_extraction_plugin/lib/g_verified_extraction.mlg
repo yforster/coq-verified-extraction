@@ -1,6 +1,6 @@
 (*i camlp4deps: "grammar/grammar.cma" i*)
 
-DECLARE PLUGIN "coq_metacoq_extraction.plugin"
+DECLARE PLUGIN "coq_verified_extraction.plugin"
 
 {
 
@@ -15,7 +15,7 @@ open Stdarg
 open Tacarg
 open Genredexpr
 
-open Metacoq_malfunction
+open Verified_extraction
 
 
 }
@@ -37,16 +37,16 @@ VERNAC ARGUMENT EXTEND metaCoqRegister_extract_inductive
 END
 
 VERNAC COMMAND EXTEND MetaCoqExtract_Register CLASSIFIED AS SIDEFF
-| [ "MetaCoq" "Extract" "Constants" "[" metaCoqRegister_extract_cnst_list_sep(prims, ",") "]" "Packages" "[" string_list_sep(packages, ",") "]" ] -> {
+| [ "Verified" "Extract" "Constants" "[" metaCoqRegister_extract_cnst_list_sep(prims, ",") "]" "Packages" "[" string_list_sep(packages, ",") "]" ] -> {
     register prims packages
   }
-| [ "MetaCoq" "Extract" "Constants" "[" metaCoqRegister_extract_cnst_list_sep(prims, ",") "]" ] -> {
+| [ "Verified" "Extract" "Constants" "[" metaCoqRegister_extract_cnst_list_sep(prims, ",") "]" ] -> {
     register prims []
   }
-| [ "MetaCoq" "Extract" "Inductives" "[" metaCoqRegister_extract_inductive_list_sep(inds, ",") "]" ] -> {
+| [ "Verified" "Extract" "Inductives" "[" metaCoqRegister_extract_inductive_list_sep(inds, ",") "]" ] -> {
     register_inductives inds
 }
-| [ "MetaCoq" "Extract" "Inline" "[" metaCoqRegister_extract_inline_list_sep(csts, ",") "]" ] -> {
+| [ "Verified" "Extract" "Inline" "[" metaCoqRegister_extract_inline_list_sep(csts, ",") "]" ] -> {
     register_inlines csts
 }
 END

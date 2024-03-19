@@ -1,8 +1,8 @@
 Require Import String.
 From MetaCoq.Template Require ExtractableLoader.
 
-Declare ML Module "coq_metacoq_extraction.plugin".
-Declare ML Module "coq-metacoq-extraction-malfunction.plugin".
+Declare ML Module "coq_verified_extraction.plugin".
+Declare ML Module "coq-verified-extraction-malfunction.plugin".
 
 From Malfunction Require Export PrintMli.
 

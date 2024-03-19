@@ -1,4 +1,4 @@
-COQOPTS = -R ./ MetaCoq.VerifiedExtraction.Benchmarks -R lib MetaCoq.VerifiedExtraction.Benchmarks.lib
+COQOPTS = -R ./ VerifiedExtraction.Benchmarks -R lib VerifiedExtraction.Benchmarks.lib
 
 # Names of the benchmarks
 TESTS=$(shell cat TESTS)
@@ -26,7 +26,7 @@ tests: lib
 	make -C malfunction-verified-o2 all
 
 run:
-	$(MAKE) -C ocaml-o0 run
+#	$(MAKE) -C ocaml-o0 run
 	$(MAKE) -C ocaml run
 	$(MAKE) -C ocaml-noopt run
 	$(MAKE) -C malfunction run
