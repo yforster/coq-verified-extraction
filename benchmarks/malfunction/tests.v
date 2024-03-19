@@ -1,4 +1,4 @@
-Require Import MetaCoq.VerifiedExtraction.Benchmarks.lib.tests.
+Require Import VerifiedExtraction.Benchmarks.lib.tests.
 From Malfunction.Plugin Require Import Loader.
 From MetaCoq.Utils Require Import bytestring.
 
@@ -6,35 +6,35 @@ Open Scope bs.
 
 Eval compute in "Compiling demo0".
 
-MetaCoq Extraction demo0 "demo0.mlf".
+Verified Extraction demo0 "demo0.mlf".
 
 Eval compute in "Compiling demo1".
 
-MetaCoq Extraction demo1 "demo1.mlf".
+Verified Extraction demo1 "demo1.mlf".
 
 Eval compute in "Compiling demo2".
 
-MetaCoq Extraction demo2 "demo2.mlf".
+Verified Extraction demo2 "demo2.mlf".
 
 Eval compute in "Compiling demo3".
 
-MetaCoq Extraction demo3 "demo3.mlf".
+Verified Extraction demo3 "demo3.mlf".
 
 Eval compute in "Compiling list_sum".
 
-MetaCoq Extraction list_sum "list_sum.mlf".
+Verified Extraction list_sum "list_sum.mlf".
 
 Eval compute in "Compiling vs_easy".
 
-MetaCoq Extraction vs_easy "vs_easy.mlf".
+Verified Extraction vs_easy "vs_easy.mlf".
 
 Eval compute in "Compiling vs_hard".
 
-MetaCoq Extraction vs_hard "vs_hard.mlf".
+Verified Extraction vs_hard "vs_hard.mlf".
 
 Eval compute in "Compiling binom".
 
-MetaCoq Extraction binom "binom.mlf".
+Verified Extraction binom "binom.mlf".
 
 (* Eval compute in "Compiling lazy factorial". *)
 
@@ -46,7 +46,7 @@ MetaCoq Extraction binom "binom.mlf".
 
 Eval compute in "Compiling color".
 
-MetaCoq Extraction color "color.mlf".
+Verified Extraction color "color.mlf".
 
 (* (* Don't compile slow sha *) *)
 (* (* Eval compute in "Compiling sha". *) *)
@@ -58,4 +58,4 @@ MetaCoq Extraction color "color.mlf".
 
 Eval compute in "Compiling sha_fast".
 
-MetaCoq Extraction sha_fast "sha_fast.mlf".
+Verified Extraction sha_fast "sha_fast.mlf".

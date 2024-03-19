@@ -1,4 +1,4 @@
-COQOPTS = -R ../lib MetaCoq.VerifiedExtraction.Benchmarks.lib -w -extraction-opaque-accessed,-notation-overridden,-opaque-let
+COQOPTS = -R ../lib VerifiedExtraction.Benchmarks.lib -w -extraction-opaque-accessed,-notation-overridden,-opaque-let
 CCOMPILER=gcc
 
 # Names of the benchmarks

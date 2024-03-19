@@ -85,9 +85,11 @@ Notation "a >>> s" := (bool_good_error a s) (at level 65).
 
 Definition array_length_Z := Uint63.to_Z array_length.
 
+From MetaCoq Require EWellformed.
+
 Section params.
 
-  From MetaCoq Require Import EWellformed.
+  Import EWellformed.
 
   Variables (efl : EWellformed.EEnvFlags) (Σ : EAst.global_declarations).
 

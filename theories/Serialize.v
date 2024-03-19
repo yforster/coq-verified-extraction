@@ -352,7 +352,7 @@ Definition Serialize_module prims (pt : program_type) (names : list bytestring.s
         (List.rev ((main, Some x) :: m)%list))
     with
       List l =>
-        List (l                 (* the extracted function *)
+        List (l                 (* the extracted functions *)
               ++ List.map (fun '(shortname,longname) => Cons (Atom ("$" ++ String.to_string shortname)%string)
                              (List (longname :: nil))) allnames
               ++ linkopt

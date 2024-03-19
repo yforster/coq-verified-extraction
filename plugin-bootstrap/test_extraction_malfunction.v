@@ -6,22 +6,22 @@ From MetaCoq.Template Require Import All.
 From Coq Require Import ZArith PrimInt63 Sint63.
 Eval compute in PrimInt63.ltb Sint63.min_int Sint63.min_int.
 
-Set MetaCoq Extraction Build Directory "_build".
+Set Verified Extraction Build Directory "_build".
 
 Set Warnings "-primitive-turned-into-axiom".
 
 Definition test := print_int ( Sint63.max_int).
-MetaCoq Verified Extraction -fmt -verbose -compile-with-coq -run test "test.mlf".
-MetaCoq Verified Extraction -verbose Sint63.min_int.
-MetaCoq Verified Extraction -verbose Uint63.max_int.
+Verified Extraction -fmt -verbose -compile-with-coq -run test "test.mlf".
+Verified Extraction -verbose Sint63.min_int.
+Verified Extraction -verbose Uint63.max_int.
 
 Definition max_to_Z := print_string (string_of_Z (Uint63.to_Z Uint63.max_int)).
-MetaCoq Verified Extraction -verbose -compile-with-coq -run max_to_Z "max_to_Z.mlf".
+Verified Extraction -verbose -compile-with-coq -run max_to_Z "max_to_Z.mlf".
 
 From Coq Require Import PrimFloat.
 Definition test_float := print_float (7500.50)%float.
 Eval compute in FloatOps.Prim2SF 75000.5%float.
-MetaCoq Verified Extraction -fmt -compile-with-coq -run test_float "test_float.mlf".
+Verified Extraction -fmt -compile-with-coq -run test_float "test_float.mlf".
 
 From Coq Require Import PArray.
 From Malfunction Require Import utils_array.
@@ -37,9 +37,9 @@ Set Warnings "-primitive-turned-into-axiom".
 Definition prim_array_get := (print_int (int_of_nat gettest)).
 Definition prim_array_get_set := (print_int (int_of_nat getsettest)).
 
-MetaCoq Extraction -fmt -typed -compile-with-coq val "val.mlf".
-MetaCoq Extraction -fmt -typed -compile-with-coq -run prim_array_get "prim_array_get.mlf".
-MetaCoq Extraction -fmt -typed -compile-with-coq -run prim_array_get_set "prim_array_get_set.mlf".
+Verified Extraction -fmt -typed -compile-with-coq val "val.mlf".
+Verified Extraction -fmt -typed -compile-with-coq -run prim_array_get "prim_array_get.mlf".
+Verified Extraction -fmt -typed -compile-with-coq -run prim_array_get_set "prim_array_get_set.mlf".
 
 (*
 Open Scope bs.
@@ -57,35 +57,35 @@ Open Scope bs.
 
 From Coq Require Import Uint63.xfg+
 
-MetaCoq Verified Extraction max_int.
+Verified Extraction max_int.
 
-MetaCoq Verified Extraction two "two.mlf".
+Verified Extraction two "two.mlf".
 
 Axiom axiom : nat.
 
-MetaCoq Verified Extraction axiom "axiom.mlf".
+Verified Extraction axiom "axiom.mlf".
 
 Definition testAAAAA := 0.
 Definition test := testAAAAA.
 
-MetaCoq Verified Extraction test.
+Verified Extraction test.
 
 Definition testA := 0.
 
 Definition many_list_functions := (@List.firstn, @List.filter, @List.skipn).
 
-MetaCoq Verified Extraction many_list_functions "list.mlf".
+Verified Extraction many_list_functions "list.mlf".
 
 Definition prf := match conj I I with conj x y => (x,0) end.
 
-MetaCoq Verified Extraction prf "proof.mlf".
+Verified Extraction prf "proof.mlf".
 
 Definition test_add := plus 2 5.
 
-MetaCoq Verified Extraction test_add "add.mlf".
+Verified Extraction test_add "add.mlf".
 
-MetaCoq Verified Extraction (match cons THREE nil with cons x _ => x | _ => ONE end).
-MetaCoq Verified Extraction -help.
+Verified Extraction (match cons THREE nil with cons x _ => x | _ => ONE end).
+Verified Extraction -help.
 
 Fixpoint ack (n m:nat) {struct n} : nat :=
   match n with
@@ -98,7 +98,7 @@ Fixpoint ack (n m:nat) {struct n} : nat :=
              in ackn m
   end.
 
-MetaCoq Verified Extraction (ack 3 5).
+Verified Extraction (ack 3 5).
 
 Definition bla {A} (a : A) (b : bool) : b = true -> A :=
   match b with
@@ -106,9 +106,9 @@ Definition bla {A} (a : A) (b : bool) : b = true -> A :=
   | false => fun E => match E with end
   end.
 
-MetaCoq Verified Extraction @Vector.nil.
+Verified Extraction @Vector.nil.
 
-MetaCoq Verified Extraction @Vector.cons.
+Verified Extraction @Vector.cons.
 
 Definition case0 {A} (P:Vector.t A 0 -> Type) (H:P (Vector.nil A)) v:P v :=
 match v with
@@ -119,19 +119,19 @@ end.
 From Coq Require Import VectorDef.
 
 
-MetaCoq Verified Extraction @t_rec.
+Verified Extraction @t_rec.
 
 Definition vtest := @VectorDef.rectS.
 
-MetaCoq Verified Extraction @VectorDef.case0.
+Verified Extraction @VectorDef.case0.
 
-MetaCoq Verified Extraction vtest.
+Verified Extraction vtest.
 
 Arguments Vector.case0 : clear implicits.
 
-MetaCoq Verified Extraction Vector.case0.
+Verified Extraction Vector.case0.
 
-MetaCoq Verified Extraction (@exist nat (fun x => x = 0) 0 (@eq_refl _ 0)).
+Verified Extraction (@exist nat (fun x => x = 0) 0 (@eq_refl _ 0)).
 
 Definition vplus {n:nat} :
   Vector.t nat n -> Vector.t nat n -> Vector.t nat n := (Vector.map2 plus).
@@ -141,7 +141,7 @@ Definition v23 : Vector.t nat 2 :=
   (Vector.cons nat 2 1 (Vector.cons nat 3 0 (Vector.nil nat))).
 Definition vplus0123 := Vector.hd (vplus v01 v23).
 
-MetaCoq Verified Extraction @Vector.hd.
+Verified Extraction @Vector.hd.
 
 Inductive tree (A:Set) : Set :=
   node : A -> forest A -> tree A
@@ -167,5 +167,5 @@ Definition arden: forest bool :=
         (fcons (node true (fcons (node true (leaf false)) (leaf true)))
                (leaf false)).
 
-MetaCoq Verified Extraction (forest_size arden).
+Verified Extraction (forest_size arden).
 *)

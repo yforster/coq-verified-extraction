@@ -1,6 +1,6 @@
 (lang dune 3.7)
 
-(name coq_metacoq_extraction_malfunction_ffi)
+(name coq_verified_extraction_ocaml_ffi)
 
 (generate_opam_files true)
 
@@ -16,8 +16,8 @@
 (documentation https://url/to/documentation)
 
 (package
- (name coq_metacoq_extraction_malfunction_ffi)
- (synopsis "An FFI for programs extracted using MetaCoq Verified Extraction to Malfunction/OCaml")
+ (name coq_verified_extraction_ocaml_ffi)
+ (synopsis "An FFI for programs extracted using Verified Extraction to Malfunction/OCaml")
  (description "This provides access to OCaml's standard library functions for extracted programs")
  (depends ocaml dune)
  (tags

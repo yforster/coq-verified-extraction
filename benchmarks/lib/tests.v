@@ -1,9 +1,9 @@
 Require Import Arith List String.
-Require Import MetaCoq.VerifiedExtraction.Benchmarks.lib.vs.
-Require Import MetaCoq.VerifiedExtraction.Benchmarks.lib.Binom.
-Require Import MetaCoq.VerifiedExtraction.Benchmarks.lib.Color.
-Require Import MetaCoq.VerifiedExtraction.Benchmarks.lib.sha256.
-Require Import MetaCoq.VerifiedExtraction.Benchmarks.lib.coind.
+Require Import VerifiedExtraction.Benchmarks.lib.vs.
+Require Import VerifiedExtraction.Benchmarks.lib.Binom.
+Require Import VerifiedExtraction.Benchmarks.lib.Color.
+Require Import VerifiedExtraction.Benchmarks.lib.sha256.
+Require Import VerifiedExtraction.Benchmarks.lib.coind.
 
 Definition foo := 0.
 

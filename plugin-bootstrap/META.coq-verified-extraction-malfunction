@@ -1,0 +1,10 @@
+
+package "plugin" (
+  directory = "."
+  requires = "coq-core.plugins.ltac coq-metacoq-template-ocaml.plugin coq_verified_extraction_malfunction_ffi coq_verified_extraction.plugin stdlib-shims"
+  archive(byte) = "verified_extraction_malfunction.cma"
+  archive(native) = "verified_extraction_malfunction.cmxa"
+  plugin(byte) = "verified_extraction_malfunction.cma"
+  plugin(native) = "verified_extraction_malfunction.cmxs"
+)
+directory = "."

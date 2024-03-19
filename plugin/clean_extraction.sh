@@ -13,8 +13,8 @@ echo "Done cleaning"
 
 files=`cat template.files`
 
-if [[ ! -f "metacoq_malfunction_plugin.cmxs" ||
-           "metacoq_malfunction_plugin.cmxs" -ot "../theories/Extraction.vo" ]]
+if [[ ! -f "verified_extraction_plugin.cmxs" ||
+           "verified_extraction_plugin.cmxs" -ot "../theories/Extraction.vo" ]]
 then
     cd extraction
     # Move extracted modules to build the plugin

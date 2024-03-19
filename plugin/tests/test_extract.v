@@ -7,7 +7,7 @@ From Coq Require ZArith Lists.StreamMemo.
 From Coq Require Import String.
 From Coq Require Vector.
 
-(* Set MetaCoq Extraction Build Directory "_build". *)
+(* Set Verified Extraction Build Directory "_build". *)
 (* Set MetaCoq Opam Path "/usr/local/bin/opam". *)
 
 From Coq Require Import PrimInt63 Sint63.
@@ -17,14 +17,14 @@ Definition test_primint :=
   let _ := print_int Sint63.max_int in tt.
 Eval compute in test_primint.
 
-MetaCoq Extraction (plus, mult).
+Verified Extraction (plus, mult).
 
-MetaCoq Extraction -fmt -compile-with-coq -run test_primint "test_primint.mlf".
+Verified Extraction -fmt -compile-with-coq -run test_primint "test_primint.mlf".
 
 From Coq Require Import PrimFloat.
 Definition test_floats := print_float (100.5)%float.
 Eval compute in test_floats.
-MetaCoq Extraction -fmt -compile-with-coq -run test_floats "test_floats.mlf".
+Verified Extraction -fmt -compile-with-coq -run test_floats "test_floats.mlf".
 
 (* Lazy cofixpoint implentation *)
 
@@ -43,16 +43,16 @@ CoFixpoint ones : stream := {| head := 1; tail := ones |}.
 
 Definition test_ones := print_string (show (take 10 ones)).
 
-MetaCoq Extraction -fmt -unsafe -compile-with-coq -run test_ones "ones.mlf".
+Verified Extraction -fmt -unsafe -compile-with-coq -run test_ones "ones.mlf".
 
 CoFixpoint naturals (n : nat) : stream := 
   {| head := n; tail := naturals (S n) |}.
 
-MetaCoq Extraction -fmt -unsafe naturals.
+Verified Extraction -fmt -unsafe naturals.
 
 Definition test_take := print_string (show (take 10 (naturals 0))).
 
-MetaCoq Extraction -fmt -unsafe -compile-with-coq -run test_take "naturals.mlf".
+Verified Extraction -fmt -unsafe -compile-with-coq -run test_take "naturals.mlf".
 
 Import ZArith Lists.StreamMemo.
 Local Open Scope Z_scope.
@@ -96,16 +96,16 @@ Arguments print_string s%bs.
 Definition arg := 1000%nat.
 Definition test_lfact := test (lfact arg).
 Definition show_lfact := print_string ("test_lfact: " ++ show (lfact arg)).
-(* Set Debug "metacoq-extraction". *)
+(* Set Debug "verified-extraction". *)
 
-MetaCoq Extraction -time -fmt -typed -unsafe -compile-with-coq -run test_lfact "test_lfact_typed.mlf". (* 2.5s running time *)
-MetaCoq Extraction -time -fmt -unsafe -compile-with-coq -run test_lfact "test_lfact.mlf". (* 2.5s running time *)
-MetaCoq Extraction -optimize -time -fmt -typed -unsafe -compile-with-coq -run 
+Verified Extraction -time -fmt -typed -unsafe -compile-with-coq -run test_lfact "test_lfact_typed.mlf". (* 2.5s running time *)
+Verified Extraction -time -fmt -unsafe -compile-with-coq -run test_lfact "test_lfact.mlf". (* 2.5s running time *)
+Verified Extraction -optimize -time -fmt -typed -unsafe -compile-with-coq -run 
   test_lfact "test_lfact_typed_opt.mlf". (* 2.5s running time *)
 
-MetaCoq Extraction -time -fmt -typed -unsafe -compile-with-coq -run 
+Verified Extraction -time -fmt -typed -unsafe -compile-with-coq -run 
   show_lfact "show_lfact_typed.mlf". (* 3.4s running time *)
-MetaCoq Extraction -time -fmt -unsafe -compile-with-coq -run 
+Verified Extraction -time -fmt -unsafe -compile-with-coq -run 
   show_lfact "show_lfact.mlf". (* 3.4s running time *)
 
 End NegativeCoind.
@@ -116,15 +116,15 @@ Module Unboxed.
   Program Definition ex : t := 1.
   Program Definition test_ex := coq_msg_info (string_of_nat ex).
 
-  MetaCoq Extraction -typed -unsafe -fmt -compile-plugin -run test_ex "test_ex.mlf".
+  Verified Extraction -typed -unsafe -fmt -compile-plugin -run test_ex "test_ex.mlf".
 End Unboxed.
 
 
 (** Typed extraction *)
 
 Definition sub : { x : nat | x = 0 } := @exist _ _ 0 eq_refl.
-MetaCoq Extraction sub.
-MetaCoq Extraction -typed sub.
+Verified Extraction sub.
+Verified Extraction -typed sub.
 
 Equations idnat (n : nat) : nat by wf n lt :=
  | 0 => 0
@@ -132,9 +132,9 @@ Equations idnat (n : nat) : nat by wf n lt :=
 
 Extraction idnat.
 
-MetaCoq Extract Inline [ Equations.Prop.Subterm.FixWf, Coq.Init.Wf.Fix, Coq.Init.Wf.Fix_F, idnat_functional ].
+Verified Extract Inline [ Equations.Prop.Subterm.FixWf, Coq.Init.Wf.Fix, Coq.Init.Wf.Fix_F, idnat_functional ].
 
-MetaCoq Extraction -fmt -unsafe -typed idnat "idnat.mlf".
+Verified Extraction -fmt -unsafe -typed idnat "idnat.mlf".
 
 Inductive three := ZERO | ONE | TWO | THREE.
 
@@ -144,13 +144,13 @@ From MetaCoq.Utils Require Import bytestring.
 
 Definition test_bytestring (u : unit) := bytestring.String.compare "" "bug".
 
-MetaCoq Extraction -compile-with-coq test_bytestring "test_bytestring.mlf".
+Verified Extraction -compile-with-coq test_bytestring "test_bytestring.mlf".
 
-MetaCoq Extraction two "two.mlf".
+Verified Extraction two "two.mlf".
 
 Axiom axiom : nat.
 
-MetaCoq Extraction axiom "axiom.mlf".
+Verified Extraction axiom "axiom.mlf".
 
 From Malfunction Require Import Compile Pipeline.
 
@@ -162,20 +162,20 @@ Polymorphic Record myprod@{i j} (A : Type@{i}) (B : Type@{j}) := mypair { fst : 
 Notation "( x , y , .. , z )" := (mypair _ _ .. (mypair _ _ x y) .. z) : core_scope.
 Definition many_list_functions : myprod _ _ := (@List.firstn nat, @List.filter nat, @List.skipn nat).
 
-MetaCoq Extraction -fmt -typed many_list_functions "list.mlf".
+Verified Extraction -fmt -typed many_list_functions "list.mlf".
 
 Definition prf := match conj I I with conj x y => (x,0) end.
 
-MetaCoq Extraction prf "proof.mlf".
+Verified Extraction prf "proof.mlf".
 
-MetaCoq Extraction blocks_until "mcase.mlf".
+Verified Extraction blocks_until "mcase.mlf".
 
 Definition test_add := plus 2 5.
 
-MetaCoq Extraction test_add "add.mlf".
+Verified Extraction test_add "add.mlf".
 
-MetaCoq Extraction (match cons THREE nil with cons x _ => x | _ => ONE end).
-MetaCoq Extraction -help.
+Verified Extraction (match cons THREE nil with cons x _ => x | _ => ONE end).
+Verified Extraction -help.
 
 Fixpoint ack (n m:nat) {struct n} : nat :=
   match n with
@@ -188,9 +188,9 @@ Fixpoint ack (n m:nat) {struct n} : nat :=
              in ackn m
   end.
 
-MetaCoq Extraction (ack 3 5).
+Verified Extraction (ack 3 5).
 
-MetaCoq Extraction (@exist nat (fun x => x = 0) 0 (@eq_refl _ 0)).
+Verified Extraction (@exist nat (fun x => x = 0) 0 (@eq_refl _ 0)).
 
 Definition vplus {n:nat} :
   Vector.t nat n -> Vector.t nat n -> Vector.t nat n := (Vector.map2 plus).
@@ -200,7 +200,7 @@ Definition v23 : Vector.t nat 2 :=
   (Vector.cons nat 2 1 (Vector.cons nat 3 0 (Vector.nil nat))).
 Definition vplus0123 := Vector.hd (vplus v01 v23).
 
-MetaCoq Extraction vplus0123.
+Verified Extraction vplus0123.
 
 Inductive tree (A:Set) : Set :=
   node : A -> forest A -> tree A
@@ -226,4 +226,4 @@ Definition arden: forest bool :=
         (fcons (node true (fcons (node true (leaf false)) (leaf true)))
                (leaf false)).
 
-MetaCoq Extraction (forest_size arden).
+Verified Extraction (forest_size arden).

@@ -38,7 +38,7 @@ let rec print_obj x =
                            Printf.printf ")")
   else  Printf.printf ("%i %!") x
 
-let def_MetaCoq_VerifiedExtraction_Benchmarks_lib_vs_HELLO = fun _ x -> 
+let def_VerifiedExtraction_Benchmarks_lib_vs_HELLO = fun _ x -> 
   (* Printf.printf "Returning in map\n%!" ; print_obj x ; Printf.printf "\n%!" ; *) x
 
 let def_print_arg na x =

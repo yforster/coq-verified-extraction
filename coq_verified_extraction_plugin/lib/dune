@@ -1,10 +1,10 @@
 (library
- (public_name coq_metacoq_extraction.plugin)
- (name coq_metacoq_extraction_plugin)
+ (public_name coq_verified_extraction.plugin)
+ (name coq_verified_extraction_plugin)
  (libraries coq-core.kernel coq-core.lib coq-core.library coq-core.interp coq-core.vernac coq-core.plugins.ltac coq-metacoq-template-ocaml.plugin)
  (flags -open Metacoq_template_plugin))
 
 (rule
- (target g_metacoq_malfunction.ml)
- (deps g_metacoq_malfunction.mlg)
- (action (run coqpp g_metacoq_malfunction.mlg)))
+ (target g_verified_extraction.ml)
+ (deps g_verified_extraction.mlg)
+ (action (run coqpp g_verified_extraction.mlg)))

@@ -11,7 +11,7 @@ Definition function_or_nat
 
 Definition function := function_or_nat true.
 
-MetaCoq Verified Extraction
+Verified Extraction
   function.
 MetaCoq Run Print mli function.
 (* type bool = True  | False  *)

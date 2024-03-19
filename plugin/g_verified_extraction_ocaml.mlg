@@ -1,6 +1,6 @@
 (*i camlp4deps: "grammar/grammar.cma" i*)
 
-DECLARE PLUGIN "coq-metacoq-extraction-ocaml.plugin"
+DECLARE PLUGIN "coq-verified-extraction-ocaml.plugin"
 
 {
 
@@ -15,8 +15,8 @@ open Stdarg
 open Tacarg
 open Genredexpr
 
-open Coq_metacoq_extraction_plugin.Metacoq_malfunction
-open Coq_metacoq_extraction_plugin.G_metacoq_malfunction
+open Coq_verified_extraction_plugin.Verified_extraction
+open Coq_verified_extraction_plugin.G_verified_extraction
 
 type pipeline_config = Pipeline.malfunction_pipeline_config
 
@@ -82,17 +82,17 @@ let extract = extract compile_malfunction
 
 }
 
-VERNAC COMMAND EXTEND MetaCoq_Extraction CLASSIFIED AS QUERY
-| [ "MetaCoq" "Extraction" "-help" ] -> {
-  let usage = "MetaCoq (Bypass)? Extraction [term] [output_file]?" in
+VERNAC COMMAND EXTEND Verified_Extraction CLASSIFIED AS QUERY
+| [ "Verified" "Extraction" "-help" ] -> {
+  let usage = "Verified (Bypass)? Extraction [term] [output_file]?" in
   Feedback.msg_notice (str usage)
   }
-| [ "MetaCoq" "Extraction" extract_args_list(l) constr(c) string_opt(dest) ] -> {
+| [ "Verified" "Extraction" extract_args_list(l) constr(c) string_opt(dest) ] -> {
     let env = Global.env () in
     let evm = Evd.from_env env in
     let loc = Constrexpr_ops.constr_loc c in
     let (c, _) = Constrintern.interp_constr env evm c in
     extract ?loc l env evm c dest
   }
-| [ "MetaCoq" "Eval" extract_args_list(l) reference(c) ] -> { eval_plugin l c }
+| [ "Verified" "Eval" extract_args_list(l) reference(c) ] -> { eval_plugin l c }
 END

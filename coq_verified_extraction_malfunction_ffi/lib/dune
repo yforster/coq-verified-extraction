@@ -1,0 +1,4 @@
+(library
+ (public_name coq_verified_extraction_malfunction_ffi)
+ (name coq_verified_extraction_malfunction_ffi)
+ (libraries coq-metacoq-template-ocaml.plugin stdlib-shims coq-core.kernel coq-core.lib))
