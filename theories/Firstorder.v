@@ -8,7 +8,7 @@ From MetaCoq.ErasurePlugin Require Import Erasure ErasureCorrectness.
 From MetaCoq.SafeChecker Require Import PCUICErrors PCUICWfEnv PCUICWfEnvImpl.
 
 From Malfunction Require Import Malfunction Interpreter SemanticsSpec utils_array 
-  Compile RealizabilitySemantics Pipeline.
+  Compile RealizabilitySemantics Pipeline PipelineCorrect.
 
 Require Import ZArith Array.PArray List String Floats Lia Bool.
 Import ListNotations.

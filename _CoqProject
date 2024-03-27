@@ -22,11 +22,10 @@ theories/Compile.v
 theories/Pipeline.v
 
 theories/CompileCorrect.v
+theories/PipelineCorrect.v
 
 theories/RealizabilitySemantics.v
 theories/Firstorder.v
-
-theories/Tests.v
 
 theories/PrintMli.v
 
