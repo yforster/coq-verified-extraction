@@ -1,0 +1,16 @@
+*.cmx
+*.cmxs
+*.mlf
+Makefile.coq
+Makefile.coq.conf
+_CoqProject
+naturals
+ones
+show_lfact
+show_lfact_typed
+test_bytestring
+test_floats
+test_lfact
+test_lfact_typed
+test_lfact_typed_opt
+test_primint

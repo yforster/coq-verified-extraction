@@ -32,6 +32,11 @@ Extract Constant Equations.Init.pr1 => "fst".
 Extract Constant Equations.Init.pr2 => "snd".
 Extraction Inline Equations.Init.pr1 Equations.Init.pr2.
 
+Extract Constant FFI.coq_msg_info => "Coq_verified_extraction_plugin__Coq_ffi.msg_info".
+Extract Constant FFI.coq_user_error => "Coq_verified_extraction_plugin__Coq_ffi.user_error".
+Extraction Inline FFI.coq_msg_info.
+Extraction Inline FFI.coq_user_error.
+
 (* Extract Constant PCUICWfEnvImpl.guard_impl => "(fun _ _ _ _ -> true)".
 Extract Constant PCUICTyping.guard_checking => "(fun _ _ _ _ -> true)". *)
 

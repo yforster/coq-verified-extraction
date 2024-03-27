@@ -33,7 +33,7 @@ jobs:
               sudo chown -R coq:coq .
             endGroup
             startGroup "opam pin"
-              opam pin -n -y "https://github.com/mattam82/malfunction.git#packages-and-dontlink-for-compile"
+              opam pin -n -y "https://github.com/stedolan/malfunction.git#master"
             endGroup
           after_install: |
             startGroup "make"

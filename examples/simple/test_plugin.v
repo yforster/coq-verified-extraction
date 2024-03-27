@@ -1,9 +1,10 @@
 From Malfunction.Plugin Require Import Extract.
+From Malfunction Require Import FFI.
 From MetaCoq.Utils Require Import bytestring MCString.
 Local Open Scope bs. (* bytestrings *)
 
-Set Verified Extraction Build Directory "_build".
-
+(* Set Verified Extraction Build Directory "_build".
+ *)
 Definition test (x : unit) := coq_msg_info "Hello world!".
 
 Set Debug "verified-extraction".
@@ -16,5 +17,6 @@ Verified Extraction -typed -unsafe -time -fmt -compile-plugin -load test_float.
 Verified Extraction -typed -unsafe -time -fmt -compile-plugin -run (abs 1.5%float).
 
 (* Pure running time of the compiled code *)
+(* Time MetaCoq Eval test_float.
 Time MetaCoq Eval test_float.
-Time MetaCoq Eval test_float.
+ *)

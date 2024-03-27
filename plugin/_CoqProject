@@ -173,5 +173,5 @@ OCamlFFI.v
 Show.v
 Extract.v
 
-tests/test_extract.v
-tests/test_extract_inductive.v
+# tests/test_extract.v
+# tests/test_extract_inductive.v

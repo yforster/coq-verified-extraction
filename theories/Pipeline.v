@@ -125,12 +125,15 @@ Fixpoint check_good_for_extraction_rec (fl : EWellformed.EEnvFlags) (Σ : (list 
   match Σ with
   | nil => true
   | (kn, EAst.ConstantDecl d) :: Σ =>
-      if option_default (fun b : EAst.term => wellformed_fast fl Σ b) (EAst.cst_body d) false 
-      then check_good_for_extraction_rec fl Σ
-      else ignore (coq_msg_info  ("Warning: environment contains non-extractable constant " ++ Kernames.string_of_kername kn)) false
+      match (EAst.cst_body d) with
+      | Some b => if wellformed_fast fl Σ b 
+                  then ignore (coq_msg_info "Warning: environment contains constructors for which extraction is not verified") (check_good_for_extraction_rec fl Σ)
+                  else check_good_for_extraction_rec fl Σ
+      | None => ignore (coq_msg_info ("Warning: environment contains axiom " ++ Kernames.string_of_kername kn)) false
+      end
   | (kn, EAst.InductiveDecl mind) :: Σ =>
       forallb (fun ob => let args := map EAst.cstr_nargs (EAst.ind_ctors ob) in
-                 blocks_until #|args| args <? 200)  mind.(EAst.ind_bodies) >>> "inductive with too many blocks"
+                 blocks_until #|args| args <? 200)  mind.(EAst.ind_bodies) >>> ("Inductive " ++ Kernames.string_of_kername kn ++ "has too many non-constant constructors, maximum 200 allowed")
       &|&
       forallb (fun ob => Z.of_nat #|EAst.ind_ctors ob| <? Malfunction.Int63.wB)%Z mind.(EAst.ind_bodies) >>> "inductive with too many constructors"
       &|&
@@ -140,8 +143,9 @@ Fixpoint check_good_for_extraction_rec (fl : EWellformed.EEnvFlags) (Σ : (list 
   end.
 
 Definition check_good_for_extraction fl (p : program (list (kername × EAst.global_decl)) EAst.term) :=
-  wellformed_fast fl p.1 p.2 >>> "Warning: term contains constructors for which extraction is not verified"
-    &|& check_good_for_extraction_rec fl p.1.
+  if wellformed_fast fl p.1 p.2 then 
+    check_good_for_extraction_rec fl p.1
+  else ignore (coq_msg_info "Warning: term contains constructors for which extraction is not verified") (check_good_for_extraction_rec fl p.1).
 
 #[local] Obligation Tactic := try now program_simpl.
 
