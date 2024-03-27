@@ -75,10 +75,12 @@ Record good_for_extraction (fl : EWellformed.EEnvFlags) (p : program (list (kern
 
 Notation "a &|& b" := (a && b) (at level 70).
 
+Definition ignore {X Y} (x : X) (y : Y) := y.
+
 Definition bool_good_error a s :=
   match a with
   | true => true
-  | false => let _ := coq_msg_info s in false
+  | false => let r := coq_user_error s in ignore r false
   end.
 
 Notation "a >>> s" := (bool_good_error a s) (at level 65).
@@ -123,9 +125,9 @@ Fixpoint check_good_for_extraction_rec (fl : EWellformed.EEnvFlags) (Σ : (list 
   match Σ with
   | nil => true
   | (kn, EAst.ConstantDecl d) :: Σ =>
-      option_default (fun b : EAst.term => wellformed_fast fl Σ b) (EAst.cst_body d) false >>> "environment contains non-extractable constant"
-      &|&
-      check_good_for_extraction_rec fl Σ
+      if option_default (fun b : EAst.term => wellformed_fast fl Σ b) (EAst.cst_body d) false 
+      then check_good_for_extraction_rec fl Σ
+      else ignore (coq_msg_info  ("Warning: environment contains non-extractable constant " ++ Kernames.string_of_kername kn)) false
   | (kn, EAst.InductiveDecl mind) :: Σ =>
       forallb (fun ob => let args := map EAst.cstr_nargs (EAst.ind_ctors ob) in
                  blocks_until #|args| args <? 200)  mind.(EAst.ind_bodies) >>> "inductive with too many blocks"
@@ -138,7 +140,7 @@ Fixpoint check_good_for_extraction_rec (fl : EWellformed.EEnvFlags) (Σ : (list 
   end.
 
 Definition check_good_for_extraction fl (p : program (list (kername × EAst.global_decl)) EAst.term) :=
-  wellformed_fast fl p.1 p.2 >>> "term contains non-extractable constructors"
+  wellformed_fast fl p.1 p.2 >>> "Warning: term contains constructors for which extraction is not verified"
     &|& check_good_for_extraction_rec fl p.1.
 
 #[local] Obligation Tactic := try now program_simpl.
@@ -183,7 +185,9 @@ Program Definition enforce_extraction_conditions `{Pointer} `{Heap} :
     (EProgram.eval_eprogram block_wcbv_flags) (EProgram.eval_eprogram block_wcbv_flags) :=
   {|
     name := "Enforce the term is extractable" ;
-    transform p _ := p ;
+    transform p _ := 
+      let r := check_good_for_extraction extraction_env_flags_mlf p in
+      ignore r p ;
     (* if check_good_for_extraction extraction_env_flags_mlf p then p else p ; *)
     pre p := True ;
     post p := good_for_extraction extraction_env_flags_mlf p ;
@@ -858,6 +862,7 @@ Section malfunction_pipeline_theorem.
     { rewrite Himpl_obs; eauto. }
     destruct Hname as [? [Hname_eval Hname_obs]]. simpl in *. revert Hname_eval. destruct_compose; intros.
     unfold Σ_t'. repeat (destruct_compose ; intros).
+    unfold ignore in *.
     unfold name_annotation. unfold transform at 3.
     repeat (destruct_compose ; intros). simpl. unfold enforce_extraction_conditions. unfold transform at 3. sq.
     eapply compile_correct with (Γ := []). intros.
