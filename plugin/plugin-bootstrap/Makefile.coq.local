@@ -7,7 +7,7 @@ CAMLFLAGS+=-w -8 # Non-exhaustive pattern-matching (due to comparison -> int tra
 CAMLPKGS+=-package coq-metacoq-template-ocaml.plugin,stdlib-shims,coq-core.kernel,coq_verified_extraction_malfunction_ffi,coq_verified_extraction.plugin
 
 axioms.ml:
-	cp ../lib/axioms.ml .
+	cp ../../lib/axioms.ml .
 
 axioms.cmx: axioms.ml
 	ocamlfind opt -thread ${CAMLPKGS} -for-pack Verified_extraction_malfunction -c axioms.ml
