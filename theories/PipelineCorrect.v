@@ -657,7 +657,7 @@ Section malfunction_pipeline_wellformed.
     unfold Σ_t, compile_malfunction_pipeline, verified_malfunction_pipeline.
     destruct_compose; intro; cbn.
     unfold compile_to_malfunction, transform at 1. cbn.  
-    epose proof (correctness verified_named_erasure_pipeline) as [? [? [? ?]]]. destruct H2. 
+    epose proof (correctness (@verified_named_erasure_pipeline _ _) _ _) as [? [? [? ?]]]. destruct H2. 
     eapply (compile_wellformed _ 0); eauto. 
     eapply few_enough_blocks; eauto.
     eapply ECoInductiveToInductive.trust_cofix.

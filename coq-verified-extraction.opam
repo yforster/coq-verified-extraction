@@ -15,7 +15,7 @@ install: [
   [make "-j%{jobs}%"]
 ]
 depends: [
-  "coq" { >= "8.17" & < "8.18~" }
+  "coq" { >= "8.19" & < "8.20~" }
   "coq-ceres" {= "0.4.1"}
   "coq-metacoq-erasure-plugin"
   "malfunction" {= "0.5" }

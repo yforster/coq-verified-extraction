@@ -69,17 +69,14 @@ let debug = debug_extract
 
 let get_stringopt_option key =
   let open Goptions in
-  let tables = get_tables () in
-  try
-    let _ = OptionMap.find key tables in
-    fun () ->
-      let tables = get_tables () in
-      let opt = OptionMap.find key tables in
-      match opt.opt_value with
+  match get_option_value key with
+  | Some get -> fun () ->
+      begin match get () with
       | StringOptValue b -> b
       | _ -> assert false
-  with Not_found ->
-    declare_stringopt_option_and_ref ~depr:false ~key
+      end
+  | None ->
+    (declare_stringopt_option_and_ref ~key ~value:None ()).get
 
 let get_build_dir_opt =
   get_stringopt_option ["Verified"; "Extraction"; "Build"; "Directory"]
@@ -420,8 +417,8 @@ module Reify =
 struct
 
   type reifyable_value_type =
-  | IsInductive of Names.inductive * Univ.Instance.t * Constr.t list
-  | IsPrimitive of Names.Constant.t * Univ.Instance.t * Constr.t list
+  | IsInductive of Names.inductive * UVars.Instance.t * Constr.t list
+  | IsPrimitive of Names.Constant.t * UVars.Instance.t * Constr.t list
   
   type reifyable_type = 
   | IsThunk of reifyable_value_type
@@ -472,7 +469,7 @@ struct
       let hd, args = EConstr.decompose_app sigma hnf in
       match EConstr.kind sigma hd with
       | Const (c, u) when Environ.is_primitive_type env c -> 
-        IsPrimitive (c, EConstr.EInstance.kind sigma u, List.map EConstr.Unsafe.to_constr args)
+        IsPrimitive (c, EConstr.EInstance.kind sigma u, CArray.map_to_list EConstr.Unsafe.to_constr args)
       | _ -> invalid_type ?loc env sigma hnf
 
   let check_reifyable_value ?loc env sigma c =
@@ -665,9 +662,12 @@ type malfunction_compilation_function =
 let decompose_argument env sigma c =
   let rec aux c =
     let fn, args = EConstr.decompose_app sigma c in
-    match EConstr.kind sigma fn, args with
-    | Construct (cstr, u), [ _; _; fst; snd ] when Names.GlobRef.equal (ConstructRef cstr) (Coqlib.lib_ref "core.prod.intro") ->
-    aux fst @ [Reify.check_reifyable_thunk_or_value env sigma snd]
+    match EConstr.kind sigma fn with
+    | Construct (cstr, u) when Names.GlobRef.equal (ConstructRef cstr) (Coqlib.lib_ref "core.prod.intro") ->
+      (match CArray.to_list args with
+       | [ _; _; fst; snd ]
+          -> aux fst @ [Reify.check_reifyable_thunk_or_value env sigma snd]
+       |_ ->  [Reify.check_reifyable_thunk_or_value env sigma c])
     | _ -> [Reify.check_reifyable_thunk_or_value env sigma c]
   in aux c
 

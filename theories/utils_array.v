@@ -364,7 +364,7 @@ Proof.
   cbn. apply Nat.eqb_eq in H. rewrite H.
   erewrite app_nth2; rewrite to_list_length; [|cbn in *; lia].
   now rewrite Nat.sub_diag.
-  apply EqNat.beq_nat_false_stt in H. 
+  eapply Nat.eqb_neq in H.
   erewrite app_nth1. apply IHsize. lia. rewrite to_list_length; lia.
 Qed. 
 

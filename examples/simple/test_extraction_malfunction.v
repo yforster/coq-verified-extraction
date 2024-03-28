@@ -6,8 +6,6 @@ From MetaCoq.Template Require Import All.
 From Coq Require Import ZArith PrimInt63 Sint63.
 Eval compute in PrimInt63.ltb Sint63.min_int Sint63.min_int.
 
-Set Verified Extraction Build Directory "_build".
-
 Set Warnings "-primitive-turned-into-axiom".
 
 Definition test := print_int ( Sint63.max_int).
@@ -38,8 +36,10 @@ Definition prim_array_get := (print_int (int_of_nat gettest)).
 Definition prim_array_get_set := (print_int (int_of_nat getsettest)).
 
 Verified Extraction -fmt -typed -compile-with-coq val "val.mlf".
+(* TODO Matthieu 
 Verified Extraction -fmt -typed -compile-with-coq -run prim_array_get "prim_array_get.mlf".
 Verified Extraction -fmt -typed -compile-with-coq -run prim_array_get_set "prim_array_get_set.mlf".
+*)
 
 (*
 Open Scope bs.

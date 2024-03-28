@@ -70,7 +70,7 @@ Proof.
     - case_eq (k =? n); intro Hk. 
       + eapply Nat.eqb_eq in Hk. econstructor. assert (k - n = 0) by lia.
         rewrite H3 in H2. cbn in H2. now inversion H2.
-      + eapply EqNat.beq_nat_false_stt in Hk. econstructor 2.
+      + eapply Nat.eqb_neq in Hk. econstructor 2.
         eapply IHl. exists k, x. cbn in H0. repeat split; eauto; try lia.
         assert (k - n = S (k -S n)) by lia. now rewrite H3 in H2. 
   }
