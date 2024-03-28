@@ -20,7 +20,7 @@ install: install-coq plugin
 install-coq: Makefile.coq coq
 	+make -f Makefile.coq install
 
-clean: Makefile.coq plugin/Makefile.coq plugin-bootstrap/Makefile.coq
+clean: Makefile.coq plugin/Makefile.coq plugin/plugin-bootstrap/Makefile.coq
 	+make -f Makefile.coq clean
 	rm -f Makefile.coq
 	rm -f Makefile.coq.conf
@@ -28,7 +28,7 @@ clean: Makefile.coq plugin/Makefile.coq plugin-bootstrap/Makefile.coq
 	cd lib/coq_verified_extraction_ocaml_ffi && dune clean
 	cd lib/coq_verified_extraction_plugin && dune clean
 	cd plugin && make clean
-	cd plugin-bootstrap && make clean
+	cd plugin/plugin-bootstrap && make clean
 
 plugin/Makefile.coq: plugin/_CoqProject
 	cd plugin && make Makefile.coq
@@ -44,11 +44,11 @@ test:
 Makefile.coq: _CoqProject
 	coq_makefile -f _CoqProject -o Makefile.coq
 
-plugin-bootstrap/Makefile.coq: plugin-bootstrap/_CoqProject
+plugin/plugin-bootstrap/Makefile.coq: plugin/plugin-bootstrap/_CoqProject
 	cd plugin && make Makefile.coq
 
 bootstrap: coq plugin extraction_plugin extraction_malfunction_ffi
-	+make -C plugin-bootstrap -j 1
-	cd plugin-bootstrap && make -f Makefile.coq install
+	+make -C plugin/plugin-bootstrap -j 1
+	cd plugin/plugin-bootstrap && make -f Makefile.coq install
 
 .PHONY: extraction_plugin extraction_ocaml_ffi extraction_malfunction_ffi

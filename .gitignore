@@ -67,9 +67,9 @@ plugin/g_verified_extraction.ml
 plugin/*.mlf
 plugin/tests/*.mlf
 plugin/META
-plugin-bootstrap/META
-plugin-bootstrap/Makefile.coq
-plugin-bootstrap/Makefile.coq.conf
+plugin/plugin-bootstrap/META
+plugin/plugin-bootstrap/Makefile.coq
+plugin/plugin-bootstrap/Makefile.coq.conf
 lib/coq_verified_extraction_ocaml_ffi/coq_verified_extraction_ocaml_ffi.opam
 plugin/Makefile.theories.conf
 plugin/Makefile.theories
