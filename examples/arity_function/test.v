@@ -1,5 +1,5 @@
-From Malfunction
-  Require Import Plugin.Loader.
+From VerifiedExtraction
+  Require Import Extraction.
 
 Definition function_or_nat
   : forall (b:bool), if b then bool -> bool else nat :=

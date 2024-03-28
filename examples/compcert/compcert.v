@@ -1,4 +1,4 @@
-From Malfunction Require Import Plugin.Loader.
+From VerifiedExtraction Require Import Extraction.
 
 From compcert Require Import Compiler.
 

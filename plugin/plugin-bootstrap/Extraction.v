@@ -6,4 +6,4 @@ Declare ML Module "coq-verified-extraction-malfunction.plugin".
 
 From Malfunction Require Export PrintMli.
 
-From Malfunction.VerifiedPlugin Require Export PrimInt63 PrimFloat PrimArray.
+From VerifiedExtraction Require Export PrimInt63 PrimFloat PrimArray.

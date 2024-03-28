@@ -1,5 +1,5 @@
 -I .
--Q . Malfunction.VerifiedPlugin
+-Q . VerifiedExtraction
 
 META.coq-verified-extraction-malfunction
 
@@ -11,4 +11,4 @@ PrimFloat.v
 PrimArray.v
 OCamlFFI.v
 extract_extraction.v
-Loader.v
+Extraction.v
