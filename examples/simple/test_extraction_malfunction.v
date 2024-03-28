@@ -1,6 +1,6 @@
 From MetaCoq.Template Require Import Loader.
 From MetaCoq.ErasurePlugin Require Import Loader.
-From Malfunction.VerifiedPlugin Require Import Loader OCamlFFI.
+From VerifiedExtraction Require Import Extraction OCamlFFI.
 From MetaCoq.Template Require Import All.
 
 From Coq Require Import ZArith PrimInt63 Sint63.

@@ -77,8 +77,7 @@ Definition append1_sorted_option (s : list int) (x : int) : option (list int) :=
   if sorted Uint63.leb s then Some (append1_sorted s x)
   else None.
 
-Require Import Malfunction.Extraction.
-From Malfunction.VerifiedPlugin Require Import Loader OCamlFFI.
+From VerifiedExtraction Require Import Extraction OCamlFFI.
 Set Verified Extraction Build Directory ".".
 
 From MetaCoq.Utils Require Import bytestring.

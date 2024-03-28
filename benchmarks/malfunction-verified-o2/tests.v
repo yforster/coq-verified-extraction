@@ -1,5 +1,5 @@
 Require Import VerifiedExtraction.Benchmarks.lib.tests.
-From Malfunction.VerifiedPlugin Require Import Loader.
+From VerifiedExtraction Require Import Extraction.
 From MetaCoq.Utils Require Import bytestring.
 
 Open Scope bs.

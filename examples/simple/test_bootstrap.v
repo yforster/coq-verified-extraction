@@ -1,4 +1,4 @@
-From Malfunction.VerifiedPlugin Require Import Loader.
+From VerifiedExtraction Require Import Extraction.
 From Malfunction Require Import Pipeline.
 
 Set Verified Extraction Build Directory "_build".
