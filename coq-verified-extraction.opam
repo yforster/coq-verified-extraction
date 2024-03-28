@@ -23,6 +23,6 @@ depends: [
 
 synopsis: "Verified extraction from Coq to OCaml"
 url {
-  git: "https://github.com/yforster/coq-malfunction/#main"
+  git: "https://github.com/yforster/coq-verified-extraction/#main"
 }
 
