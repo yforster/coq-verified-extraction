@@ -12,6 +12,3 @@ PrimArray.v
 OCamlFFI.v
 extract_extraction.v
 Loader.v
-
-test_bootstrap.v
-test_extraction_malfunction.v

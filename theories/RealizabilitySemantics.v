@@ -458,7 +458,7 @@ Proof.
     + destruct H2. rewrite (H3 eq_refl); eauto.   
 Qed.
 
-From Malfunction Require Import CompileCorrect Pipeline.
+From Malfunction Require Import CompileCorrect Pipeline PipelineCorrect.
 
 Lemma isPure_add_self `{Heap} locals mfix self s :
   (forall s : Ident.t, isPure_value (locals s)) ->

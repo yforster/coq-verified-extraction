@@ -15,7 +15,7 @@ opam switch create coq-malfunction --packages="ocaml-variants.4.13.1+options,oca
 eval $(opam env --switch=coq-malfunction)
 opam repo add coq-released https://coq.inria.fr/opam/released
 opam pin -n -y "https://github.com/MetaCoq/metacoq.git#v1.3-8.17"
-opam pin -n -y "https://github.com/mattam82/malfunction.git#packages-and-dontlink-for-compile"
+opam pin -n -y "https://github.com/stedolon/malfunction.git#master"
 opam install . --deps-only
 make -j 4
 ```
