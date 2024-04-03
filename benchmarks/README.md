@@ -16,3 +16,12 @@ Then on the client (i.e. when docker is used, inside of docker)
 ```bash
 make
 ```
+
+There are 7 different benchmarks:
+- `ocaml-o0` runs `ocamlopt` with `-Oclassic` arguments, i.e. no `flambda` optimisations
+- `ocaml` uses `ocamlopt` with `-O2` arguments
+- `ocaml-noopt` uses `ocamlopt` with `-O2` arguments and `Unset Extraction Optimize`
+- `malfunction` uses Malfunction with `-O0` arguments. This column is *not* displayed in the paper, because it is identicaly with `malfunction-verified`.
+- `malfunction-o2` uses Malfunction with `-O2` arguments. This column is *not* displayed in the paper, because it is identicaly with `malfunction-verified-o2`.
+- `malfunction-verified` uses the bootstrapped extraction plugin and then Malfunction with `-O0` arguments.
+- `malfunction-verified-O2` uses the bootstrapped extraction plugin and then Malfunction with `-O2` arguments.
