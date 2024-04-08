@@ -9,6 +9,9 @@ sudo cpupower idle-set -D 0
 echo 1 | sudo tee /sys/devices/system/cpu/intel_pstate/no_turbo
 ```
 
+The commands are taken from https://llvm.org/docs/Benchmarking.html. They likely rely on an Intel processor.
+The benchmarks can still be run without issuing these commands first.
+
 You need to have installed `core_bench.v0.16.0``.
 
 Then on the client (i.e. when docker is used, inside of docker)
