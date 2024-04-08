@@ -206,6 +206,24 @@ Qed.
 
 From MetaCoq.Erasure Require Import EImplementBox EWellformed EProgram.
 
+Lemma implement_box_good_for_extraction
+  (efl := extraction_env_flags_mlf : EEnvFlags) :
+  forall (input : program EAst.global_declarations EAst.term),
+    good_for_extraction efl input -> good_for_extraction efl (implement_box_program input).
+Proof.
+  intros input p.
+  destruct input as [Σ t].
+  split.
+  + intros.
+    unfold lookup_constructor_args in H.
+    rewrite lookup_inductive_implement_box in H. now eapply few_enough_blocks.
+  + intros.
+    rewrite lookup_inductive_implement_box in H. now eapply few_enough_constructors.
+  + intros. rewrite lookup_inductive_implement_box in H. now eapply few_enough_arguments_in_constructors.
+  + cbn. refine (@implement_box_env_wf_glob _ _ _ _ _). reflexivity. reflexivity. apply p.
+  + apply transform_wellformed'. all: try reflexivity. apply p. apply p.
+Qed.
+
 Program Definition implement_box_transformation (efl := extraction_env_flags_mlf) :
   Transform.t _ _ EAst.term EAst.term _ _ (eval_eprogram block_wcbv_flags) (eval_eprogram block_wcbv_flags) :=
   {| name := "implementing box";
@@ -213,19 +231,9 @@ Program Definition implement_box_transformation (efl := extraction_env_flags_mlf
     pre p := good_for_extraction efl p ;
     post p := good_for_extraction efl p /\ wf_eprogram (switch_off_box efl) p ;
     obseq p hp p' v v' := v' = implement_box v |}.
-
 Next Obligation.
   intros. cbn in *. split. 2: split.
-  - destruct input as [Σ t]. 
-    split.
-    + intros.
-      unfold lookup_constructor_args in H.
-      rewrite lookup_inductive_implement_box in H. now eapply few_enough_blocks.
-    + intros.
-      rewrite lookup_inductive_implement_box in H. now eapply few_enough_constructors.
-    + intros. rewrite lookup_inductive_implement_box in H. now eapply few_enough_arguments_in_constructors.
-    + cbn. refine (@implement_box_env_wf_glob _ Σ _ _ _). reflexivity. reflexivity. apply p.
-    + apply transform_wellformed'. all: try reflexivity. apply p. apply p.
+  - now eapply implement_box_good_for_extraction.
   - eapply implement_box_env_wf_glob; eauto. apply p.
   - eapply transform_wellformed'. all: try reflexivity. all: apply p.
 Qed.
@@ -292,7 +300,44 @@ Qed.
 
 Arguments wellformed : clear implicits.
 Arguments wf_glob : clear implicits.
-  
+
+Lemma name_annotation_good_for_extraction:
+  forall input : program EAst.global_declarations EAst.term,
+    good_for_extraction extraction_env_flags_mlf input ->
+    wf_eprogram extraction_env_flags_mlf input ->
+    good_for_extraction named_extraction_env_flags_mlf (annotate_env [] input.1, annotate [] input.2).
+Proof.
+  intros input H H0.
+  destruct input as [Σ s].
+  split.
+  + intros. eapply few_enough_blocks. eassumption.
+    unfold lookup_constructor_args in *.
+    instantiate (1 := i).
+    erewrite <- lookup_inductive_annotate_env.
+    eassumption.
+  + intros. eapply few_enough_constructors. eassumption.
+    unfold lookup_constructor_args in *.
+    instantiate (1 := mb). instantiate (1 := i).
+    erewrite <- lookup_inductive_annotate_env.
+    eassumption.
+  + intros.
+    rewrite lookup_inductive_annotate_env in H1.
+    eapply few_enough_arguments_in_constructors; eauto.
+  + cbn. destruct H0.
+    clear H1. cbn in *. clear H. induction Σ; cbn.
+  - econstructor.
+  - destruct a. destruct g. destruct c. destruct cst_body0.
+    * invs H0. constructor; eauto. 
+      cbn in *. now eapply (wellformed_annotate' _ _ [] []) in H4.
+      cbn in *. now eapply annotate_env_fresh.
+    * invs H0. econstructor; eauto.
+      now eapply annotate_env_fresh.
+    * invs H0. econstructor; eauto.
+      now eapply annotate_env_fresh.
+    + cbn. destruct H0. eapply wellformed_annotate' with (Γ := nil) (Γ' := nil) in H1; auto.
+      red. auto.
+Qed.
+
 Program Definition name_annotation : Transform.t EAst.global_declarations (list (Kernames.kername × EAst.global_decl))
   EAst.term EAst.term _ EWcbvEvalNamed.value
   (EProgram.eval_eprogram extraction_wcbv_flags) (fun p v => ∥EWcbvEvalNamed.eval p.1 [] p.2 v∥) :=
@@ -305,36 +350,9 @@ Program Definition name_annotation : Transform.t EAst.global_declarations (list 
                       /\ ∥represents [] [] p.2 t∥ ;
       obseq p _ p' v v' := ∥ represents_value v' v∥ |}.
 Next Obligation.
-  destruct input as [Σ s].
   split.
-  { split.
-    + intros. eapply few_enough_blocks. eassumption.
-      unfold lookup_constructor_args in *.
-      instantiate (1 := i).
-      erewrite <- lookup_inductive_annotate_env.
-      eassumption.
-    + intros. eapply few_enough_constructors. eassumption.
-      unfold lookup_constructor_args in *.
-      instantiate (1 := mb). instantiate (1 := i).
-      erewrite <- lookup_inductive_annotate_env.
-      eassumption.
-    + intros.
-      rewrite lookup_inductive_annotate_env in H1.
-      eapply few_enough_arguments_in_constructors; eauto.
-    + cbn. destruct H0.
-      clear H1. cbn in *. clear H. induction Σ; cbn.
-      - econstructor.
-      - destruct a. destruct g. destruct c. destruct cst_body0.
-        * invs H0. constructor; eauto. 
-          cbn in *. now eapply (wellformed_annotate' _ _ [] []) in H4.
-          cbn in *. now eapply annotate_env_fresh.
-        * invs H0. econstructor; eauto.
-          now eapply annotate_env_fresh.
-        * invs H0. econstructor; eauto.
-          now eapply annotate_env_fresh.
-    + cbn. destruct H0. eapply wellformed_annotate' with (Γ := nil) (Γ' := nil) in H1; auto.
-      red. auto.
-  }
+  { now eapply name_annotation_good_for_extraction. }
+  destruct input as [Σ s].
   destruct H0 as [HΣ Hs]. cbn. exists s.
   cbn in *. split.
   2:{ sq. eapply (nclosed_represents extraction_env_flags_mlf); cbn; eauto. }

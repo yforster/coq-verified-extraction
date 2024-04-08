@@ -651,16 +651,15 @@ Section malfunction_pipeline_wellformed.
 
   Let Σ_t := (transform verified_named_erasure_pipeline (Σ, t) (precond _ _ _ _ expΣ expt typing _)).1.
 
-  Lemma verified_malfunction_pipeline_wellformed (efl := named_extraction_env_flags) : 
+  Lemma verified_malfunction_pipeline_wellformed (efl := named_extraction_env_flags_mlf) : 
     CompileCorrect.wellformed (map fst (compile_env Σ_t)) [] (compile_malfunction_pipeline expΣ expt typing).2.
   Proof.  
     unfold Σ_t, compile_malfunction_pipeline, verified_malfunction_pipeline.
     destruct_compose; intro; cbn.
     unfold compile_to_malfunction, transform at 1. cbn.  
     epose proof (correctness (@verified_named_erasure_pipeline _ _) _ _) as [? [? [? ?]]]. destruct H2. 
-    eapply (compile_wellformed _ 0); eauto. 
+    eapply (compile_wellformed _ 0); eauto.
     eapply few_enough_blocks; eauto.
-    eapply ECoInductiveToInductive.trust_cofix.
   Qed. 
 
   Lemma verified_named_erasure_pipeline_inductive_irrel t' expt'
