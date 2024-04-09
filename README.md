@@ -24,19 +24,25 @@ make -j 4
 
 After `From VerifiedExtraction Require Import Extraction.`
 the commands `Verified Extraction <definition>` and `Verified Extraction <definition> "<file>.mlf"` can be used to run the new extraction process.
-Multiple functions can be extracted at the same time with `MetaCoq Extraction (<d1>,<d2>,...)`.
+Multiple functions can be extracted at the same time with `Verified Extraction (<d1>,<d2>,...)`.
 To add an `mli` file one can add the output of the (unverified) generator `MetaCoq Run Print mli <definition>.` to a `.mli` file.
 
 ## Structure
 
-- [`Malfunction.v`](theories/Malfunction.v) contains the syntax definition of Malfunction. It is a direct, line-to-line port of the OCaml file [`malfunction.ml`](https://github.com/stedolan/malfunction/blob/master/src/malfunction.ml) to Coq.
-- [`SemanticsSpec.v`](theories/SemanticsSpec.v) defines an inductive big-step evaluation predicate.
-- [`Compile.v`](theories/Compile.v) defines a compilation function of lambda box to Malfunction.
-- [`CompileCorrect.v`](theories/CompileCorrect.v) proves the correctness of this function, using the correctness proof of case analysis in [`Mcase.v`](theories/Mcase.v)
-- [`Interpreter.v`](theories/Interpreter.v) contains an interpretation function, which is close to [`malfunction_interpreter.ml`](https://github.com/stedolan/malfunction/blob/master/src/malfunction_interpreter.ml), and a proof that values according to the evaluation predicate are also found by the interpreter. Note that since the interpreter is not necessarily terminating we switch of Coq's termination checker, meaning this proof can only be seen as a sanity check.
-- [`Serialize.v`](theories/Serialize.v) contains seralization functions into s-expressions. There is also a parser in [`Deserialize.v`](theories/Deserialize.v), used for testing.
-- [`Pipeline.v`](theories/Pipeline.v) composes the full extraction pipeline from Coq to Malfunction
-- [`Firstorder.v`](theories/Firstorder.v) derives interoperability results for first-order functions
+- the [`theories`](theories) directory contains the Coq files with implementation and verification of the plugin
+  - [`Malfunction.v`](theories/Malfunction.v) contains the syntax definition of Malfunction. It is a direct, line-to-line port of the OCaml file [`malfunction.ml`](https://github.com/stedolan/malfunction/blob/master/src/malfunction.ml) to Coq.
+  - [`SemanticsSpec.v`](theories/SemanticsSpec.v) defines an inductive big-step evaluation predicate.
+  - [`Compile.v`](theories/Compile.v) defines a compilation function of lambda box to Malfunction.
+  - [`CompileCorrect.v`](theories/CompileCorrect.v) proves the correctness of this function, using the correctness proof of case analysis in [`Mcase.v`](theories/Mcase.v)
+  - [`Interpreter.v`](theories/Interpreter.v) contains an interpretation function, which is close to [`malfunction_interpreter.ml`](https://github.com/stedolan/malfunction/blob/master/src/malfunction_interpreter.ml), and a proof that values according to the evaluation predicate are also found by the interpreter. Note that since the interpreter is not necessarily terminating we switch of Coq's termination checker, meaning this proof can only be seen as a sanity check.
+  - [`Serialize.v`](theories/Serialize.v) contains seralization functions into s-expressions. There is also a parser in [`Deserialize.v`](theories/Deserialize.v), used for testing.
+  - [`Pipeline.v`](theories/Pipeline.v) composes the full extraction pipeline from Coq to Malfunction
+  - [`PipelineCorrect.v`](theories/PipelineCorrect.v) composes the correctness proof of the extraction pipeline 
+  - [`Firstorder.v`](theories/Firstorder.v) derives interoperability results for first-order functions
+- the [`plugin`](plugin) directory contains the code of the extraction plugin extracted using Coq's OCaml extraction via [`theories/Extraction.v`](theories/Extraction.v). This is packaged into an intermediate extraction plugin.
+- the [`plugin/plugin-bootstrap`](plugin/plugin-bootstrap) directory contains the code of the extraction plugin extracted using the intermediate extraction plugin. This is packaged into the final verified extraction plugin.
+- the [`examples`](examples) directory contains various examples how to use the new verified extraction plugin.
+- the [`benchmarks`](benchmarks) directory allows re-producing benchmarks from the paper.
 
 ## Team & Credits
 
