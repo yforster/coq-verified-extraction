@@ -1,4 +1,4 @@
-COQOPTS = -R ../lib MetaCoq.VerifiedExtraction.Benchmarks.lib -w -extraction-opaque-accessed,-notation-overridden,-opaque-let
+COQOPTS = -R ../lib VerifiedExtraction.Benchmarks.lib -w -extraction-opaque-accessed,-notation-overridden,-opaque-let
 CCOMPILER=gcc
 
 # Names of the benchmarks
@@ -8,8 +8,9 @@ MLFFILES=$(patsubst %,%.ml, $(TESTS))
 MLIFILES=$(patsubst %,%.mli, $(TESTS))
 CMXFILES=$(patsubst %,%.cmx, $(TESTS))
 
-default: tests run
-all: tests mainopt run
+all: run
+
+default: run
 
 .PHONY: run clean cleanml
 
@@ -43,8 +44,16 @@ tests: tests.v
 
 build: $(TESTS) mainopt 
 
-run: mainopt
+run: tests mainopt
 	@echo "OCaml -Oclassic with extraction optimisations on:"
 	@./main.native +time -quota 100s -ci-absolute -clear-columns -sexp  | sexp query each | sexp to-csv | awk -F "\"*,\"*" '{print $$17","$$18","$$19}' | tail -n +2
 
-.NOTPARALLEL: tests run
+ci: tests mainopt
+	@echo "OCaml -Oclassic with extraction optimisations on:"
+	@./main.native +time -quota 1s -ci-absolute -clear-columns
+
+nice: tests mainopt
+	@echo "OCaml -Oclassic with extraction optimisations on:"
+	@./main.native +time -quota 100s -ci-absolute -clear-columns
+
+.NOTPARALLEL: tests run ci nice
