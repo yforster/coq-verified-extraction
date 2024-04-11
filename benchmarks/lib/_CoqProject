@@ -1,4 +1,4 @@
--R ./ VerifiedExtraction.Benchmarks.lib
+-R . VerifiedExtraction.Benchmarks.lib
 -arg -w -arg -deprecated
 
 Binom.v

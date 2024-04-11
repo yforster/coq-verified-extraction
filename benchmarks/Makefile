@@ -3,7 +3,7 @@ COQOPTS = -R ./ VerifiedExtraction.Benchmarks -R lib VerifiedExtraction.Benchmar
 # Names of the benchmarks
 TESTS=$(shell cat TESTS)
 
-all: lib tests
+all: tests
 
 .PHONY: all default clean lib cleanlib tests run copy $(TESTS)
 
@@ -25,12 +25,22 @@ tests: lib
 	make -C malfunction-verified all
 	make -C malfunction-verified-o2 all
 
-run:
-#	$(MAKE) -C ocaml-o0 run
-	$(MAKE) -C ocaml run
-	$(MAKE) -C ocaml-noopt run
-	$(MAKE) -C malfunction run
-	$(MAKE) -C malfunction-o2 run
-	$(MAKE) -C malfunction-verified run
-	$(MAKE) -C malfunction-verified-o2 run
+ci: lib
+	make -C ocaml-o0 ci
+	make -C ocaml ci
+	make -C ocaml-noopt ci
+	make -C malfunction ci
+	make -C malfunction-o2 ci
+	make -C malfunction-verified ci
+	make -C malfunction-verified-o2 ci
+
+nice: lib
+	make -C ocaml-o0 nice
+	make -C ocaml nice
+	make -C ocaml-noopt nice
+	make -C malfunction nice
+	make -C malfunction-o2 nice
+	make -C malfunction-verified nice
+	make -C malfunction-verified-o2 nice
+
 

@@ -43,8 +43,16 @@ tests: tests.v
 
 build: $(TESTS) mainopt 
 
-run: mainopt
+run: tests mainopt
 	@echo "OCaml -O2 with extraction optimisations on:"
 	@./main.native +time -quota 100s -ci-absolute -clear-columns -sexp  | sexp query each | sexp to-csv | awk -F "\"*,\"*" '{print $$17","$$18","$$19}' | tail -n +2
 
-.NOTPARALLEL: tests run
+nice: tests mainopt
+	@echo "OCaml -O2 with extraction optimisations on:"
+	@./main.native +time -quota 100s -ci-absolute -clear-columns
+
+ci: tests mainopt
+	@echo "OCaml -O2 with extraction optimisations on:"
+	@./main.native +time -quota 1s -ci-absolute -clear-columns
+
+.NOTPARALLEL: tests run nice ci

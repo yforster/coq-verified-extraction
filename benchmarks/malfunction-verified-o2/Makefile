@@ -44,10 +44,18 @@ mainopt: $(MLFFILES) $(CMXFILES)
 tests: tests.v
 	@coqc $(COQOPTS) tests.v > /dev/null
 
-build: $(TESTS) mainopt 
+build: tests $(TESTS) mainopt 
 
 run: build
 	@echo "Bootstrapped Malfunction optimisations -O2"
 	@./main.native +time -quota 100s -ci-absolute -clear-columns -sexp  | sexp query each | sexp to-csv | awk -F "\"*,\"*" '{print $$17","$$18","$$19}' | tail -n +2
 
-.NOTPARALLEL: tests run
+nice: build
+	@echo "Bootstrapped Malfunction optimisations -O2"
+	@./main.native +time -quota 100s -ci-absolute -clear-columns
+
+ci: build
+	@echo "Bootstrapped Malfunction optimisations -O2"
+	@./main.native +time -quota 1s -ci-absolute -clear-columns
+
+.NOTPARALLEL: tests run nice ci

@@ -1,9 +1,11 @@
 Require Import Arith List String.
-Require Import MetaCoq.VerifiedExtraction.Benchmarks.lib.vs.
-Require Import MetaCoq.VerifiedExtraction.Benchmarks.lib.Binom.
-Require Import MetaCoq.VerifiedExtraction.Benchmarks.lib.Color.
-Require Import MetaCoq.VerifiedExtraction.Benchmarks.lib.sha256.
-Require Import MetaCoq.VerifiedExtraction.Benchmarks.lib.tests.
+Require Import VerifiedExtraction.Benchmarks.lib.vs.
+Require Import VerifiedExtraction.Benchmarks.lib.Binom.
+Require Import VerifiedExtraction.Benchmarks.lib.Color.
+Require Import VerifiedExtraction.Benchmarks.lib.sha256.
+Require Import VerifiedExtraction.Benchmarks.lib.tests.
+
+Set Extraction Output Directory ".".
 
 Open Scope string.
 
