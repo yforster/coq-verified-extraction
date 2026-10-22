@@ -1840,7 +1840,7 @@ Qed.
 
 Lemma RocqValue_to_CamlValue {funext : Funext} {P : Pointer} {H : CompatiblePtr P P}
   (cf := extraction_checker_flags) (etf := EWellformed.all_term_flags)
-  (efl := EInlineProjections.switch_no_params EWellformed.all_env_flags)
+  (efl := ERemoveParams.switch_no_params EWellformed.all_env_flags)
   {has_rel : EWellformed.has_tRel} {has_box : EWellformed.has_tBox} {primFlag : EWellformed.EPrimitiveFlags}
   {HP : @Heap P} `{@CompatibleHeap P P _ _ _} `{WcbvFlags} `{EWellformed.EEnvFlags}
   univ retro univ_decl kn mind
@@ -2381,7 +2381,7 @@ Proof.
 
 
   Lemma RocqValue_to_CamlValue' {funext : Funext} {P : Pointer} {H : CompatiblePtr P P} (cf := extraction_checker_flags)
-  (etf := EWellformed.all_term_flags) (efl := EInlineProjections.switch_no_params EWellformed.all_env_flags)  {has_rel : EWellformed.has_tRel} {has_box : EWellformed.has_tBox}
+  (etf := EWellformed.all_term_flags) (efl := ERemoveParams.switch_no_params EWellformed.all_env_flags)  {has_rel : EWellformed.has_tRel} {has_box : EWellformed.has_tBox}
   {HP : @Heap P} `{@CompatibleHeap P P _ _ _} `{WcbvFlags} `{EWellformed.EEnvFlags}
   univ retro univ_decl kn mind
   (Hheap_refl : forall h, R_heap h h)

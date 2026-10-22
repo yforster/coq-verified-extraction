@@ -258,7 +258,7 @@ Section compile_value_mf.
 
 
   Lemma verified_named_erasure_pipeline_lookup_env_in kn
-  (efl := EInlineProjections.switch_no_params all_env_flags)  {has_rel : has_tRel} {has_box : has_tBox}
+  (efl := ERemoveParams.switch_no_params all_env_flags)  {has_rel : has_tRel} {has_box : has_tBox}
   T (typing : ∥Σ ;;; [] |- t : T∥) :
   let Σ_t := (transform verified_named_erasure_pipeline (Σ, t) (precond _ _ _ _ expΣ expt typing _ default_erasure_config)).1 in
   forall decl,
@@ -491,7 +491,7 @@ Section malfunction_pipeline_theorem.
   Transparent compose.
 
   Lemma verified_named_erasure_pipeline_lookup_env_in' kn
-  (efl := EInlineProjections.switch_no_params all_env_flags)  {has_rel : has_tRel} {has_box : has_tBox}  :
+  (efl := ERemoveParams.switch_no_params all_env_flags)  {has_rel : has_tRel} {has_box : has_tBox}  :
   forall decl,
     EGlobalEnv.lookup_env Σ_v kn = Some decl ->
     exists decl',
@@ -666,7 +666,7 @@ Section malfunction_pipeline_wellformed.
   Qed.
 
   Lemma verified_named_erasure_pipeline_inductive_irrel t' expt'
-  (efl := EInlineProjections.switch_no_params all_env_flags) {has_rel : has_tRel} {has_box : has_tBox}
+  (efl := ERemoveParams.switch_no_params all_env_flags) {has_rel : has_tRel} {has_box : has_tBox}
   T' (typing' : ∥Σ ;;; [] |- t' : T'∥) :
   let Σ_u := (transform verified_named_erasure_pipeline (Σ, t') (precond _ _ _ _ expΣ expt' typing' _ default_erasure_config)).1 in
   forall kn m m',
